@@ -1,0 +1,178 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0b161d"/>
+      <stop offset="100%" stop-color="#192a34"/>
+    </linearGradient>
+    <linearGradient id="brandGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#1A8FB5"/>
+      <stop offset="100%" stop-color="#E8622A"/>
+    </linearGradient>
+    <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1A8FB5" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#1A8FB5" stop-opacity="0.0"/>
+    </linearGradient>
+    <filter id="cardShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000000" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="800" height="500" rx="16" fill="url(#bgGrad)"/>
+
+  <!-- Top Bar -->
+  <rect x="0" y="0" width="800" height="52" fill="#101f28" rx="16"/>
+  <rect x="0" y="36" width="800" height="16" fill="#101f28"/>
+  <line x1="0" y1="52" x2="800" y2="52" stroke="#263d4a" stroke-width="1"/>
+
+  <!-- Window Controls -->
+  <circle cx="28" cy="26" r="6" fill="#ef4444"/>
+  <circle cx="48" cy="26" r="6" fill="#f59e0b"/>
+  <circle cx="68" cy="26" r="6" fill="#10b981"/>
+
+  <!-- Brand Title -->
+  <text x="100" y="32" fill="#ffffff" font-family="system-ui, sans-serif" font-weight="800" font-size="16" letter-spacing="-0.5">faktura</text>
+  <rect x="165" y="16" width="70" height="20" rx="10" fill="#1A8FB5" fill-opacity="0.2"/>
+  <text x="200" y="30" fill="#1A8FB5" font-family="system-ui, sans-serif" font-weight="700" font-size="10" text-anchor="middle">CORE v2.4</text>
+
+  <!-- Search / Status bar -->
+  <rect x="255" y="16" width="280" height="22" rx="6" fill="#192a34" stroke="#263d4a"/>
+  <text x="270" y="31" fill="#718793" font-family="system-ui, sans-serif" font-size="11">🔍 Fatura, müşteri veya teklif ara...</text>
+
+  <rect x="670" y="15" width="105" height="24" rx="6" fill="#E8622A"/>
+  <text x="722" y="31" fill="#ffffff" font-family="system-ui, sans-serif" font-weight="700" font-size="11" text-anchor="middle">+ Yeni Fatura</text>
+
+  <!-- Sidebar -->
+  <rect x="0" y="52" width="180" height="448" fill="#101f28"/>
+  <line x1="180" y1="52" x2="180" y2="500" stroke="#263d4a" stroke-width="1"/>
+
+  <!-- Nav Items -->
+  <g transform="translate(16, 75)">
+    <!-- Active Item -->
+    <rect x="0" y="0" width="150" height="34" rx="8" fill="#1A8FB5" fill-opacity="0.2" stroke="#1A8FB5" stroke-opacity="0.4"/>
+    <text x="16" y="22" fill="#38bdf8" font-family="system-ui, sans-serif" font-weight="700" font-size="13">📊 Kontrol Paneli</text>
+
+    <text x="16" y="62" fill="#8ca0ab" font-family="system-ui, sans-serif" font-weight="500" font-size="13">📑 Faturalar</text>
+    <text x="16" y="98" fill="#8ca0ab" font-family="system-ui, sans-serif" font-weight="500" font-size="13">👥 Müşteriler</text>
+    <text x="16" y="134" fill="#8ca0ab" font-family="system-ui, sans-serif" font-weight="500" font-size="13">💳 Tahsilatlar</text>
+    <text x="16" y="170" fill="#8ca0ab" font-family="system-ui, sans-serif" font-weight="500" font-size="13">📦 Ürün &amp; Stok</text>
+    <text x="16" y="206" fill="#8ca0ab" font-family="system-ui, sans-serif" font-weight="500" font-size="13">📈 Finansal Raporlar</text>
+    <text x="16" y="242" fill="#8ca0ab" font-family="system-ui, sans-serif" font-weight="500" font-size="13">⚙️ Ayarlar &amp; API</text>
+  </g>
+
+  <!-- Self-hosted badge at sidebar bottom -->
+  <g transform="translate(16, 425)">
+    <rect x="0" y="0" width="148" height="52" rx="10" fill="#192a34" stroke="#263d4a"/>
+    <circle cx="16" cy="18" r="4" fill="#10b981"/>
+    <text x="26" y="22" fill="#ffffff" font-family="system-ui, sans-serif" font-weight="700" font-size="11">Self-Hosted Aktif</text>
+    <text x="12" y="38" fill="#718793" font-family="system-ui, sans-serif" font-size="10">Kendi Sunucunuzda (VPS)</text>
+  </g>
+
+  <!-- Main Content Area -->
+  <!-- Stat Cards -->
+  <g transform="translate(202, 72)">
+    <!-- Card 1 -->
+    <rect x="0" y="0" width="180" height="88" rx="12" fill="#13242e" stroke="#263d4a" filter="url(#cardShadow)"/>
+    <text x="16" y="24" fill="#8ca0ab" font-family="system-ui, sans-serif" font-size="11" font-weight="600">TOPLAM TAHSİLAT</text>
+    <text x="16" y="54" fill="#ffffff" font-family="monospace" font-size="20" font-weight="800">₺4.289.450</text>
+    <rect x="16" y="64" width="70" height="16" rx="8" fill="#10b981" fill-opacity="0.15"/>
+    <text x="51" y="76" fill="#34d399" font-family="system-ui, sans-serif" font-size="10" font-weight="700" text-anchor="middle">↑ +28.4%</text>
+
+    <!-- Card 2 -->
+    <rect x="194" y="0" width="180" height="88" rx="12" fill="#13242e" stroke="#263d4a" filter="url(#cardShadow)"/>
+    <text x="210" y="24" fill="#8ca0ab" font-family="system-ui, sans-serif" font-size="11" font-weight="600">BEKLEYEN ÖDEME</text>
+    <text x="210" y="54" fill="#E8622A" font-family="monospace" font-size="20" font-weight="800">₺689.120</text>
+    <text x="210" y="74" fill="#8ca0ab" font-family="system-ui, sans-serif" font-size="10">8 açık fatura</text>
+
+    <!-- Card 3 -->
+    <rect x="388" y="0" width="184" height="88" rx="12" fill="#13242e" stroke="#263d4a" filter="url(#cardShadow)"/>
+    <text x="404" y="24" fill="#8ca0ab" font-family="system-ui, sans-serif" font-size="11" font-weight="600">AKTİF MÜŞTERİ</text>
+    <text x="404" y="54" fill="#38bdf8" font-family="monospace" font-size="20" font-weight="800">342</text>
+    <text x="404" y="74" fill="#8ca0ab" font-family="system-ui, sans-serif" font-size="10">Sınırsız B2B Portalı</text>
+  </g>
+
+  <!-- Chart & Live Table Row -->
+  <g transform="translate(202, 180)">
+    <!-- Chart Box -->
+    <rect x="0" y="0" width="365" height="180" rx="12" fill="#13242e" stroke="#263d4a"/>
+    <text x="16" y="24" fill="#ffffff" font-family="system-ui, sans-serif" font-size="13" font-weight="700">Aylık Nakit Akışı</text>
+    <text x="290" y="24" fill="#1A8FB5" font-family="system-ui, sans-serif" font-size="11" font-weight="600">2025 Raporu</text>
+
+    <!-- Chart lines -->
+    <path d="M 20 140 Q 80 110, 140 120 T 260 70 T 345 50 L 345 150 L 20 150 Z" fill="url(#chartGrad)"/>
+    <path d="M 20 140 Q 80 110, 140 120 T 260 70 T 345 50" fill="none" stroke="#1A8FB5" stroke-width="3"/>
+
+    <!-- Data points -->
+    <circle cx="140" cy="120" r="4" fill="#ffffff" stroke="#1A8FB5" stroke-width="2"/>
+    <circle cx="260" cy="70" r="4" fill="#ffffff" stroke="#1A8FB5" stroke-width="2"/>
+    <circle cx="345" cy="50" r="5" fill="#E8622A" stroke="#ffffff" stroke-width="2"/>
+
+    <!-- Bar indicators -->
+    <g transform="translate(20, 155)">
+      <text x="10" y="12" fill="#64748b" font-family="monospace" font-size="10">Oca</text>
+      <text x="75" y="12" fill="#64748b" font-family="monospace" font-size="10">Nis</text>
+      <text x="150" y="12" fill="#64748b" font-family="monospace" font-size="10">Tem</text>
+      <text x="235" y="12" fill="#64748b" font-family="monospace" font-size="10">Eki</text>
+      <text x="310" y="12" fill="#64748b" font-family="monospace" font-size="10">Ara</text>
+    </g>
+
+    <!-- Recent Invoices Table Box -->
+    <g transform="translate(380, 0)">
+      <rect x="0" y="0" width="192" height="180" rx="12" fill="#13242e" stroke="#263d4a"/>
+      <text x="14" y="24" fill="#ffffff" font-family="system-ui, sans-serif" font-size="12" font-weight="700">Son Faturalar</text>
+
+      <!-- Row 1 -->
+      <g transform="translate(12, 40)">
+        <rect x="0" y="0" width="168" height="38" rx="8" fill="#192a34"/>
+        <text x="10" y="16" fill="#ffffff" font-family="system-ui, sans-serif" font-size="11" font-weight="700">Acme Corp</text>
+        <text x="10" y="30" fill="#718793" font-family="monospace" font-size="9">INV-2025-0891</text>
+        <text x="158" y="18" fill="#34d399" font-family="monospace" font-size="11" font-weight="700" text-anchor="end">₺14.200</text>
+        <text x="158" y="30" fill="#10b981" font-family="system-ui, sans-serif" font-size="8" font-weight="600" text-anchor="end">✓ ÖDENDİ</text>
+      </g>
+
+      <!-- Row 2 -->
+      <g transform="translate(12, 85)">
+        <rect x="0" y="0" width="168" height="38" rx="8" fill="#192a34"/>
+        <text x="10" y="16" fill="#ffffff" font-family="system-ui, sans-serif" font-size="11" font-weight="700">Nexus Tech</text>
+        <text x="10" y="30" fill="#718793" font-family="monospace" font-size="9">INV-2025-0892</text>
+        <text x="158" y="18" fill="#fb923c" font-family="monospace" font-size="11" font-weight="700" text-anchor="end">₺8.450</text>
+        <text x="158" y="30" fill="#f97316" font-family="system-ui, sans-serif" font-size="8" font-weight="600" text-anchor="end">BEKLİYOR</text>
+      </g>
+
+      <!-- Row 3 -->
+      <g transform="translate(12, 130)">
+        <rect x="0" y="0" width="168" height="38" rx="8" fill="#192a34"/>
+        <text x="10" y="16" fill="#ffffff" font-family="system-ui, sans-serif" font-size="11" font-weight="700">Starlight Mimarlık</text>
+        <text x="10" y="30" fill="#718793" font-family="monospace" font-size="9">INV-2025-0893</text>
+        <text x="158" y="18" fill="#34d399" font-family="monospace" font-size="11" font-weight="700" text-anchor="end">₺32.000</text>
+        <text x="158" y="30" fill="#10b981" font-family="system-ui, sans-serif" font-size="8" font-weight="600" text-anchor="end">✓ ÖDENDİ</text>
+      </g>
+    </g>
+  </g>
+
+  <!-- Bottom Bar with Feature Pills -->
+  <g transform="translate(202, 375)">
+    <rect x="0" y="0" width="572" height="105" rx="12" fill="#13242e" stroke="#263d4a"/>
+    <text x="18" y="26" fill="#ffffff" font-family="system-ui, sans-serif" font-size="13" font-weight="700">Kurumsal Özellikler &amp; Mimari</text>
+
+    <!-- Pill 1 -->
+    <rect x="18" y="42" width="125" height="46" rx="8" fill="#192a34" stroke="#263d4a"/>
+    <text x="28" y="60" fill="#38bdf8" font-family="system-ui, sans-serif" font-size="11" font-weight="700">🔒 Sıfır Telemetri</text>
+    <text x="28" y="76" fill="#718793" font-family="system-ui, sans-serif" font-size="9">KVKK &amp; Tam Egemenlik</text>
+
+    <!-- Pill 2 -->
+    <rect x="153" y="42" width="125" height="46" rx="8" fill="#192a34" stroke="#263d4a"/>
+    <text x="163" y="60" fill="#fb923c" font-family="system-ui, sans-serif" font-size="11" font-weight="700">⚡ Sınırsız Fatura</text>
+    <text x="163" y="76" fill="#718793" font-family="system-ui, sans-serif" font-size="9">Kota &amp; Komisyon Yok</text>
+
+    <!-- Pill 3 -->
+    <rect x="288" y="42" width="125" height="46" rx="8" fill="#192a34" stroke="#263d4a"/>
+    <text x="298" y="60" fill="#34d399" font-family="system-ui, sans-serif" font-size="11" font-weight="700">🚀 REST API</text>
+    <text x="298" y="76" fill="#718793" font-family="system-ui, sans-serif" font-size="9">Webhook Entegrasyon</text>
+
+    <!-- Pill 4 -->
+    <rect x="423" y="42" width="130" height="46" rx="8" fill="#192a34" stroke="#263d4a"/>
+    <text x="433" y="60" fill="#a78bfa" font-family="system-ui, sans-serif" font-size="11" font-weight="700">📦 Docker Ready</text>
+    <text x="433" y="76" fill="#718793" font-family="system-ui, sans-serif" font-size="9">5 Dk Tek Tık Kurulum</text>
+  </g>
+</svg>
