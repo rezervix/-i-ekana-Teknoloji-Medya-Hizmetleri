@@ -40,7 +40,7 @@
   },
   "scripts": {
     "dev": "next dev -p 4028",
-    "build": "cross-env NEXT_DISABLE_SWC=1 npx prisma generate && cross-env NEXT_DISABLE_SWC=1 next build",
+    "build": "npx prisma generate && next build",
     "start": "next start -p 4028",
     "lint": "next lint",
     "lint:fix": "next lint --fix",
