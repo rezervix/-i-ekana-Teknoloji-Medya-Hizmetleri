@@ -19,7 +19,7 @@ export function maskSensitive<T = unknown>(value: T): T {
   if (value === null || value === undefined) return value;
 
   if (typeof value === "string") {
-    let masked = value;
+    let masked = String(value);
     masked = masked.replace(CARD_NO_REGEX, (match) => {
       const digits = match.replace(/\D/g, "");
       if (digits.length < 6) return "*".repeat(digits.length);
@@ -30,7 +30,7 @@ export function maskSensitive<T = unknown>(value: T): T {
     masked = masked.replace(CVV_REGEX, "cvv=***");
     masked = masked.replace(EXPIRE_REGEX, "**/****");
     masked = masked.replace(MERCHANT_KEY_REGEX, (_match, key) => `${key}***MASKED***`);
-    return masked;
+    return masked as unknown as T;
   }
 
   if (Array.isArray(value)) {

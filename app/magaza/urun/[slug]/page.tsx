@@ -5,10 +5,11 @@ import Footer from "@/components/Footer";
 import ProductDetailClient from "./ProductDetailClient";
 import { notFound } from "next/navigation";
 
-export async function generateMetadata({ params }: { params: { slug: string } }) {
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
   // DB might be down, so handle errors
   try {
-    const product = await prisma.product.findUnique({ where: { slug: params.slug } });
+    const product = await prisma.product.findUnique({ where: { slug } });
     if (!product) return { title: "Ürün Bulunamadı" };
     return { title: `${product.name} — Çiçekana Mağaza` };
   } catch {
@@ -16,13 +17,14 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   }
 }
 
-export default async function ProductDetailPage({ params }: { params: { slug: string } }) {
+export default async function ProductDetailPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
   let product = null;
-  let reviews = [];
+  let reviews: typeof product extends { reviews: infer R } ? R : unknown[] = [];
   
   try {
     product = await prisma.product.findUnique({
-      where: { slug: params.slug },
+      where: { slug },
       include: {
         reviews: {
           where: { isApproved: true },
@@ -40,7 +42,7 @@ export default async function ProductDetailPage({ params }: { params: { slug: st
     product = {
       id: "mock-id",
       name: "Mock Ürün",
-      slug: params.slug,
+      slug: slug,
       price: 500,
       description: "Veritabanına bağlanılamadı. Bu bir test ürünüdür.",
       category: "BASKI",

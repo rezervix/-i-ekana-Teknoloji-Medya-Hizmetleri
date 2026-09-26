@@ -3,6 +3,8 @@
 import React, { useEffect, useState } from "react";
 import { RevealImageList } from "@/components/ui/reveal-images";
 
+type ImageSource = { src: string; alt: string };
+
 interface Service {
   id: string;
   name: string;
@@ -19,13 +21,6 @@ const FALLBACK_SERVICES: Service[] = [
     revealImage1: null,
     revealImage2: null,
   },
-  {
-    id: "2",
-    name: "e-Ticaret",
-    slug: "e-ticaret",
-    revealImage1: null,
-    revealImage2: null,
-  },
 ];
 
 export default function RevealServicesSection() {
@@ -35,7 +30,9 @@ export default function RevealServicesSection() {
     fetch("/api/services")
       .then((r) => r.json())
       .then((data: Service[]) => {
-        if (Array.isArray(data) && data.length > 0) setServices(data);
+        if (Array.isArray(data) && data.length > 0) {
+          setServices(data.filter((service) => service.slug !== "e-ticaret" && service.slug !== "ecommerce"));
+        }
       })
       .catch(() => {});
   }, []);

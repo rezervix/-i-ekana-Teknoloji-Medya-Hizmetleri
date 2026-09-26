@@ -227,7 +227,7 @@ export default function MidvemContent() {
         price: pkg.price,
         quantity: 1,
         image: "/images/midvem-dashboard.svg",
-        category: "Teknoloji",
+        category: "ai-automation",
         customizationData: {
           "Paket Adı": pkg.name,
           "Abonelik Modeli": "Aylık Lisans / SaaS",
