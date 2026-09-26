@@ -26,7 +26,6 @@ const YoutubeIcon = (p: React.SVGProps<SVGSVGElement>) => (
 
 const services = [
   { label: "Yapay Zeka & Otomasyon", href: "/services/ai-automation" },
-  { label: "e-Ticaret",                href: "/e-ticaret" },
 ];
 
 const company = [
