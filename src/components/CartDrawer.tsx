@@ -7,11 +7,11 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 
 const AI_AUTOMATION_PRODUCTS = [
-  { id: "faktura-solo-core", name: "Faktura Solo Core", price: 10000, image: "/images/faktura-dashboard.svg" },
-  { id: "faktura-enterprise-prime", name: "Faktura Enterprise Prime", price: 20000, image: "/images/faktura-dashboard.svg" },
-  { id: "midvem-baslangic", name: "Midvem Başlangıç", price: 15000, image: "/images/midvem-dashboard.svg" },
-  { id: "midvem-pro", name: "Midvem Pro", price: 20000, image: "/images/midvem-dashboard.svg" },
-  { id: "midvem-kurumsal", name: "Midvem Kurumsal", price: 25000, image: "/images/midvem-dashboard.svg" },
+  { productId: "faktura-solo-core", name: "Faktura Solo Core", price: 10000, image: "/images/faktura-dashboard.svg", category: "ai-automation" },
+  { productId: "faktura-enterprise-prime", name: "Faktura Enterprise Prime", price: 20000, image: "/images/faktura-dashboard.svg", category: "ai-automation" },
+  { productId: "midvem-baslangic", name: "Midvem Başlangıç", price: 15000, image: "/images/midvem-dashboard.svg", category: "ai-automation" },
+  { productId: "midvem-pro", name: "Midvem Pro", price: 20000, image: "/images/midvem-dashboard.svg", category: "ai-automation" },
+  { productId: "midvem-kurumsal", name: "Midvem Kurumsal", price: 25000, image: "/images/midvem-dashboard.svg", category: "ai-automation" },
 ];
 
 export default function CartDrawer() {
@@ -23,9 +23,12 @@ export default function CartDrawer() {
     setMounted(true);
   }, []);
 
-  const recommendations = AI_AUTOMATION_PRODUCTS.filter(
-    (product) => !items.some((item) => item.productId === product.id)
-  );
+  const hasAiAutomationItem = items.some((item) => item.category === "ai-automation");
+  const recommendations = hasAiAutomationItem
+    ? AI_AUTOMATION_PRODUCTS.filter(
+        (product) => !items.some((item) => item.productId === product.productId)
+      )
+    : [];
 
   const subtotal = items.reduce((acc, item) => {
     const servicesTotal = item.extraServices?.reduce((sum, s) => sum + s.price, 0) || 0;
@@ -157,7 +160,7 @@ export default function CartDrawer() {
                   <h4 className="font-display font-semibold text-xs text-corp-gray uppercase tracking-widest mb-3">Bunları da beğenebilirsiniz</h4>
                   <div className="flex flex-col gap-2">
                     {recommendations.map((product) => (
-                      <div key={product.id} className="flex items-center gap-3 bg-white p-3 rounded-lg border border-corp-border shadow-sm">
+                      <div key={product.productId} className="flex items-center gap-3 bg-white p-3 rounded-lg border border-corp-border shadow-sm">
                         <img src={product.image} alt={product.name} className="w-12 h-12 object-cover rounded-md" />
                         <div className="flex-1">
                           <h5 className="font-display font-semibold text-xs text-corp-charcoal">{product.name}</h5>
