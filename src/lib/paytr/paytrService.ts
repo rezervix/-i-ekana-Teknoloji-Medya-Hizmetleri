@@ -98,15 +98,6 @@ export async function createIframeToken(
     card_storage: input.saveCard
       ? {
           save_card: 1,
-          uys_url:
-            process.env.NEXT_PUBLIC_APP_URL ??
-            process.env.NEXTAUTH_URL ??
-            "",
-          uys_company_name: process.env.NEXT_PUBLIC_SITE_NAME ?? "Çiçekana",
-          uys_retention_period: "3650",
-          uys_legal_ground: "KVKK m.5/2 - Açık rıza",
-          uys_user_rights_url:
-            (process.env.NEXT_PUBLIC_APP_URL ?? "") + "/kvkk",
         }
       : { save_card: 0 },
   };

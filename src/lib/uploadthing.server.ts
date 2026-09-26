@@ -13,7 +13,7 @@ async function authGuard() {
   if (!session || (session.user as any)?.role !== "SUPER_ADMIN") {
     throw new Error("Unauthorized");
   }
-  return { userId: session.user?.id || "admin" };
+  return { userId: session.user?.email || "admin" };
 }
  
 /** Attempt a best-effort image optimisation and return the buffer.
@@ -63,7 +63,7 @@ async function optimiseAndReplace(file: { url: string; key: string; name: string
  
     // Build a .webp filename based on the original name
     const baseName = file.name.replace(/\.[^/.]+$/, "");
-    const webpFile = new File([optimised], `${baseName}.webp`, { type: "image/webp" });
+    const webpFile = new File([new Uint8Array(optimised)], `${baseName}.webp`, { type: "image/webp" });
  
     const uploadResult = await utapi.uploadFiles(webpFile);
     if (uploadResult.error || !uploadResult.data) {
@@ -161,7 +161,6 @@ export const ourFileRouter = {
   designFileUploader: f({ 
     "application/pdf": { maxFileSize: "32MB", maxFileCount: 5 },
     "application/postscript": { maxFileSize: "32MB", maxFileCount: 5 },
-    "application/illustrator": { maxFileSize: "32MB", maxFileCount: 5 },
   })
     .middleware(async () => {
       const user = await authGuard();

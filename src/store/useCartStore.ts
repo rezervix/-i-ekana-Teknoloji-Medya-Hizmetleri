@@ -10,6 +10,7 @@ export interface CartItemType {
   image: string;
   customizationData?: any;
   category?: string;
+  isSubscription?: boolean;
   extraServices?: {
     type: string;
     label: string;

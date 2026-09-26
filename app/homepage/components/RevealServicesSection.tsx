@@ -3,6 +3,8 @@
 import React, { useEffect, useState } from "react";
 import { RevealImageList } from "@/components/ui/reveal-images";
 
+type ImageSource = { src: string; alt: string };
+
 interface Service {
   id: string;
   name: string;

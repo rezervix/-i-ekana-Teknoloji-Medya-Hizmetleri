@@ -205,7 +205,7 @@ export async function runRecurringBilling(
           } catch (paErr: any) {
             if (String(paErr?.message || "").includes("Unique constraint") ||
                 String(paErr?.code || "") === "P2002") {
-              logger.warning?.({
+              logger.warn({
                 event: "BILLING_DUPLICATE_PAYMENT_ATTEMPT",
                 details: { merchantOid },
               });

@@ -249,7 +249,7 @@ export default function FakturaContent() {
         price: pkg.price,
         quantity: 1,
         image: "/images/faktura-dashboard.svg",
-        category: "Teknoloji",
+        category: "ai-automation",
         customizationData: {
           "Lisans Tipi": pkg.tier,
           "Ürün Adı": pkg.name,
