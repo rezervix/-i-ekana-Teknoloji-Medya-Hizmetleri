@@ -166,7 +166,7 @@ export default function CartDrawer() {
                           <h5 className="font-display font-semibold text-xs text-corp-charcoal">{product.name}</h5>
                           <span className="text-corp-teal font-bold text-xs">{product.price.toLocaleString("tr-TR")} TL</span>
                         </div>
-                        <button onClick={() => useCartStore.getState().addItem({ ...product, quantity: 1, category: "Teknoloji" })} className="text-xs bg-corp-teal/10 text-corp-teal px-3 py-1.5 rounded-md font-semibold hover:bg-corp-teal/20 transition-colors">
+                        <button onClick={() => useCartStore.getState().addItem({ ...product, quantity: 1 })} className="text-xs bg-corp-teal/10 text-corp-teal px-3 py-1.5 rounded-md font-semibold hover:bg-corp-teal/20 transition-colors">
                           Ekle
                         </button>
                       </div>
