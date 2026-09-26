@@ -2,7 +2,7 @@
 
 import React from "react";
 import { motion } from "framer-motion";
-import { BrainCircuit, ShoppingCart, ArrowRight } from "lucide-react";
+import { BrainCircuit, ArrowRight } from "lucide-react";
 import Link from "next/link";
 
 const services = [
@@ -12,13 +12,6 @@ const services = [
     desc: "CrewAI agent pipeline'ları, LLM entegrasyonları, süreç otomasyonu ve veri analitiği.",
     href: "/services/ai-automation",
     badge: "YENİ",
-  },
-  {
-    icon: ShoppingCart,
-    title: "e-Ticaret",
-    desc: "Uçtan uca yönetilen e-ticaret altyapısı, sepet kurtarma ve çapraz satış araçları.",
-    href: "/e-ticaret",
-    badge: null,
   },
 ];
 
