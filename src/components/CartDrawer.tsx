@@ -6,6 +6,14 @@ import { X, Minus, Plus, ShoppingBag, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 
+const AI_AUTOMATION_PRODUCTS = [
+  { id: "faktura-solo-core", name: "Faktura Solo Core", price: 10000, image: "/images/faktura-dashboard.svg" },
+  { id: "faktura-enterprise-prime", name: "Faktura Enterprise Prime", price: 20000, image: "/images/faktura-dashboard.svg" },
+  { id: "midvem-baslangic", name: "Midvem Başlangıç", price: 15000, image: "/images/midvem-dashboard.svg" },
+  { id: "midvem-pro", name: "Midvem Pro", price: 20000, image: "/images/midvem-dashboard.svg" },
+  { id: "midvem-kurumsal", name: "Midvem Kurumsal", price: 25000, image: "/images/midvem-dashboard.svg" },
+];
+
 export default function CartDrawer() {
   const { items, isOpen, closeDrawer, removeItem, updateQuantity } = useCartStore();
   const [mounted, setMounted] = useState(false);
@@ -14,6 +22,10 @@ export default function CartDrawer() {
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  const recommendations = AI_AUTOMATION_PRODUCTS.filter(
+    (product) => !items.some((item) => item.productId === product.id)
+  );
 
   const subtotal = items.reduce((acc, item) => {
     const servicesTotal = item.extraServices?.reduce((sum, s) => sum + s.price, 0) || 0;
@@ -140,26 +152,22 @@ export default function CartDrawer() {
               )}
 
               {/* Cross-Sell Suggestions inside Cart */}
-              {items.length > 0 && (
+              {items.length > 0 && recommendations.length > 0 && (
                 <div className="mt-4 p-4 bg-corp-surface rounded-xl border border-corp-border">
                   <h4 className="font-display font-semibold text-xs text-corp-gray uppercase tracking-widest mb-3">Bunları da beğenebilirsiniz</h4>
-                  {/* Placeholder for cross-sell products. In reality, we fetch these based on items. */}
-                  <div className="flex items-center gap-3 bg-white p-3 rounded-lg border border-corp-border shadow-sm">
-                    <img 
-                      src="https://images.unsplash.com/photo-1593642632823-8f785ba67e45?w=200" 
-                      alt="Cross Sell" 
-                      className="w-12 h-12 object-cover rounded-md"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = "https://placehold.co/48x48?text=Görsel+Yok";
-                      }}
-                    />
-                    <div className="flex-1">
-                      <h5 className="font-display font-semibold text-xs text-corp-charcoal">Premium Mouse Pad</h5>
-                      <span className="text-corp-teal font-bold text-xs">299 TL</span>
-                    </div>
-                    <button className="text-xs bg-corp-teal/10 text-corp-teal px-3 py-1.5 rounded-md font-semibold hover:bg-corp-teal/20 transition-colors">
-                      Ekle
-                    </button>
+                  <div className="flex flex-col gap-2">
+                    {recommendations.map((product) => (
+                      <div key={product.id} className="flex items-center gap-3 bg-white p-3 rounded-lg border border-corp-border shadow-sm">
+                        <img src={product.image} alt={product.name} className="w-12 h-12 object-cover rounded-md" />
+                        <div className="flex-1">
+                          <h5 className="font-display font-semibold text-xs text-corp-charcoal">{product.name}</h5>
+                          <span className="text-corp-teal font-bold text-xs">{product.price.toLocaleString("tr-TR")} TL</span>
+                        </div>
+                        <button onClick={() => useCartStore.getState().addItem({ ...product, quantity: 1, category: "Teknoloji" })} className="text-xs bg-corp-teal/10 text-corp-teal px-3 py-1.5 rounded-md font-semibold hover:bg-corp-teal/20 transition-colors">
+                          Ekle
+                        </button>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
