@@ -33,14 +33,32 @@ function getEnv(name: string, required = false, fallback = ""): string {
 }
 
 export const PAYTR_CONFIG = {
-  merchantId: getEnv("PAYTR_MERCHANT_ID", true),
-  merchantKey: getEnv("PAYTR_MERCHANT_KEY", true),
-  merchantSalt: getEnv("PAYTR_MERCHANT_SALT", true),
-  testMode: getEnv("PAYTR_TEST_MODE", false, "1") === "1",
-  callbackUrl: getEnv("PAYTR_CALLBACK_URL", false, ""),
-  successUrl: getEnv("PAYTR_SUCCESS_URL", false, ""),
-  failUrl: getEnv("PAYTR_FAIL_URL", false, ""),
-  merchantOkUrl: getEnv("PAYTR_MERCHANT_OK_URL", false, ""),
+  // Resolve secrets when a payment operation actually runs, not while Next.js
+  // is collecting route/page data during a build.
+  get merchantId() {
+    return getEnv("PAYTR_MERCHANT_ID", true);
+  },
+  get merchantKey() {
+    return getEnv("PAYTR_MERCHANT_KEY", true);
+  },
+  get merchantSalt() {
+    return getEnv("PAYTR_MERCHANT_SALT", true);
+  },
+  get testMode() {
+    return getEnv("PAYTR_TEST_MODE", false, "1") === "1";
+  },
+  get callbackUrl() {
+    return getEnv("PAYTR_CALLBACK_URL", false, "");
+  },
+  get successUrl() {
+    return getEnv("PAYTR_SUCCESS_URL", false, "");
+  },
+  get failUrl() {
+    return getEnv("PAYTR_FAIL_URL", false, "");
+  },
+  get merchantOkUrl() {
+    return getEnv("PAYTR_MERCHANT_OK_URL", false, "");
+  },
 };
 
 // ─── Döviz ───────────────────────────────────────────────────────────────────
