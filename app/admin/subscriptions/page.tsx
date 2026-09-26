@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { RefreshCw, ShieldCheck } from "lucide-react";
+import Link from "next/link";
+import { ArrowLeft, RefreshCw, ShieldCheck } from "lucide-react";
 
 type Subscription = { id: string; status: string; price_snapshot: number; current_period_end: string; user: { name: string | null; email: string }; plan: { name: string } | null; product: { name: string } | null };
 
@@ -36,7 +37,7 @@ export default function AdminSubscriptionsPage() {
   return <main className="min-h-screen bg-corp-surface px-6 py-10 md:px-12">
     <div className="mx-auto max-w-7xl">
       <header className="mb-8 flex items-start justify-between gap-4">
-        <div><div className="mb-2 flex items-center gap-2 text-corp-teal"><ShieldCheck size={18} /><span className="text-xs font-bold uppercase tracking-[0.2em]">Yönetim</span></div><h1 className="font-display text-3xl font-bold text-corp-charcoal">Abonelikler</h1><p className="mt-2 text-sm text-corp-gray">Müşteri aboneliklerini ve ödeme durumlarını yönetin.</p></div>
+        <div><Link href="/admin" className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-corp-teal hover:underline"><ArrowLeft size={16} /> Admin paneline dön</Link><div className="mb-2 flex items-center gap-2 text-corp-teal"><ShieldCheck size={18} /><span className="text-xs font-bold uppercase tracking-[0.2em]">Yönetim / Abonelikler</span></div><h1 className="font-display text-3xl font-bold text-corp-charcoal">Abonelikler</h1><p className="mt-2 text-sm text-corp-gray">Müşteri aboneliklerini ve ödeme durumlarını yönetin.</p></div>
         <button onClick={load} className="inline-flex items-center gap-2 rounded-xl border border-corp-border bg-white px-4 py-2 text-sm font-semibold text-corp-charcoal hover:bg-corp-surface"><RefreshCw size={16} /> Yenile</button>
       </header>
       {error && <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div>}
