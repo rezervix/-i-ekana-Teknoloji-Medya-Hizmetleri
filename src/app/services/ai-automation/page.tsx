@@ -5,6 +5,7 @@ import { ArrowLeft, ArrowRight, Bot, PackageOpen } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { prisma } from "@/lib/prisma";
+import { formatStartingPrice } from "@/lib/plan-pricing";
 
 export const dynamic = "force-dynamic";
 
@@ -24,17 +25,9 @@ async function getActivePlans() {
       name: true,
       shortDescription: true,
       imageUrl: true,
-      priceMonthly: true,
+      tiers: { where: { isActive: true }, select: { priceMonthly: true, isActive: true } },
     },
   });
-}
-
-function formatPrice(priceInKurus: number) {
-  return new Intl.NumberFormat("tr-TR", {
-    style: "currency",
-    currency: "TRY",
-    maximumFractionDigits: 0,
-  }).format(priceInKurus / 100);
 }
 
 export default async function AIAutomationPage() {
@@ -96,7 +89,7 @@ export default async function AIAutomationPage() {
                 <h2 className="mb-3 text-[24px] font-semibold leading-8 text-[#002638]">{plan.name}</h2>
                 <p className="mb-6 flex-grow text-[16px] leading-6 text-[#41484c]">{plan.shortDescription}</p>
                 <div className="mb-6 text-lg font-semibold text-[#002638]">
-                  {formatPrice(plan.priceMonthly)}<span className="ml-1 text-sm font-normal text-[#41484c]">/ay</span>
+                  {formatStartingPrice(plan)}{formatStartingPrice(plan) === "Fiyat bilgisi için iletişime geçin" ? null : <span className="ml-1 text-sm font-normal text-[#41484c]">/ay</span>}
                 </div>
                 <Link
                   className="group inline-flex items-center gap-2 text-[14px] font-medium text-[#00b2c9] transition-colors hover:text-[#002638]"

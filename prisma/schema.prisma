@@ -557,7 +557,7 @@ enum RunStatus {
   FAILED
 }
 
-// ─── Client Portal (Kurumsal Müşteri Paneli) ───────────────────────────────────
+// ─── Client Portal (Kurumsal Mü��teri Paneli) ───────────────────────────────────
 
 model ClientProject {
   id                    String               @id @default(cuid())
@@ -739,6 +739,7 @@ model Subscription {
   currentPeriodStart DateTime
   currentPeriodEnd   DateTime
   cancelledAt        DateTime?
+  cancelAtPeriodEnd  Boolean   @default(false)
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
