@@ -35,14 +35,7 @@ const servicesData: Record<string, {
     features: ["Enterprise sunucu tedariki", "NAS/SAN depolama sistemleri", "Managed switch & firewall", "UPS & güç yönetimi", "Rack kurulum & kablaj", "Garanti & servis yönetimi"],
     deliverables: ["Donanım analiz & öneri raporu", "Kurulum ve devreye alma belgesi", "Asset envanteri", "Bakım sözleşmesi"],
   },
-  "ai-automation": {
-    title: "Yapay Zeka & Otomasyon", accent: "#0EA5E9",
-    shortDesc: "CrewAI agent pipeline'ları, LLM entegrasyonları ve iş akışı otomasyonu.",
-    problem: "Tekraran iş süreçleri, veri silolar ve yavaş karar döngüleri şirketlerin rekabet gücünü erimektedir. AI bu sorunların tamamını aynı anda çözebilir.",
-    solution: "GPT-4, Claude ve Gemini tabanlı özel LLM entegrasyonları, CrewAI multi-agent pipeline'ları ve no-code/low-code otomasyon akışları kuruyoruz.",
-    features: ["LLM fine-tuning & RAG", "CrewAI agent orchestration", "n8n / Zapier iş akışları", "Doküman analiz otomasyonu", "CRM & ERP entegrasyonu", "Gerçek zamanlı dashboard"],
-    deliverables: ["AI fırsatları haritası", "PoC (Proof of Concept) demo", "Üretim pipeline teslimi", "ROI ölçüm raporu"],
-  },
+
   cybersecurity: {
     title: "Siber Güvenlik", accent: "#10B981",
     shortDesc: "Zafiyet analizi, SOC hizmetleri, sızma testi ve KVKK/GDPR uyumluluk.",
