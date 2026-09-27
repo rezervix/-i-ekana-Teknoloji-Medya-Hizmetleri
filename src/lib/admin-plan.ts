@@ -1,3 +1,4 @@
+import sanitizeHtml from "sanitize-html";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 
@@ -19,7 +20,18 @@ export async function requireAdmin() {
   return session?.user && roles.has(String((session.user as { role?: string }).role)) ? session : null;
 }
 
-export async function sanitizePlanHtml(html: string) {
-  const { default: DOMPurify } = await import("isomorphic-dompurify");
-  return DOMPurify.sanitize(html, { FORBID_TAGS: ["iframe", "object", "embed"] });
+export function sanitizePlanHtml(html: string): string {
+  return sanitizeHtml(html, {
+    allowedTags: [
+      "p", "br", "strong", "em", "u", "s", "ul", "ol", "li", "h1", "h2", "h3", "h4", "h5", "h6",
+      "a", "img", "table", "thead", "tbody", "tfoot", "tr", "td", "th", "blockquote", "code", "pre", "span", "div",
+    ],
+    allowedAttributes: {
+      a: ["href", "target", "rel"],
+      img: ["src", "alt", "width", "height"],
+      "*": ["class"],
+    },
+    allowedSchemes: ["http", "https", "mailto"],
+    disallowedTagsMode: "discard",
+  });
 }
