@@ -34,6 +34,11 @@ export async function POST(request: NextRequest) {
 
     const subscription = await prisma.subscription.findUnique({ where: { id: merchantOid } });
     if (subscription) {
+      const receivedAmount = /^\d+$/.test(totalAmount) ? Number(totalAmount) : NaN;
+      if (!Number.isSafeInteger(receivedAmount) || receivedAmount !== subscription.priceAtPurchase) {
+        logger.security({ event: "PAYTR_SUBSCRIPTION_AMOUNT_MISMATCH", details: { merchantOid, status } });
+        return new Response("NO", { status: 400 });
+      }
       if (subscription.status !== "PENDING") return new Response("OK");
       if (status === "success") {
         const start = new Date();
