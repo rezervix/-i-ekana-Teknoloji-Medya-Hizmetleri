@@ -1,3 +1,4 @@
+import sanitizeHtml from "sanitize-html";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 
@@ -19,10 +20,18 @@ export async function requireAdmin() {
   return session?.user && roles.has(String((session.user as { role?: string }).role)) ? session : null;
 }
 
-export async function sanitizePlanHtml(html: string) {
-  return html
-    .replace(/<(iframe|object|embed|script|style|base|link)[^>]*>[\s\S]*?<\/\1\s*>/gi, "")
-    .replace(/<\/?(iframe|object|embed|script|style|base|link)[^>]*>/gi, "")
-    .replace(/\s+on[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
-    .replace(/\s+(href|src)\s*=\s*("\s*javascript:[^"]*"|'\s*javascript:[^']*'|\s*javascript:[^\s>]+)/gi, "");
+export function sanitizePlanHtml(html: string): string {
+  return sanitizeHtml(html, {
+    allowedTags: [
+      "p", "br", "strong", "em", "u", "s", "ul", "ol", "li", "h1", "h2", "h3", "h4", "h5", "h6",
+      "a", "img", "table", "thead", "tbody", "tfoot", "tr", "td", "th", "blockquote", "code", "pre", "span", "div",
+    ],
+    allowedAttributes: {
+      a: ["href", "target", "rel"],
+      img: ["src", "alt", "width", "height"],
+      "*": ["class"],
+    },
+    allowedSchemes: ["http", "https", "mailto"],
+    disallowedTagsMode: "discard",
+  });
 }
