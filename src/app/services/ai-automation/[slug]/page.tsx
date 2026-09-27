@@ -15,9 +15,10 @@ import { createIsolatedHtmlDocument } from "@/lib/isolated-html";
 
 export const dynamic = "force-dynamic";
 
-async function getPlan(slug: string) {
+async function getPlan(slug: string, preview = false) {
+  const canPreview = preview && Boolean(await auth());
   return prisma.plan.findFirst({
-    where: { slug, isActive: true },
+    where: { slug, ...(canPreview ? {} : { isActive: true }) },
     include: { tiers: { where: { isActive: true }, orderBy: { displayOrder: "asc" } } },
   });
 }
@@ -28,8 +29,9 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   return { title: `${plan.name} - Çiçekana Teknoloji & Medya`, description: plan.shortDescription };
 }
 
-export default async function AIAutomationPlanPage({ params }: { params: Promise<{ slug: string }> }) {
-  const plan = await getPlan((await params).slug);
+export default async function AIAutomationPlanPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ preview?: string }> }) {
+  const preview = (await searchParams).preview === "1";
+  const plan = await getPlan((await params).slug, preview);
   if (!plan) notFound();
   const session = await auth();
   const userId = (session?.user as { id?: string } | undefined)?.id;
@@ -41,7 +43,7 @@ export default async function AIAutomationPlanPage({ params }: { params: Promise
   const startingPrice = getStartingPrice(plan);
   const isolatedContent = createIsolatedHtmlDocument(sanitizePlanHtml(plan.fullContentHtml));
 
-  return <main className="min-h-screen bg-[#fcf9f8]"><Header /><section className="mx-auto max-w-[1180px] px-4 py-16 md:px-8">
+  return <main className="min-h-screen bg-[#fcf9f8]">{preview && <div className="bg-amber-500 px-4 py-2 text-center text-xs font-bold uppercase tracking-[0.2em] text-white">Taslak önizleme</div>}<Header /><section className="mx-auto max-w-[1180px] px-4 py-16 md:px-8">
     <Link href="/services/ai-automation" className="mb-8 inline-flex items-center gap-2 text-sm text-[#41484c] hover:text-[#002638]"><ArrowLeft aria-hidden="true" /> Tüm AI hizmetleri</Link>
     <div className="grid gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-start"><div>
       {plan.imageUrl ? <Image src={plan.imageUrl} alt={`${plan.name} görseli`} width={900} height={500} className="mb-8 max-h-[420px] w-full rounded-2xl object-contain" unoptimized /> : <div className="mb-8 flex h-64 items-center justify-center rounded-2xl bg-[#f6f3f2]"><Bot aria-hidden="true" className="text-[#00b2c9]" size={64} /></div>}

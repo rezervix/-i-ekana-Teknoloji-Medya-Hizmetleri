@@ -714,6 +714,20 @@ model Plan {
   shortDescription String
   fullContentHtml  String         @db.Text
   features         Json
+  tagline          String?
+  heroHeadline     String?
+  heroSubheadline  String?        @db.Text
+  heroMockupUrl    String?
+  trustPoints      Json           @default("[]")
+  stats            Json           @default("[]")
+  benefits         Json           @default("[]")
+  highlights       Json           @default("[]")
+  steps            Json           @default("[]")
+  faqs             Json           @default("[]")
+  vatNote          String?
+  disclaimer       String?        @db.Text
+  secondaryCtaLabel String?
+  secondaryCtaUrl String?
   imageUrl         String?
   priceMonthly     Int
   isActive         Boolean        @default(true)
@@ -753,6 +767,7 @@ model PlanTier {
   planId        String
   plan          Plan           @relation(fields: [planId], references: [id], onDelete: Cascade)
   name          String
+  description   String?
   priceMonthly  Int
   features      Json
   badge         String?

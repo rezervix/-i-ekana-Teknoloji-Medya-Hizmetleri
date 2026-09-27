@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { planSchema, requireAdmin, sanitizePlanHtml } from "@/lib/admin-plan";
+import { planSchema, requireAdmin } from "@/lib/admin-plan";
+import { revalidatePath } from "next/cache";
 
 function normalizeTiers(value: unknown) {
   if (!Array.isArray(value)) return [];
-  return value.map((tier, index) => ({ id: typeof tier?.id === "string" ? tier.id : undefined, name: String(tier?.name ?? "").trim(), priceMonthly: Math.round(Number(tier?.priceMonthly) * 100), badge: String(tier?.badge ?? "").trim() || null, isRecommended: Boolean(tier?.isRecommended), displayOrder: Number.isInteger(Number(tier?.displayOrder)) ? Number(tier.displayOrder) : index, isActive: tier?.isActive !== false, features: Array.isArray(tier?.features) ? tier.features.map(String).map((item: string) => item.trim()).filter(Boolean) : [] })).filter((tier) => tier.name && tier.priceMonthly > 0);
+  return value.map((tier, index) => ({ id: typeof tier?.id === "string" ? tier.id : undefined, name: String(tier?.name ?? "").trim(), description: String(tier?.description ?? "").trim().slice(0, 300) || null, priceMonthly: Math.round(Number(tier?.priceMonthly) * 100), badge: String(tier?.badge ?? "").trim() || null, isRecommended: Boolean(tier?.isRecommended), displayOrder: Number.isInteger(Number(tier?.displayOrder)) ? Number(tier.displayOrder) : index, isActive: tier?.isActive !== false, features: Array.isArray(tier?.features) ? tier.features.map(String).map((item: string) => item.trim()).filter(Boolean) : [] })).filter((tier) => tier.name && tier.priceMonthly > 0);
 }
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -36,13 +37,15 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
           await tx.planTier.deleteMany({ where: { id: { in: removed.map((tier) => tier.id) } } });
         }
         for (const [index, tier] of tiers.entries()) {
-          const tierData = { name: tier.name, priceMonthly: tier.priceMonthly, badge: tier.badge, isRecommended: tier.isRecommended, displayOrder: tier.displayOrder ?? index, isActive: tier.isActive, features: tier.features as Prisma.InputJsonValue };
+          const tierData = { name: tier.name, description: tier.description, priceMonthly: tier.priceMonthly, badge: tier.badge, isRecommended: tier.isRecommended, displayOrder: tier.displayOrder ?? index, isActive: tier.isActive, features: tier.features as Prisma.InputJsonValue };
           if (tier.id && current.some((item) => item.id === tier.id)) await tx.planTier.update({ where: { id: tier.id }, data: tierData });
           else await tx.planTier.create({ data: { ...tierData, planId: id } });
         }
       }
-      return tx.plan.update({ where: { id }, data: ({ ...data, ...(data.fullContentHtml !== undefined ? { fullContentHtml: await sanitizePlanHtml(data.fullContentHtml) } : {}), ...(data.imageUrl !== undefined ? { imageUrl: data.imageUrl || null } : {}), ...(data.features !== undefined ? { features: (Array.isArray(data.features) ? data.features.map(String).filter(Boolean) : []) as Prisma.InputJsonValue } : {}) } as unknown as Prisma.PlanUpdateInput), include: { tiers: { orderBy: { displayOrder: "asc" } } } });
+      return tx.plan.update({ where: { id }, data: ({ ...data, fullContentHtml: "", ...(data.imageUrl !== undefined ? { imageUrl: data.imageUrl || null } : {}), ...(data.features !== undefined ? { features: (Array.isArray(data.features) ? data.features.map(String).filter(Boolean) : []) as Prisma.InputJsonValue } : {}) } as unknown as Prisma.PlanUpdateInput), include: { tiers: { orderBy: { displayOrder: "asc" } } } });
     });
+    revalidatePath("/services/ai-automation");
+    revalidatePath(`/services/ai-automation/${result.slug}`);
     return NextResponse.json(result);
   } catch (error: unknown) {
     if (error instanceof Error && error.message === "ACTIVE_TIER_SUBSCRIPTIONS") return NextResponse.json({ error: "Bu pakete bağlı aktif abonelik var, önce pasife alın" }, { status: 409 });
