@@ -35,10 +35,11 @@ export async function POST(request: NextRequest) {
     const { orderNumber, subscriptionId } = await request.json();
     if (subscriptionId !== undefined) {
       if (typeof subscriptionId !== "string" || !/^[A-Za-z0-9_-]+$/.test(subscriptionId)) return NextResponse.json({ success: false, message: "Geçersiz abonelik." }, { status: 400 });
-      const subscription = await prisma.subscription.findFirst({ where: { id: subscriptionId, userId: authResult.user.id, status: "PENDING" }, include: { plan: true, user: true } });
+      const subscription = await prisma.subscription.findFirst({ where: { id: subscriptionId, userId: authResult.user.id, status: "PENDING" }, include: { plan: true, planTier: true, user: true } });
       if (!subscription) return NextResponse.json({ success: false, message: "Ödeme bekleyen abonelik bulunamadı." }, { status: 404 });
       const totalKurus = subscription.priceAtPurchase;
-      const basket = [[subscription.plan.name, String(totalKurus), 1]];
+      if (!subscription.planTier) return NextResponse.json({ success: false, message: "Abonelik paketi bulunamadı." }, { status: 409 });
+      const basket = [[`${subscription.plan.name} - ${subscription.planTier.name}`, String(totalKurus), 1]];
       const userBasket = Buffer.from(JSON.stringify(basket), "utf8").toString("base64");
       const noInstallment = "0";
       const maxInstallment = "0";

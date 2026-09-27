@@ -5,7 +5,7 @@ import { signIn, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 
-export default function SubscribeButton({ planId }: { planId: string }) {
+export default function SubscribeButton({ planId, planTierId }: { planId: string; planTierId?: string }) {
   const { status } = useSession();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -20,7 +20,7 @@ export default function SubscribeButton({ planId }: { planId: string }) {
     setLoading(true);
     setError("");
     try {
-      const createResponse = await fetch("/api/subscriptions/create", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ planId }) });
+      const createResponse = await fetch("/api/subscriptions/create", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ planId, planTierId }) });
       const created = await createResponse.json();
       if (created.alreadySubscribed) { router.push("/profile/subscriptions"); return; }
       if (!createResponse.ok || !created.subscriptionId) throw new Error(created.message || "Abonelik başlatılamadı.");
