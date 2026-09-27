@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import { Resend } from "resend";
 
 const smtpHost = process.env.SMTP_HOST || "smtp.turkticaret.net";
 const smtpPort = Number(process.env.SMTP_PORT) || 465;
@@ -22,6 +23,25 @@ const transporter = nodemailer.createTransport({
 
 export async function sendVerificationEmail(email: string, code: string): Promise<boolean> {
   const appUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:4028";
+
+  if (process.env.RESEND_API_KEY) {
+    const resend = new Resend(process.env.RESEND_API_KEY);
+    const { data, error } = await resend.emails.send(
+      {
+        from: FROM_EMAIL,
+        to: [email],
+        subject: "E-posta Adresinizi Doğrulayın — Çiçekana Teknoloji & Medya",
+        html: `<p>Merhaba,</p><p>Hesabınızı doğrulamak için kodunuz:</p><p style="font-size:32px;font-weight:700;letter-spacing:6px">${code}</p><p>Bu kod 15 dakika geçerlidir.</p><p><a href="${appUrl}/auth?email=${encodeURIComponent(email)}&code=${code}">E-postamı doğrula</a></p>`,
+      },
+      { idempotencyKey: `verification-email/${email}/${code}` },
+    );
+    if (error) {
+      console.error("[sendVerificationEmail Resend Error]", error.message);
+      return false;
+    }
+    console.log(`[sendVerificationEmail] Resend sent to ${email}. MessageId: ${data?.id ?? "unknown"}`);
+    return true;
+  }
 
   // Dev / Demo fallback if SMTP password not provided
   if (!smtpPass) {
