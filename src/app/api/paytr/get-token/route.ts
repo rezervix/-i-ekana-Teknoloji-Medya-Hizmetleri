@@ -32,7 +32,28 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { orderNumber } = await request.json();
+    const { orderNumber, subscriptionId } = await request.json();
+    if (subscriptionId !== undefined) {
+      if (typeof subscriptionId !== "string" || !/^[A-Za-z0-9_-]+$/.test(subscriptionId)) return NextResponse.json({ success: false, message: "Geçersiz abonelik." }, { status: 400 });
+      const subscription = await prisma.subscription.findFirst({ where: { id: subscriptionId, userId: authResult.user.id, status: "PENDING" }, include: { plan: true, user: true } });
+      if (!subscription) return NextResponse.json({ success: false, message: "Ödeme bekleyen abonelik bulunamadı." }, { status: 404 });
+      const totalKurus = subscription.priceAtPurchase;
+      const basket = [[subscription.plan.name, String(totalKurus), 1]];
+      const userBasket = Buffer.from(JSON.stringify(basket), "utf8").toString("base64");
+      const noInstallment = "0";
+      const maxInstallment = "0";
+      const currency = "TL";
+      const testMode = process.env.PAYTR_TEST_MODE === "0" ? "0" : "1";
+      const hashString = merchantId + getClientIp(request) + subscription.id + subscription.user.email + totalKurus + userBasket + noInstallment + maxInstallment + currency + testMode;
+      const paytrToken = paytrHash(hashString + merchantSalt, merchantKey);
+      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL;
+      if (!siteUrl) throw new Error("NEXT_PUBLIC_SITE_URL is not configured");
+      const params = new URLSearchParams({ merchant_id: merchantId, user_ip: getClientIp(request), merchant_oid: subscription.id, email: subscription.user.email, payment_amount: String(totalKurus), paytr_token: paytrToken, user_basket: userBasket, debug_on: process.env.NODE_ENV === "production" ? "0" : "1", no_installment: noInstallment, max_installment: maxInstallment, user_name: subscription.user.name || "Müşteri", user_address: "Adres belirtilmedi", user_phone: subscription.user.phone || "", merchant_ok_url: process.env.PAYTR_SUCCESS_URL || `${siteUrl}/services/ai-automation/${subscription.plan.slug}?payment=success`, merchant_fail_url: process.env.PAYTR_FAIL_URL || `${siteUrl}/services/ai-automation/${subscription.plan.slug}?payment=failed`, timeout_limit: "30", currency, test_mode: testMode });
+      const response = await fetch(PAYTR_ENDPOINT, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: params, cache: "no-store" });
+      const result = await response.json() as { status?: string; token?: string; reason?: string };
+      if (result.status !== "success" || !result.token) return NextResponse.json({ success: false, message: "Ödeme başlatılamadı." }, { status: 502 });
+      return NextResponse.json({ success: true, token: result.token, subscriptionId: subscription.id });
+    }
     if (typeof orderNumber !== "string" || !/^[A-Za-z0-9-]+$/.test(orderNumber)) {
       return NextResponse.json({ success: false, message: "Geçersiz sipariş numarası." }, { status: 400 });
     }

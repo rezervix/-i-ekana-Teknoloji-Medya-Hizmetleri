@@ -1,91 +1,117 @@
-import React from "react";
-import Link from "next/link";
 import type { Metadata } from "next";
+import Image from "next/image";
+import Link from "next/link";
+import { ArrowLeft, ArrowRight, Bot, PackageOpen } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import { prisma } from "@/lib/prisma";
+
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "AI Ürünlerimiz - Çiçekana Teknoloji & Medya",
-  description: "Kurumsal iş süreçlerinizi optimize eden, ölçeklenebilir ve güvenli yapay zeka çözümlerini keşfedin.",
+  title: "AI Otomasyon Hizmetlerimiz - Çiçekana Teknoloji & Medya",
+  description:
+    "Kurumsal iş süreçlerinizi optimize eden, ölçeklenebilir ve güvenli yapay zeka çözümlerini keşfedin.",
 };
 
-export default function AIAutomationPage() {
+async function getActivePlans() {
+  return prisma.plan.findMany({
+    where: { isActive: true },
+    orderBy: [{ displayOrder: "asc" }, { createdAt: "asc" }],
+    select: {
+      id: true,
+      slug: true,
+      name: true,
+      shortDescription: true,
+      imageUrl: true,
+      priceMonthly: true,
+    },
+  });
+}
+
+function formatPrice(priceInKurus: number) {
+  return new Intl.NumberFormat("tr-TR", {
+    style: "currency",
+    currency: "TRY",
+    maximumFractionDigits: 0,
+  }).format(priceInKurus / 100);
+}
+
+export default async function AIAutomationPage() {
+  const plans = await getActivePlans();
+
   return (
     <main className="min-h-screen bg-[#fcf9f8]">
       <Header />
 
-      <main className="max-w-[1280px] mx-auto px-4 md:px-20 py-20">
-        {/* Breadcrumb & Header */}
-        <header className="mb-8">
+      <section className="mx-auto max-w-[1280px] px-4 py-20 md:px-20" aria-labelledby="ai-automation-title">
+        <header className="mb-10">
           <Link
-            className="inline-flex items-center gap-2 text-[#41484c] hover:text-[#002638] transition-colors text-[14px] mb-4"
+            className="mb-4 inline-flex items-center gap-2 text-[14px] text-[#41484c] transition-colors hover:text-[#002638]"
             href="/homepage"
           >
-            <ArrowLeft size={16} /> Ana Sayfa
+            <ArrowLeft aria-hidden="true" /> Ana Sayfa
           </Link>
-          <div className="inline-block px-3 py-1 bg-[#f6f3f2] text-[#003f48] text-[12px] rounded uppercase tracking-wider mb-4 border border-[#c1c7cd]">
-            ÜRÜNLERİMİZ
+          <div className="mb-4 inline-block rounded border border-[#c1c7cd] bg-[#f6f3f2] px-3 py-1 text-[12px] uppercase tracking-wider text-[#003f48]">
+            HİZMETLERİMİZ
           </div>
-          <h1 className="text-[40px] md:text-[56px] font-semibold leading-[48px] md:leading-[64px] text-[#002638] mb-2 md:w-3/4 tracking-tight">
-            AI Ürünlerimiz
+          <h1
+            id="ai-automation-title"
+            className="mb-2 text-[40px] font-semibold leading-[48px] tracking-tight text-[#002638] md:w-3/4 md:text-[56px] md:leading-[64px]"
+          >
+            AI Otomasyon Hizmetlerimiz
           </h1>
-          <p className="text-[16px] md:text-[18px] leading-[24px] md:leading-[28px] text-[#41484c] md:w-2/3">
+          <p className="text-[16px] leading-[24px] text-[#41484c] md:w-2/3 md:text-[18px] md:leading-[28px]">
             Kurumsal iş süreçlerinizi optimize eden, ölçeklenebilir ve güvenli yapay zeka çözümlerini keşfedin.
           </p>
         </header>
 
-        {/* Product Gallery Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* Product Card 1 - Microsoft Call Center AI */}
-          <div className="flex flex-col bg-white p-8 rounded-xl border border-[#c1c7cd]/50 shadow-sm hover:shadow-[0px_4px_20px_rgba(10,61,84,0.08)] transition-all duration-300 relative min-h-[480px]">
-            <div className="mb-6 h-24 w-40">
-              <img
-                alt="Microsoft Logo"
-                className="w-full h-full object-contain"
-                src="https://lh3.googleusercontent.com/aida-public/AB6AXuBGy0FrpKiXXH5mdjuLuAbv1FKM4HuhTOllbkt1h6x3RpzKjmh4aO5ii4ol-Y8CXHoshT9ixNvWGlInTPGmg8WnVz1ppMK8zoHmlsdgQ7TSCTa34XjODxU92x4v6QMMuoOYBCG9AKFOP89vlAPo0ns8ArHsj_O3HehmTDuzxsMN4k2UCkdaiC0zGZ958f8q5c08QrdFPA3F4mbtBdEeMW8-Yj5YpLGAXajHTr6q7Nn-AL80Hp8r4RnS"
-              />
-            </div>
-            <h3 className="text-[24px] font-semibold leading-[32px] text-[#002638] mb-3">Microsoft Call Center AI</h3>
-            <p className="text-[16px] leading-[24px] text-[#41484c] mb-8 flex-grow">
-              Microsoft Call Center AI, işletmenizin müşteri hizmetlerini kolaylaştıran ve modernleştiren bir çözümdür. Müşterilerinizle telefon veya mesaj yoluyla yapılan görüşmeleri otomatik olarak yöneterek 7 gün 24 saat kesintisiz ve hızlı destek sunmanızı sağlar. Teknik karmaşıklığı ortadan kaldıran bu sistem sayesinde, müşterileriniz her zaman muhatap bulabilir ve sorunlarına hızlıca çözüm alabilirler.
-            </p>
-            <Link
-              className="inline-flex items-center gap-2 text-[#00b2c9] text-[14px] font-medium hover:text-[#002638] transition-colors mt-auto group"
-              href="/services/ai-automation/microsoft-call-center-ai"
-            >
-              Ürünü İncele <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
-            </Link>
+        {plans.length === 0 ? (
+          <div className="flex min-h-72 flex-col items-center justify-center rounded-xl border border-dashed border-[#c1c7cd] bg-white px-6 py-12 text-center shadow-sm">
+            <PackageOpen aria-hidden="true" className="mb-4 text-[#00b2c9]" size={40} />
+            <h2 className="text-xl font-semibold text-[#002638]">Şu anda aktif bir hizmetimiz bulunmuyor</h2>
+            <p className="mt-2 max-w-lg text-[16px] leading-6 text-[#41484c]">Yakında burada yeni AI otomasyon çözümlerimizi paylaşacağız.</p>
           </div>
-
-          {/* Product Card 2 - Coming Soon */}
-          <div className="flex flex-col items-center justify-center bg-white p-8 rounded-xl border border-[#c1c7cd]/50 shadow-sm hover:shadow-[0px_4px_20px_rgba(10,61,84,0.08)] transition-all duration-300 relative min-h-[480px]">
-            <h3 className="text-[24px] font-semibold leading-[32px] text-[#002638] opacity-60">Çok Yakında</h3>
+        ) : (
+          <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
+            {plans.map((plan) => (
+              <article
+                key={plan.id}
+                className="flex min-h-[420px] flex-col rounded-xl border border-[#c1c7cd]/50 bg-white p-8 shadow-sm transition-all duration-300 hover:shadow-[0px_4px_20px_rgba(10,61,84,0.08)]"
+              >
+                <div className="mb-6 flex h-28 items-center justify-center overflow-hidden rounded-lg bg-[#f6f3f2]">
+                  {plan.imageUrl ? (
+                    <Image
+                      src={plan.imageUrl}
+                      alt={`${plan.name} görseli`}
+                      width={360}
+                      height={180}
+                      className="size-full object-contain"
+                      unoptimized
+                    />
+                  ) : (
+                    <Bot aria-hidden="true" className="text-[#00b2c9]" size={48} />
+                  )}
+                </div>
+                <h2 className="mb-3 text-[24px] font-semibold leading-8 text-[#002638]">{plan.name}</h2>
+                <p className="mb-6 flex-grow text-[16px] leading-6 text-[#41484c]">{plan.shortDescription}</p>
+                <div className="mb-6 text-lg font-semibold text-[#002638]">
+                  {formatPrice(plan.priceMonthly)}<span className="ml-1 text-sm font-normal text-[#41484c]">/ay</span>
+                </div>
+                <Link
+                  className="group inline-flex items-center gap-2 text-[14px] font-medium text-[#00b2c9] transition-colors hover:text-[#002638]"
+                  href={`/services/ai-automation/${plan.slug}`}
+                >
+                  Detayları Gör <ArrowRight aria-hidden="true" className="transition-transform group-hover:translate-x-1" />
+                </Link>
+              </article>
+            ))}
           </div>
-
-          {/* Product Card 3 - Coming Soon */}
-          <div className="flex flex-col items-center justify-center bg-white p-8 rounded-xl border border-[#c1c7cd]/50 shadow-sm hover:shadow-[0px_4px_20px_rgba(10,61,84,0.08)] transition-all duration-300 relative min-h-[480px]">
-            <h3 className="text-[24px] font-semibold leading-[32px] text-[#002638] opacity-60">Çok Yakında</h3>
-          </div>
-
-          {/* Product Card 4 - Coming Soon */}
-          <div className="flex flex-col items-center justify-center bg-white p-8 rounded-xl border border-[#c1c7cd]/50 shadow-sm hover:shadow-[0px_4px_20px_rgba(10,61,84,0.08)] transition-all duration-300 relative min-h-[480px]">
-            <h3 className="text-[24px] font-semibold leading-[32px] text-[#002638] opacity-60">Çok Yakında</h3>
-          </div>
-
-          {/* Product Card 5 - Coming Soon */}
-          <div className="flex flex-col items-center justify-center bg-white p-8 rounded-xl border border-[#c1c7cd]/50 shadow-sm hover:shadow-[0px_4px_20px_rgba(10,61,84,0.08)] transition-all duration-300 relative min-h-[480px]">
-            <h3 className="text-[24px] font-semibold leading-[32px] text-[#002638] opacity-60">Çok Yakında</h3>
-          </div>
-
-          {/* Product Card 6 - Coming Soon */}
-          <div className="flex flex-col items-center justify-center bg-white p-8 rounded-xl border border-[#c1c7cd]/50 shadow-sm hover:shadow-[0px_4px_20px_rgba(10,61,84,0.08)] transition-all duration-300 relative min-h-[480px]">
-            <h3 className="text-[24px] font-semibold leading-[32px] text-[#002638] opacity-60">Çok Yakında</h3>
-          </div>
-        </div>
-      </main>
+        )}
+      </section>
 
       <Footer />
     </main>
   );
 }
+

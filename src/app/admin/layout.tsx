@@ -25,7 +25,8 @@ const navSections = [
   {
     label: "Mağaza",
     items: [
-      { icon: Package,            label: "Ürünler",          href: "/admin/magaza/urunler" },
+      { icon: Package,            label: "Mağaza Ürünleri",  href: "/admin/magaza/urunler" },
+      { icon: Package,            label: "Abonelik Ürünleri", href: "/admin/products" },
       { icon: Briefcase,          label: "Siparişler",       href: "/admin/magaza/siparisler" },
       { icon: Image,              label: "Tasarım Şablonları", href: "/admin/tasarim-sablonlari" },
       { icon: BarChart3,          label: "Kampanyalar",      href: "/admin/magaza/kampanyalar" },
