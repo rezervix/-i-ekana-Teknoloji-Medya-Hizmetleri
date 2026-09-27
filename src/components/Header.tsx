@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Menu,
   X,
+  CreditCard,
   ChevronDown,
   LogOut,
   User,
@@ -136,6 +137,13 @@ export default function Header() {
                         >
                           <User size={14} />
                           Profilim
+                        </Link>
+                        <Link
+                          href="/profile/subscriptions"
+                          className="flex items-center gap-2.5 px-4 py-2.5 font-body text-[13px] text-corp-charcoal hover:text-corp-teal hover:bg-corp-teal-50 transition-all"
+                        >
+                          <CreditCard size={14} />
+                          Aboneliklerim
                         </Link>
                         <button
                           onClick={() => signOut({ callbackUrl: "/homepage" })}
