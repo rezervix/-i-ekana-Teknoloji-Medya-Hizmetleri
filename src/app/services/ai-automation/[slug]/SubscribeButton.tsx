@@ -25,8 +25,8 @@ export default function SubscribeButton({ planId, planTierId }: { planId: string
       if (created.alreadySubscribed) { router.push("/profile/subscriptions"); return; }
       if (!createResponse.ok || !created.subscriptionId) throw new Error(created.message || "Abonelik başlatılamadı.");
       const tokenResponse = await fetch("/api/paytr/get-token", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ subscriptionId: created.subscriptionId }) });
-      const token = await tokenResponse.json();
-      if (!tokenResponse.ok || !token.token) throw new Error(token.message || "Ödeme başlatılamadı.");
+      const token = await tokenResponse.json().catch(() => ({}));
+      if (!tokenResponse.ok || !token.token) throw new Error(token.message || `Ödeme başlatılamadı (${tokenResponse.status}).`);
       if (window.self !== window.top) { window.open(`https://www.paytr.com/odeme/guvenli/${token.token}`, "_blank", "noopener,noreferrer"); } else { window.location.href = `https://www.paytr.com/odeme/guvenli/${token.token}`; }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Ödeme başlatılamadı.");
