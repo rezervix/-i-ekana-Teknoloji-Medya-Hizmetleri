@@ -7,7 +7,7 @@ import { PLAN_ICON_NAMES, getPlanIcon } from "@/lib/plan-icons";
 
 type Tier = { id?: string; name: string; description?: string | null; priceMonthly: number; badge: string | null; isRecommended: boolean; displayOrder: number; isActive: boolean; features: unknown };
 type Item = { icon?: string; title: string; description: string; badge?: string };
-type Plan = { id: string; name: string; slug: string; shortDescription: string; fullContentHtml: string; features: unknown; imageUrl: string | null; priceMonthly: number; isActive: boolean; displayOrder: number; updatedAt: string; tiers: Tier[]; tagline?: string; heroHeadline?: string; heroSubheadline?: string; heroMockupUrl?: string; trustPoints?: unknown; stats?: unknown; benefits?: unknown; highlights?: unknown; steps?: unknown; faqs?: unknown; vatNote?: string; disclaimer?: string; secondaryCtaLabel?: string; secondaryCtaUrl?: string };
+type Plan = { id: string; name: string; slug: string; shortDescription: string; fullContentHtml: string; features: unknown; imageUrl: string | null; priceMonthly: number; isActive: boolean; displayOrder: number; updatedAt: string; tiers: Tier[]; tagline?: string | null; heroHeadline?: string | null; heroSubheadline?: string | null; heroMockupUrl?: string | null; trustPoints?: unknown; stats?: unknown; benefits?: unknown; highlights?: unknown; steps?: unknown; faqs?: unknown; vatNote?: string | null; disclaimer?: string | null; secondaryCtaLabel?: string | null; secondaryCtaUrl?: string | null };
 type FormTier = Omit<Tier, "priceMonthly" | "features"> & { priceMonthly: number; features: string[] };
 type Form = Omit<Plan, "id" | "updatedAt" | "tiers" | "priceMonthly" | "fullContentHtml" | "features" | "tagline" | "heroHeadline" | "heroSubheadline" | "heroMockupUrl" | "vatNote" | "disclaimer" | "secondaryCtaLabel" | "secondaryCtaUrl"> & { tagline: string; heroHeadline: string; heroSubheadline: string; heroMockupUrl: string; vatNote: string; disclaimer: string; secondaryCtaLabel: string; secondaryCtaUrl: string; tiers: FormTier[]; trustPoints: string[]; stats: { value: string; label: string }[]; benefits: Item[]; highlights: Item[]; steps: Item[]; faqs: { question: string; answer: string }[] };
 const emptyTier = (): FormTier => ({ name: "", description: "", priceMonthly: 0, badge: "", isRecommended: false, displayOrder: 0, isActive: true, features: [""] });
@@ -27,7 +27,32 @@ export default function AdminProductsPage() {
   useEffect(() => { void load(); }, []);
   const filtered = useMemo(() => plans.filter((plan) => `${plan.name} ${plan.slug}`.toLocaleLowerCase("tr-TR").includes(query.toLocaleLowerCase("tr-TR"))), [plans, query]);
   const update = <K extends keyof Form>(key: K, value: Form[K]) => setForm((current) => ({ ...current, [key]: value }));
-  function openForm(plan?: Plan) { setEditing(plan ?? null); setOpen(true); setForm(plan ? { ...emptyForm, ...plan, trustPoints: listOf(plan.trustPoints).map(String), stats: listOf(plan.stats) as Form["stats"], benefits: listOf(plan.benefits) as Form["benefits"], highlights: listOf(plan.highlights) as Form["highlights"], steps: listOf(plan.steps) as Form["steps"], faqs: listOf(plan.faqs) as Form["faqs"], tiers: plan.tiers?.map((tier) => ({ ...tier, priceMonthly: tier.priceMonthly / 100, description: tier.description ?? "", badge: tier.badge ?? "", features: listOf(tier.features).map(String) })) ?? [emptyTier()] } : emptyForm); setSlugEdited(Boolean(plan)); setError(""); }
+  function openForm(plan?: Plan) {
+    setEditing(plan ?? null);
+    setOpen(true);
+    setForm(plan ? {
+      ...emptyForm,
+      ...plan,
+      imageUrl: plan.imageUrl ?? "",
+      tagline: plan.tagline ?? "",
+      heroHeadline: plan.heroHeadline ?? "",
+      heroSubheadline: plan.heroSubheadline ?? "",
+      heroMockupUrl: plan.heroMockupUrl ?? "",
+      vatNote: plan.vatNote ?? "",
+      disclaimer: plan.disclaimer ?? "",
+      secondaryCtaLabel: plan.secondaryCtaLabel ?? "",
+      secondaryCtaUrl: plan.secondaryCtaUrl ?? "",
+      trustPoints: listOf(plan.trustPoints).map(String),
+      stats: listOf(plan.stats) as Form["stats"],
+      benefits: listOf(plan.benefits) as Form["benefits"],
+      highlights: listOf(plan.highlights) as Form["highlights"],
+      steps: listOf(plan.steps) as Form["steps"],
+      faqs: listOf(plan.faqs) as Form["faqs"],
+      tiers: plan.tiers?.map((tier) => ({ ...tier, priceMonthly: tier.priceMonthly / 100, description: tier.description ?? "", badge: tier.badge ?? "", features: listOf(tier.features).map(String) })) ?? [emptyTier()],
+    } : emptyForm);
+    setSlugEdited(Boolean(plan));
+    setError("");
+  }
   function updateTier(index: number, patch: Partial<FormTier>) { update("tiers", form.tiers.map((tier, i) => i === index ? { ...tier, ...patch } : tier)); }
   async function upload(file: File, key: "imageUrl" | "heroMockupUrl") { if (!file.type.startsWith("image/") || file.size > 5 * 1024 * 1024) return setError("Yalnızca 5 MB'a kadar görsel dosyaları yüklenebilir."); setUploading(true); const body = new FormData(); body.append("file", file); const response = await fetch("/api/admin/plans/upload", { method: "POST", body }); const data = await response.json(); if (response.ok) update(key, data.url); else setError(data.error ?? "Görsel yüklenemedi."); setUploading(false); }
   async function submit(event: React.FormEvent) { event.preventDefault(); setError(""); setSaving(true); const payload = { ...form, slug: form.slug || slugify(form.name), priceMonthly: Math.round((form.tiers[0]?.priceMonthly || 0) * 100), features: [], fullContentHtml: "", tiers: form.tiers.map((tier, index) => ({ ...tier, priceMonthly: Math.round(tier.priceMonthly * 100) / 100, displayOrder: index, features: tier.features.map((item) => item.trim()).filter(Boolean) })) }; const response = await fetch(editing ? `/api/admin/plans/${editing.id}` : "/api/admin/plans", { method: editing ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }); const data = await response.json(); if (!response.ok) setError(data.error ?? "Kaydetme başarısız."); else { setOpen(false); setEditing(null); setForm(emptyForm); await load(); } setSaving(false); }

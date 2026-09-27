@@ -6,7 +6,8 @@ import { PLAN_ICON_NAMES } from "@/lib/plan-icons";
 export const roles = new Set(["SUPER_ADMIN", "ADMIN", "EDITOR"]);
 const icon = z.enum(PLAN_ICON_NAMES).optional().default("Sparkles");
 const text = (max: number) => z.string().trim().max(max);
-const url = z.string().trim().refine((value) => !value || /^(https?:\/\/|mailto:|tel:|\/)/i.test(value), "Yalnızca güvenli bağlantılar kullanılabilir").default("");
+const nullableText = (max: number) => z.preprocess((value) => value ?? "", text(max));
+const url = z.preprocess((value) => value ?? "", z.string().trim().refine((value) => !value || /^(https?:\/\/|mailto:|tel:|\/)/i.test(value), "Yalnızca güvenli bağlantılar kullanılabilir").default(""));
 const stringList = (maxItems: number, maxLength: number) => z.array(text(maxLength)).max(maxItems).default([]);
 const stats = z.array(z.object({ value: text(80), label: text(80) })).max(4).default([]);
 const benefits = z.array(z.object({ icon, title: text(80), description: text(300) })).max(6).default([]);
@@ -22,16 +23,16 @@ export const planSchema = z.object({
   isActive: z.boolean().default(false),
   fullContentHtml: z.string().default(""),
   features: z.unknown().optional().default([]),
-  imageUrl: z.string().trim().url("Geçerli bir görsel URL'si girin").or(z.literal("")),
+  imageUrl: z.preprocess((value) => value ?? "", z.string().trim().url("Geçerli bir görsel URL'si girin").or(z.literal(""))),
   displayOrder: z.coerce.number().int().min(0).default(0),
-  tagline: text(120).optional().default(""),
-  heroHeadline: text(80).optional().default(""),
-  heroSubheadline: text(300).optional().default(""),
-  heroMockupUrl: z.string().trim().url("Geçerli bir ekran görüntüsü URL'si girin").or(z.literal("")).default(""),
+  tagline: nullableText(120),
+  heroHeadline: nullableText(80),
+  heroSubheadline: nullableText(300),
+  heroMockupUrl: z.preprocess((value) => value ?? "", z.string().trim().url("Geçerli bir ekran görüntüsü URL'si girin").or(z.literal(""))),
   trustPoints: stringList(5, 120), stats, benefits, highlights, steps, faqs,
-  vatNote: text(160).optional().default(""),
-  disclaimer: text(800).optional().default(""),
-  secondaryCtaLabel: text(80).optional().default(""),
+  vatNote: nullableText(160),
+  disclaimer: nullableText(800),
+  secondaryCtaLabel: nullableText(80),
   secondaryCtaUrl: url,
 });
 
