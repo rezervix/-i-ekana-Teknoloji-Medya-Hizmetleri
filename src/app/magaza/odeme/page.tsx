@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import Script from "next/script";
 
 export default function CheckoutPage() {
   const { data: session, status } = useSession();
@@ -29,6 +30,8 @@ export default function CheckoutPage() {
   const [discountCode, setDiscountCode] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("cc");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [paytrToken, setPaytrToken] = useState<string | null>(null);
+  const [pendingOrderNumber, setPendingOrderNumber] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
 
   const isAuthenticated = status === "authenticated" && Boolean(session?.user);
@@ -137,8 +140,17 @@ export default function CheckoutPage() {
         throw new Error(data.error?.message || "Sipariş oluşturulamadı.");
       }
 
-      clearCart();
-      router.push(`/magaza/siparis/${data.orderNumber}`);
+      const tokenResponse = await fetch("/api/paytr/get-token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderNumber: data.orderNumber }),
+      });
+      const tokenData = await tokenResponse.json();
+      if (!tokenResponse.ok || !tokenData.success || !tokenData.token) {
+        throw new Error(tokenData.message || "Ödeme ekranı açılamadı.");
+      }
+      setPendingOrderNumber(data.orderNumber);
+      setPaytrToken(tokenData.token);
     } catch (error: any) {
       console.error("Checkout error:", error);
       setErrorMessage(error.message || "Sipariş oluşturulurken beklenmeyen bir hata oluştu.");
@@ -203,6 +215,26 @@ export default function CheckoutPage() {
           </div>
         )}
 
+        {paytrToken && pendingOrderNumber ? (
+          <section className="bg-white rounded-2xl border border-corp-border shadow-sm p-6 md:p-8" aria-labelledby="paytr-payment-title">
+            <Script src="https://www.paytr.com/js/iframeResizer.min.js" strategy="afterInteractive" />
+            <h2 id="paytr-payment-title" className="font-display text-2xl font-bold text-corp-charcoal mb-2">Güvenli Ödeme</h2>
+            <p className="text-sm text-corp-gray mb-6">Kart bilgileriniz PayTR&apos;nin güvenli ödeme ekranında işlenir. Ödeme tamamlanana kadar bu sayfadan ayrılmayın.</p>
+            <iframe
+              src={`https://www.paytr.com/odeme/guvenli/${paytrToken}`}
+              id="paytriframe"
+              title="PayTR güvenli ödeme formu"
+              frameBorder="0"
+              scrolling="no"
+              className="w-full min-h-[620px]"
+              onLoad={() => {
+                const resize = (window as Window & { iFrameResize?: (options: object, selector: string) => void }).iFrameResize;
+                resize?.({}, "#paytriframe");
+              }}
+            />
+            <Link href="/magaza" className="inline-flex items-center gap-2 text-sm text-corp-gray hover:text-corp-teal">Ödemeyi iptal et ve sepete dön</Link>
+          </section>
+        ) : (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
           {/* Left Column: Form & Payment */}
           <div className="lg:col-span-7 space-y-8">
@@ -408,6 +440,7 @@ export default function CheckoutPage() {
             </div>
           </div>
         </div>
+        )}
       </div>
       <Footer />
     </main>
