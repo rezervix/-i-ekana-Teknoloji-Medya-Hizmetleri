@@ -12,6 +12,7 @@ const services = [
     desc: "CrewAI agent pipeline'ları, LLM entegrasyonları, süreç otomasyonu ve veri analitiği.",
     href: "/services/ai-automation",
     badge: "YENİ",
+    isActive: true,
   },
   {
     icon: ShoppingCart,
@@ -19,6 +20,7 @@ const services = [
     desc: "Uçtan uca yönetilen e-ticaret altyapısı, sepet kurtarma ve çapraz satış araçları.",
     href: "/e-ticaret",
     badge: null,
+    isActive: false,
   },
 ];
 
@@ -86,7 +88,7 @@ export default function ServicesBento() {
           viewport={{ once: true, margin: "-80px" }}
           className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"
         >
-          {services.map((s) => (
+          {services.filter((s) => s.isActive).map((s) => (
             <motion.div key={s.title} variants={cardVariants}>
               <Link
                 href={s.href}

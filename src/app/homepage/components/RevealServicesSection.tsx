@@ -9,6 +9,7 @@ interface Service {
   slug: string;
   revealImage1: string | null;
   revealImage2: string | null;
+  isActive?: boolean;
 }
 
 const FALLBACK_SERVICES: Service[] = [
@@ -25,6 +26,7 @@ const FALLBACK_SERVICES: Service[] = [
     slug: "e-ticaret",
     revealImage1: null,
     revealImage2: null,
+    isActive: false,
   },
 ];
 
