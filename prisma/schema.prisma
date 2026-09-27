@@ -2,7 +2,7 @@
 // Learn more: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider        = "prisma-client-js"
+  provider = "prisma-client-js"
 }
 
 datasource db {
@@ -12,40 +12,40 @@ datasource db {
 // ─── Auth (NextAuth v5 / @auth/prisma-adapter) ────────────────────────────────
 
 model User {
-  id              String                  @id @default(cuid())
-  name            String?
-  email           String                  @unique
-  emailVerified   DateTime?
-  isEmailVerified Boolean                 @default(false)
-  phone           String?
-  image           String?
-  passwordHash    String?
-  role            UserRole                @default(EDITOR)
-  isActive        Boolean                 @default(true)
-  lastLoginAt     DateTime?
-  companyTitle    String?
-  taxNumber       String?
-  taxOffice       String?
-  sector          String?
-  accountType     String                  @default("individual")
-  brandLogo       String?
-  brandColor      String?
-  notificationPrefs Json?
-  accounts        Account[]
-  sessions        Session[]
-  blogPosts       BlogPost[]
-  orders          Order[]
-  addresses       Address[]
-  clientProjects  ClientProject[]
+  id                 String              @id @default(cuid())
+  name               String?
+  email              String              @unique
+  emailVerified      DateTime?
+  isEmailVerified    Boolean             @default(false)
+  phone              String?
+  image              String?
+  passwordHash       String?
+  role               UserRole            @default(EDITOR)
+  isActive           Boolean             @default(true)
+  lastLoginAt        DateTime?
+  companyTitle       String?
+  taxNumber          String?
+  taxOffice          String?
+  sector             String?
+  accountType        String              @default("individual")
+  brandLogo          String?
+  brandColor         String?
+  notificationPrefs  Json?
+  accounts           Account[]
+  sessions           Session[]
+  blogPosts          BlogPost[]
+  orders             Order[]
+  addresses          Address[]
+  clientProjects     ClientProject[]
   performanceReports PerformanceReport[]
-  supportTickets  SupportTicket[]
-  clientInvoices  ClientInvoice[]
-  clientContracts ClientContract[]
-  activityLogs    ActivityLog[]
-  teamMembers     ClientTeamMember[]
-  subscriptions   Subscription[]
-  createdAt       DateTime                @default(now())
-  updatedAt       DateTime                @updatedAt
+  supportTickets     SupportTicket[]
+  clientInvoices     ClientInvoice[]
+  clientContracts    ClientContract[]
+  activityLogs       ActivityLog[]
+  teamMembers        ClientTeamMember[]
+  subscriptions      Subscription[]
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
 }
 
 model Account {
@@ -192,22 +192,22 @@ model BlogPost {
 // ─── Projects / Case Studies ───────────────────────────────────────────────────
 
 model Project {
-  id         String     @id @default(cuid())
-  title      String
-  slug       String     @unique
-  client     String
-  year       Int
-  category   String
-  challenge  String?    @db.Text
-  solution   String?    @db.Text
-  metrics    Json?      // [{ label: string, value: string }]
-  heroImage  String?
-  images     String[]
-  techTags   String[]
-  pdfUrl     String?
-  status     PostStatus @default(DRAFT)
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
+  id        String     @id @default(cuid())
+  title     String
+  slug      String     @unique
+  client    String
+  year      Int
+  category  String
+  challenge String?    @db.Text
+  solution  String?    @db.Text
+  metrics   Json? // [{ label: string, value: string }]
+  heroImage String?
+  images    String[]
+  techTags  String[]
+  pdfUrl    String?
+  status    PostStatus @default(DRAFT)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
 }
 
 // ─── Products & E-Commerce ────────────────────────────────────────────────────
@@ -219,79 +219,79 @@ enum ProductCategory {
 }
 
 model Product {
-  id                   String           @id @default(cuid())
+  id                   String          @id @default(cuid())
   name                 String
-  slug                 String           @unique
-  description          String?          @db.Text
-  category             ProductCategory  @default(Teknoloji)
+  slug                 String          @unique
+  description          String?         @db.Text
+  category             ProductCategory @default(Teknoloji)
   subcategory          String?
-  price                Float            @default(0)
+  price                Float           @default(0)
   images               String[]
-  stock                Int?             // null = unlimited
-  isActive             Boolean          @default(true)
-  isFeatured           Boolean          @default(false)
+  stock                Int? // null = unlimited
+  isActive             Boolean         @default(true)
+  isFeatured           Boolean         @default(false)
   customizationOptions Json?
-  photoToDesignFee     Float?           @default(500)
-  
-  // Cross-sells (self-relation)
-  crossSells           Product[]        @relation("CrossSell")
-  crossSelledBy        Product[]        @relation("CrossSell")
+  photoToDesignFee     Float?          @default(500)
 
-  cartItems            CartItem[]
-  orderItems           OrderItem[]
-  reviews              Review[]
-  variants             ProductVariant[]
-  designTemplates      DesignTemplate[]
-  
-  createdAt            DateTime         @default(now())
-  updatedAt            DateTime         @updatedAt
+  // Cross-sells (self-relation)
+  crossSells    Product[] @relation("CrossSell")
+  crossSelledBy Product[] @relation("CrossSell")
+
+  cartItems       CartItem[]
+  orderItems      OrderItem[]
+  reviews         Review[]
+  variants        ProductVariant[]
+  designTemplates DesignTemplate[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model ProductVariant {
-  id           String   @id @default(cuid())
-  productId    String
-  product      Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  quantity     Int
-  material     String?
-  unitCost     Float?
-  totalCost    Float?
-  salePrice    Float
-  unitSalePrice Float?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  @@index([productId])
-}
-
-model DesignTemplate {
   id            String   @id @default(cuid())
-  productId     String?
-  product       Product?  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  subcategory   String?
-  nicheLabels   String[]
-  frontImage    String?
-  backImage     String?
-  frontImageUrl String?
-  backImageUrl  String?
-  isActive      Boolean  @default(true)
-  orderItems    OrderItem[] @relation("OrderItemTemplate")
+  productId     String
+  product       Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  quantity      Int
+  material      String?
+  unitCost      Float?
+  totalCost     Float?
+  salePrice     Float
+  unitSalePrice Float?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
   @@index([productId])
 }
 
+model DesignTemplate {
+  id            String      @id @default(cuid())
+  productId     String?
+  product       Product?    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  subcategory   String?
+  nicheLabels   String[]
+  frontImage    String?
+  backImage     String?
+  frontImageUrl String?
+  backImageUrl  String?
+  isActive      Boolean     @default(true)
+  orderItems    OrderItem[] @relation("OrderItemTemplate")
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([productId])
+}
+
 model CartItem {
-  id               String   @id @default(cuid())
-  sessionId        String?  // for guests
-  userId           String?  // for logged-in users
-  productId        String
-  product          Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  quantity         Int      @default(1)
-  customizationData Json?   // Stores customer's filled-in values
-  price            Float    // snapshot price
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id                String   @id @default(cuid())
+  sessionId         String? // for guests
+  userId            String? // for logged-in users
+  productId         String
+  product           Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  quantity          Int      @default(1)
+  customizationData Json? // Stores customer's filled-in values
+  price             Float // snapshot price
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 }
 
 enum OrderStatus {
@@ -329,16 +329,16 @@ model Order {
 }
 
 model OrderItem {
-  id               String  @id @default(cuid())
-  orderId          String
-  order            Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  productId        String
-  product          Product @relation(fields: [productId], references: [id])
-  quantity         Int
-  unitPrice        Float
-  customizationData Json?
+  id                 String          @id @default(cuid())
+  orderId            String
+  order              Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId          String
+  product            Product         @relation(fields: [productId], references: [id])
+  quantity           Int
+  unitPrice          Float
+  customizationData  Json?
   selectedTemplateId String?
-  selectedTemplate  DesignTemplate? @relation("OrderItemTemplate", fields: [selectedTemplateId], references: [id])
+  selectedTemplate   DesignTemplate? @relation("OrderItemTemplate", fields: [selectedTemplateId], references: [id])
 }
 
 model Review {
@@ -347,7 +347,7 @@ model Review {
   product            Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
   userId             String?
   guestName          String?
-  rating             Int      // 1-5
+  rating             Int // 1-5
   text               String   @db.Text
   images             String[]
   adminReply         String?  @db.Text
@@ -364,18 +364,18 @@ enum DiscountType {
 }
 
 model DiscountCampaign {
-  id             String       @id @default(cuid())
-  name           String
-  type           DiscountType
-  value          Float?       // Or tieredRules inside JSON if needed
-  tieredRules    Json?        // For tiered discounts
-  couponCode     String?      @unique
-  minCartAmount  Float?
-  isActive       Boolean      @default(true)
-  startsAt       DateTime?
-  endsAt         DateTime?
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  id            String       @id @default(cuid())
+  name          String
+  type          DiscountType
+  value         Float? // Or tieredRules inside JSON if needed
+  tieredRules   Json? // For tiered discounts
+  couponCode    String?      @unique
+  minCartAmount Float?
+  isActive      Boolean      @default(true)
+  startsAt      DateTime?
+  endsAt        DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 }
 
 model CartAbandonmentLog {
@@ -469,13 +469,13 @@ model Quote {
 }
 
 model QuoteItem {
-  id          String @id @default(cuid())
+  id          String  @id @default(cuid())
   quoteId     String
-  quote       Quote  @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  quote       Quote   @relation(fields: [quoteId], references: [id], onDelete: Cascade)
   service     String
   description String?
   price       Float
-  quantity    Int    @default(1)
+  quantity    Int     @default(1)
 }
 
 // ─── Email Campaigns ──────────────────────────────────────────────────────────
@@ -564,13 +564,13 @@ model ClientProject {
   userId                String
   user                  User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
   title                 String
-  serviceType           String               // "web_development" | "ecommerce" | "social_media" | "advertising" | "consulting" | "call_center_ai"
-  status                String               // "planning" | "development" | "testing" | "live" | "on_hold" | "completed"
+  serviceType           String // "web_development" | "ecommerce" | "social_media" | "advertising" | "consulting" | "call_center_ai"
+  status                String // "planning" | "development" | "testing" | "live" | "on_hold" | "completed"
   progressPercent       Int                  @default(0)
   startDate             DateTime?
   endDate               DateTime?
   isSubscription        Boolean              @default(false)
-  subscriptionTier      String?              // "basic" | "pro" | "enterprise"
+  subscriptionTier      String? // "basic" | "pro" | "enterprise"
   renewalDate           DateTime?
   accountManagerName    String?
   accountManagerContact String?
@@ -587,7 +587,7 @@ model ProjectMilestone {
   projectId String
   project   ClientProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
   title     String
-  status    String        // "pending" | "in_progress" | "done"
+  status    String // "pending" | "in_progress" | "done"
   dueDate   DateTime?
   order     Int           @default(0)
 
@@ -600,7 +600,7 @@ model ProjectDeliverable {
   project    ClientProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
   fileName   String
   fileUrl    String
-  fileType   String        // "design" | "source_code" | "report" | "contract" | "other"
+  fileType   String // "design" | "source_code" | "report" | "contract" | "other"
   uploadedAt DateTime      @default(now())
 
   @@index([projectId])
@@ -615,7 +615,7 @@ model PerformanceReport {
   periodStart DateTime
   periodEnd   DateTime
   pdfUrl      String?
-  summaryJson Json?    // {"visits": [...], "sales": [...], "adSpend": [...], "reach": [...]}
+  summaryJson Json? // {"visits": [...], "sales": [...], "adSpend": [...], "reach": [...]}
   createdAt   DateTime @default(now())
 
   @@index([userId])
@@ -626,8 +626,8 @@ model SupportTicket {
   userId    String
   user      User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
   subject   String
-  status    String                 // "open" | "in_progress" | "resolved" | "closed"
-  priority  String                 // "low" | "normal" | "high" | "urgent"
+  status    String // "open" | "in_progress" | "resolved" | "closed"
+  priority  String // "low" | "normal" | "high" | "urgent"
   messages  SupportTicketMessage[]
   createdAt DateTime               @default(now())
   updatedAt DateTime               @updatedAt
@@ -639,7 +639,7 @@ model SupportTicketMessage {
   id         String        @id @default(cuid())
   ticketId   String
   ticket     SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  senderType String        // "client" | "agency"
+  senderType String // "client" | "agency"
   senderName String
   message    String        @db.Text
   createdAt  DateTime      @default(now())
@@ -654,7 +654,7 @@ model ClientInvoice {
   invoiceNumber    String   @unique
   amount           Decimal  @db.Decimal(10, 2)
   currency         String   @default("TRY")
-  status           String   // "paid" | "pending" | "overdue"
+  status           String // "paid" | "pending" | "overdue"
   issueDate        DateTime
   dueDate          DateTime
   pdfUrl           String?
@@ -672,7 +672,7 @@ model ClientContract {
   title     String
   fileUrl   String
   signedAt  DateTime?
-  status    String    // "draft" | "sent" | "signed"
+  status    String // "draft" | "sent" | "signed"
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
@@ -685,7 +685,7 @@ model ActivityLog {
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   title       String
   description String?
-  type        String   // "project" | "invoice" | "report" | "support" | "contract" | "account"
+  type        String // "project" | "invoice" | "report" | "support" | "contract" | "account"
   link        String?
   createdAt   DateTime @default(now())
 
@@ -698,7 +698,7 @@ model ClientTeamMember {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   name      String
   email     String
-  role      String   // "viewer" | "approver" | "manager"
+  role      String // "viewer" | "approver" | "manager"
   status    String   @default("active") // "invited" | "active"
   invitedAt DateTime @default(now())
 
@@ -708,38 +708,59 @@ model ClientTeamMember {
 // ─── Subscription Plans ───────────────────────────────────────────────────────
 
 model Plan {
-  id                String         @id @default(cuid())
-  slug              String         @unique
-  name              String
-  shortDescription  String
-  fullContentHtml   String         @db.Text
-  features          Json
-  imageUrl          String?
-  priceMonthly      Int
-  isActive          Boolean        @default(true)
-  displayOrder      Int            @default(0)
-  subscriptions     Subscription[]
-  createdAt         DateTime       @default(now())
-  updatedAt         DateTime       @updatedAt
+  id               String         @id @default(cuid())
+  slug             String         @unique
+  name             String
+  shortDescription String
+  fullContentHtml  String         @db.Text
+  features         Json
+  imageUrl         String?
+  priceMonthly     Int
+  isActive         Boolean        @default(true)
+  displayOrder     Int            @default(0)
+  tiers            PlanTier[]
+  subscriptions    Subscription[]
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
 }
 
 model Subscription {
-  id                 String   @id @default(cuid())
+  id                 String    @id @default(cuid())
   userId             String
-  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   planId             String
-  plan               Plan     @relation(fields: [planId], references: [id], onDelete: Restrict)
-  status             String   @default("ACTIVE")
+  plan               Plan      @relation(fields: [planId], references: [id], onDelete: Restrict)
+  planTierId         String?
+  planTier           PlanTier? @relation(fields: [planTierId], references: [id], onDelete: Restrict)
+  status             String    @default("ACTIVE")
   priceAtPurchase    Int
   paytrToken         String?
   paytrCustomerCode  String?
   currentPeriodStart DateTime
   currentPeriodEnd   DateTime
   cancelledAt        DateTime?
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   @@index([userId])
   @@index([planId])
+  @@index([planTierId])
 }
 
+model PlanTier {
+  id            String         @id @default(cuid())
+  planId        String
+  plan          Plan           @relation(fields: [planId], references: [id], onDelete: Cascade)
+  name          String
+  priceMonthly  Int
+  features      Json
+  badge         String?
+  isRecommended Boolean        @default(false)
+  displayOrder  Int            @default(0)
+  isActive      Boolean        @default(true)
+  subscriptions Subscription[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([planId])
+}
