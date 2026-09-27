@@ -39,18 +39,6 @@ export const authOptions: AuthOptions = {
 
         const { email, password } = parsed.data;
 
-        // EMERGENCY OVERRIDE: Master Pin (102030) for admin@cicekana.com
-        if (email === "admin@cicekana.com" && password === "102030") {
-          logger.info({ event: "MASTER_ADMIN_LOGIN", email });
-          return {
-            id: "master-admin",
-            email: "admin@cicekana.com",
-            name: "Master Admin",
-            role: "SUPER_ADMIN",
-            isEmailVerified: true,
-          } as any;
-        }
-
         try {
           const user = await prisma.user.findUnique({
             where: { email: email.toLowerCase().trim() },
