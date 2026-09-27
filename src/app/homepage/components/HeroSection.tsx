@@ -13,7 +13,7 @@ const containerVariants = {
 
 const itemVariants = {
   hidden:  { opacity: 0, y: 28 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.65, ease: [0.16, 1, 0.3, 1] } },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.65, ease: [0.16, 1, 0.3, 1] as const } },
 };
 
 const stats = [
@@ -130,7 +130,7 @@ export default function HeroSection() {
             className="lg:col-span-2 flex items-center justify-center"
             initial={{ opacity: 0, x: 32 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.9, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
+            transition={{ duration: 0.9, delay: 0.3, ease: [0.16, 1, 0.3, 1] as const }}
           >
             <div className="w-full max-w-[520px] lg:max-w-full">
               <TechIllustration />

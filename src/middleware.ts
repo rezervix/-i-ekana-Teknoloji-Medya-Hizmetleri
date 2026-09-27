@@ -9,10 +9,10 @@ export async function middleware(request: NextRequest) {
     secret: process.env.NEXTAUTH_SECRET,
   });
 
-  // 1. Protect /admin/* routes
-  if (pathname.startsWith("/admin")) {
+  // Admin login is intentionally separate from the normal member auth flow.
+  if (pathname.startsWith("/admin") && pathname !== "/admin/login") {
     if (!token) {
-      const loginUrl = new URL("/auth", request.url);
+      const loginUrl = new URL("/admin/login", request.url);
       loginUrl.searchParams.set("callbackUrl", pathname);
       return NextResponse.redirect(loginUrl);
     }

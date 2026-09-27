@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
   if (!session || (session.user as { role?: string })?.role !== "SUPER_ADMIN") {
@@ -14,7 +14,8 @@ export async function POST(
   }
 
   try {
-    const log = await prisma.cartAbandonmentLog.findUnique({ where: { id: params.id } });
+    const { id } = await params;
+    const log = await prisma.cartAbandonmentLog.findUnique({ where: { id } });
     if (!log) return NextResponse.json({ error: "Kayıt bulunamadı" }, { status: 404 });
 
     // Log reminder email
@@ -28,7 +29,7 @@ export async function POST(
 
     // Update reminder count and sentAt
     const updated = await prisma.cartAbandonmentLog.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         reminderCount: { increment: 1 },
         emailSentAt: new Date(),

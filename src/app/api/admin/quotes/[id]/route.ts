@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
   if (!session || (session.user as { role?: string })?.role !== "SUPER_ADMIN") {
@@ -16,7 +16,7 @@ export async function PATCH(
   try {
     const { status, notes } = await req.json();
     const quote = await prisma.quote.update({
-      where: { id: params.id },
+      where: { id: (await params).id },
       data: {
         ...(status && { status }),
         ...(notes !== undefined && { terms: notes }),
@@ -31,7 +31,7 @@ export async function PATCH(
 
 export async function DELETE(
   _req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
   if (!session || (session.user as { role?: string })?.role !== "SUPER_ADMIN") {
@@ -39,7 +39,7 @@ export async function DELETE(
   }
 
   try {
-    await prisma.quote.delete({ where: { id: params.id } });
+    await prisma.quote.delete({ where: { id: (await params).id } });
     return NextResponse.json({ success: true });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });

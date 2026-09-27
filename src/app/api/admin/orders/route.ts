@@ -21,7 +21,7 @@ export async function GET() {
 
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
   if (!session || (session.user as any)?.role !== "SUPER_ADMIN") {
@@ -30,8 +30,9 @@ export async function PATCH(
 
   try {
     const { status } = await req.json();
+    const { id } = await params;
     const order = await prisma.order.update({
-      where: { id: params.id },
+      where: { id },
       data: { status }
     });
     return NextResponse.json(order);

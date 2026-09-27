@@ -6,7 +6,7 @@ import ReviewList from "./ReviewList";
 export const dynamic = "force-dynamic";
 
 export default async function AdminYorumlarPage() {
-  let reviews = [];
+  let reviews: any[] = [];
   try {
     reviews = await prisma.review.findMany({
       orderBy: { createdAt: "desc" },

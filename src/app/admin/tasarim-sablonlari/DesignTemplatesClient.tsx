@@ -15,7 +15,7 @@ interface DesignTemplate {
   frontImageUrl: string | null;
   backImageUrl: string | null;
   isActive: boolean;
-  createdAt: string;
+  createdAt: string | Date;
   product?: {
     id: string;
     name: string;

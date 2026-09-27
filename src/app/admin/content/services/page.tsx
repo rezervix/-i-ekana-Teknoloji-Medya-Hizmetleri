@@ -277,7 +277,7 @@ export default function AdminPage() {
                     className="flex-1 px-4 py-2 border border-corp-border rounded-lg focus:outline-none focus:ring-2 focus:ring-corp-teal/20 focus:border-corp-teal"
                     placeholder="https://..."
                   />
-                  <UploadButton<OurFileRouter>
+                  <UploadButton<"imageUploader">
                     endpoint="imageUploader"
                     onClientUploadComplete={(res) => {
                       if (res?.[0]?.url) {
@@ -287,17 +287,8 @@ export default function AdminPage() {
                     onUploadError={(error) => {
                       console.error("Upload error:", error);
                     }}
-                  >
-                    {({ onClick }) => (
-                      <button
-                        type="button"
-                        onClick={onClick}
-                        className="px-4 py-2 bg-corp-surface border border-corp-border rounded-lg hover:bg-corp-teal hover:text-white hover:border-corp-teal transition-colors flex items-center gap-2"
-                      >
-                        <Upload size={16} />
-                      </button>
-                    )}
-                  </UploadButton>
+                    className="px-4 py-2 bg-corp-surface border border-corp-border rounded-lg hover:bg-corp-teal hover:text-white hover:border-corp-teal transition-colors"
+                  />
                 </div>
                 {formData.revealImage1 && (
                   <img src={formData.revealImage1} alt="Görsel 1 preview" className="mt-2 h-12 w-auto object-contain" />
@@ -314,7 +305,7 @@ export default function AdminPage() {
                     className="flex-1 px-4 py-2 border border-corp-border rounded-lg focus:outline-none focus:ring-2 focus:ring-corp-teal/20 focus:border-corp-teal"
                     placeholder="https://..."
                   />
-                  <UploadButton<OurFileRouter>
+                  <UploadButton<"imageUploader">
                     endpoint="imageUploader"
                     onClientUploadComplete={(res) => {
                       if (res?.[0]?.url) {
@@ -324,17 +315,8 @@ export default function AdminPage() {
                     onUploadError={(error) => {
                       console.error("Upload error:", error);
                     }}
-                  >
-                    {({ onClick }) => (
-                      <button
-                        type="button"
-                        onClick={onClick}
-                        className="px-4 py-2 bg-corp-surface border border-corp-border rounded-lg hover:bg-corp-teal hover:text-white hover:border-corp-teal transition-colors flex items-center gap-2"
-                      >
-                        <Upload size={16} />
-                      </button>
-                    )}
-                  </UploadButton>
+                    className="px-4 py-2 bg-corp-surface border border-corp-border rounded-lg hover:bg-corp-teal hover:text-white hover:border-corp-teal transition-colors"
+                  />
                 </div>
                 {formData.revealImage2 && (
                   <img src={formData.revealImage2} alt="Görsel 2 preview" className="mt-2 h-12 w-auto object-contain" />

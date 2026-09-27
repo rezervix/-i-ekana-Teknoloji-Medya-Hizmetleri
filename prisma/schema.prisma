@@ -43,6 +43,7 @@ model User {
   clientContracts ClientContract[]
   activityLogs    ActivityLog[]
   teamMembers     ClientTeamMember[]
+  subscriptions   Subscription[]
   createdAt       DateTime                @default(now())
   updatedAt       DateTime                @updatedAt
 }
@@ -702,5 +703,43 @@ model ClientTeamMember {
   invitedAt DateTime @default(now())
 
   @@index([userId])
+}
+
+// ─── Subscription Plans ───────────────────────────────────────────────────────
+
+model Plan {
+  id                String         @id @default(cuid())
+  slug              String         @unique
+  name              String
+  shortDescription  String
+  fullContentHtml   String         @db.Text
+  features          Json
+  imageUrl          String?
+  priceMonthly      Int
+  isActive          Boolean        @default(true)
+  displayOrder      Int            @default(0)
+  subscriptions     Subscription[]
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+}
+
+model Subscription {
+  id                 String   @id @default(cuid())
+  userId             String
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planId             String
+  plan               Plan     @relation(fields: [planId], references: [id], onDelete: Restrict)
+  status             String   @default("ACTIVE")
+  priceAtPurchase    Int
+  paytrToken         String?
+  paytrCustomerCode  String?
+  currentPeriodStart DateTime
+  currentPeriodEnd   DateTime
+  cancelledAt        DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([userId])
+  @@index([planId])
 }
 

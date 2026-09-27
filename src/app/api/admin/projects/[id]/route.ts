@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth";
 
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
   if (!session || (session.user as any)?.role !== "SUPER_ADMIN") {
@@ -14,7 +14,7 @@ export async function PATCH(
   try {
     const data = await req.json();
     const project = await prisma.project.update({
-      where: { id: params.id },
+      where: { id: (await params).id },
       data,
     });
     return NextResponse.json(project);
@@ -25,7 +25,7 @@ export async function PATCH(
 
 export async function DELETE(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
   if (!session || (session.user as any)?.role !== "SUPER_ADMIN") {
@@ -34,7 +34,7 @@ export async function DELETE(
 
   try {
     await prisma.project.delete({
-      where: { id: params.id },
+      where: { id: (await params).id },
     });
     return NextResponse.json({ success: true });
   } catch (error: any) {
