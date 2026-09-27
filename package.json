@@ -42,8 +42,8 @@
     "dev": "next dev -p 4028",
     "build": "cross-env NEXT_DISABLE_SWC=1 npx prisma generate && cross-env NEXT_DISABLE_SWC=1 next build",
     "start": "next start -p 4028",
-    "lint": "next lint",
-    "lint:fix": "next lint --fix",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "format": "prettier --write \"src/**/*.{ts,tsx,css,md,json}\"",
     "serve": "next start",
     "type-check": "tsc --noEmit"
@@ -58,7 +58,6 @@
     "@heroicons/react": "^2.2.0",
     "@hookform/resolvers": "^5.2.2",
     "@next-auth/prisma-adapter": "^1.0.7",
-    "@next/swc-win32-x64-msvc": "^16.2.9",
     "@number-flow/react": "^0.6.2",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.7.0",
