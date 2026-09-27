@@ -32,6 +32,22 @@ export async function POST(request: NextRequest) {
       return new Response("NO", { status: 400 });
     }
 
+    const subscription = await prisma.subscription.findUnique({ where: { id: merchantOid } });
+    if (subscription) {
+      if (subscription.status !== "PENDING") return new Response("OK");
+      if (status === "success") {
+        const start = new Date();
+        const end = new Date(start);
+        end.setMonth(end.getMonth() + 1);
+        await prisma.subscription.updateMany({ where: { id: subscription.id, status: "PENDING" }, data: { status: "ACTIVE", currentPeriodStart: start, currentPeriodEnd: end } });
+        logger.info({ event: "PAYTR_SUBSCRIPTION_ACTIVATED", details: { merchantOid } });
+      } else if (status === "failed") {
+        await prisma.subscription.updateMany({ where: { id: subscription.id, status: "PENDING" }, data: { status: "FAILED" } });
+        logger.info({ event: "PAYTR_SUBSCRIPTION_FAILED", details: { merchantOid } });
+      }
+      return new Response("OK");
+    }
+
     const order = await prisma.order.findUnique({ where: { orderNumber: merchantOid }, include: { items: true } });
     if (!order) {
       logger.error({ event: "PAYTR_CALLBACK_ORDER_NOT_FOUND", details: { merchantOid } });
