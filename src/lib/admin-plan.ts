@@ -18,3 +18,8 @@ export async function requireAdmin() {
   const session = await auth();
   return session?.user && roles.has(String((session.user as { role?: string }).role)) ? session : null;
 }
+
+export async function sanitizePlanHtml(html: string) {
+  const { default: DOMPurify } = await import("isomorphic-dompurify");
+  return DOMPurify.sanitize(html, { FORBID_TAGS: ["iframe", "object", "embed"] });
+}
