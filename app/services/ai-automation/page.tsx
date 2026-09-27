@@ -111,7 +111,22 @@ export default function AIAutomationPage() {
             </Link>
           </div>
 
-          {/* Product Card 4 - Coming Soon */}
+          {/* Product Card 4 - Kuşçu Finansal Yapay Zeka */}
+          <div className="flex flex-col bg-white p-8 rounded-xl border border-[#c1c7cd]/50 shadow-sm hover:shadow-[0px_4px_20px_rgba(10,61,84,0.08)] transition-all duration-300 relative min-h-[480px]">
+            <div className="mb-6 h-24 w-40 flex items-center">
+              <div className="flex flex-col gap-1">
+                <span className="text-[28px] font-bold text-[#0f172a] tracking-tight leading-none">kuşçu</span>
+                <span className="text-[11px] font-semibold text-[#2563eb] tracking-widest uppercase leading-none">finansal yapay zeka</span>
+              </div>
+            </div>
+            <h3 className="text-[24px] font-semibold leading-[32px] text-[#002638] mb-3">Kuşçu Finansal Yapay Zeka</h3>
+            <p className="text-[16px] leading-[24px] text-[#41484c] mb-8 flex-grow">BIST, KAP, finansal haberler ve piyasa sinyallerini yapay zeka ile analiz eden finansal akıl ve tahminleme platformu.</p>
+            <Link className="inline-flex items-center gap-2 text-[#00b2c9] text-[14px] font-medium hover:text-[#002638] transition-colors mt-auto group" href="/services/ai-automation/kuscu">
+              Ürünü İncele <ArrowRight data-icon="inline-end" className="group-hover:translate-x-1 transition-transform" />
+            </Link>
+          </div>
+
+          {/* Product Card 5 - Coming Soon */}
           <div className="flex flex-col items-center justify-center bg-white p-8 rounded-xl border border-[#c1c7cd]/50 shadow-sm hover:shadow-[0px_4px_20px_rgba(10,61,84,0.08)] transition-all duration-300 relative min-h-[480px]">
             <h3 className="text-[24px] font-semibold leading-[32px] text-[#002638] opacity-60">Çok Yakında</h3>
           </div>

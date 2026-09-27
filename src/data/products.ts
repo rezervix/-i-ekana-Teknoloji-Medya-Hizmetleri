@@ -124,6 +124,29 @@ export const STORE_PRODUCTS: Product[] = [
       "Büyüyen işletmeler, ajanslar ve çoklu şirket yöneten profesyonel ekipler için uçtan uca muhasebe altyapısı. Otomatik tekrarlayan faturalar, müşteri portalı, çoklu şirket & RBAC, REST API & Webhook, öncelikli VIP destek ve anahtar teslim kurulum dahil. Tek seferlik ömür boyu lisans.",
     slug: "faktura-enterprise-prime",
   },
+  // ─── Kuşçu: Finansal Yapay Zeka ────────────────────────────────────────────
+  {
+    id: "kuscu-baslangic",
+    name: "Kuşçu Başlangıç",
+    price: 10000,
+    category: "Teknoloji",
+    image: "/images/kuscu-dashboard.svg",
+    color: "Finansal Yapay Zeka (Aylık)",
+    description:
+      "BIST, KAP, finansal haberler ve piyasa sinyallerini yapay zeka ile analiz eden Kuşçu finansal akıl platformunun başlangıç paketi.",
+    slug: "kuscu-baslangic",
+  },
+  {
+    id: "kuscu-profesyonel",
+    name: "Kuşçu Profesyonel",
+    price: 25000,
+    category: "Teknoloji",
+    image: "/images/kuscu-dashboard.svg",
+    color: "Profesyonel Paket (Aylık)",
+    description:
+      "Derin piyasa sinyalleri, KAP ve bilanço AI özetleri, risk uyarıları ve özel izleme listeleriyle profesyonel finansal analiz.",
+    slug: "kuscu-profesyonel",
+  },
   // ─── Midvem: Müşteri Destek ve İletişim Sistemi ─────────────────────────────
   {
     id: "midvem-baslangic",
