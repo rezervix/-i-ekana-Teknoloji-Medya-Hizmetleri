@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 
 // Update a design template
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session || (session.user as any)?.role !== "SUPER_ADMIN") {
     return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
@@ -20,7 +20,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     const backImg = data.backImageUrl || data.backImage || null;
 
     const template = await prisma.designTemplate.update({
-      where: { id: params.id },
+      where: { id: (await params).id },
       data: {
         productId: data.productId || null,
         subcategory: data.subcategory || null,
@@ -48,7 +48,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 }
 
 // Delete a design template
-export async function DELETE(req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session || (session.user as any)?.role !== "SUPER_ADMIN") {
     return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
@@ -56,7 +56,7 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
 
   try {
     await prisma.designTemplate.delete({
-      where: { id: params.id },
+      where: { id: (await params).id },
     });
     return NextResponse.json({ success: true });
   } catch (error: any) {

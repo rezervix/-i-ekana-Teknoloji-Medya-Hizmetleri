@@ -30,7 +30,7 @@ const leadSchema = z.object({
   timeline: z.string().min(1),
   email: z.string().email(),
   brief: z.string().max(2000).optional(),
-  kvkk: z.literal(true, { errorMap: () => ({ message: "KVKK onayı zorunludur" }) }),
+  kvkk: z.literal(true, { message: "KVKK onayı zorunludur" }),
   honeypot: z.string().max(0).optional(), // must be empty
 });
 

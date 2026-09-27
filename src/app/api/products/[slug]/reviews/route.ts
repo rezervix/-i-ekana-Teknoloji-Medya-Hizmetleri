@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth";
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { slug: string } }
+  { params }: { params: Promise<{ slug: string }> }
 ) {
   try {
     const { rating, guestName, text } = await req.json();
@@ -31,8 +31,9 @@ export async function POST(
     }
 
     // Find the product by its slug
+    const { slug } = await params;
     const product = await prisma.product.findUnique({
-      where: { slug: params.slug },
+      where: { slug },
     });
 
     if (!product) {
@@ -44,7 +45,7 @@ export async function POST(
 
     // Check if user is logged in to store their userId
     const session = await auth();
-    const userId = session?.user?.id || null;
+    const userId = (session?.user as { id?: string } | undefined)?.id || null;
 
     // Create the review, default isApproved is false
     const review = await prisma.review.create({

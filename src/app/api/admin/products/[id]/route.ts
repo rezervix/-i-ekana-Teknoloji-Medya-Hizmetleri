@@ -5,7 +5,7 @@ import { detectSubcategory } from "@/lib/services/subcategoryDetector";
 
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
   if (!session || (session.user as any)?.role !== "SUPER_ADMIN") {
@@ -26,7 +26,7 @@ export async function PATCH(
     }
 
     const product = await prisma.product.update({
-      where: { id: params.id },
+      where: { id: (await params).id },
       data
     });
     return NextResponse.json(product);
@@ -37,7 +37,7 @@ export async function PATCH(
 
 export async function DELETE(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
   if (!session || (session.user as any)?.role !== "SUPER_ADMIN") {
@@ -46,7 +46,7 @@ export async function DELETE(
 
   try {
     await prisma.product.delete({
-      where: { id: params.id }
+      where: { id: (await params).id }
     });
     return NextResponse.json({ success: true });
   } catch (error: any) {

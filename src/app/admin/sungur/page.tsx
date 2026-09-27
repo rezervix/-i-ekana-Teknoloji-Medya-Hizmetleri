@@ -305,7 +305,7 @@ export default function SungurPage() {
     setTab("logs");
   };
 
-  const tabs: { id: TabId; label: string; icon: React.ElementType }[] = [
+  const tabs: { id: TabId; label: string; icon: React.ComponentType<{ size?: number }> }[] = [
     { id: "launcher",   label: "Agent Launcher",       icon: Play },
     { id: "logs",       label: "Live Logs",             icon: Terminal },
     { id: "campaigns",  label: "Email Kampanyaları",    icon: Mail },

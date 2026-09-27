@@ -6,7 +6,7 @@ import CampaignList from "./CampaignList";
 export const dynamic = "force-dynamic";
 
 export default async function AdminKampanyalarPage() {
-  let campaigns = [];
+  let campaigns: any[] = [];
   try {
     campaigns = await prisma.discountCampaign.findMany({
       orderBy: { createdAt: "desc" },

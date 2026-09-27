@@ -7,7 +7,7 @@ import ProductList from "./ProductList";
 export const dynamic = "force-dynamic";
 
 export default async function AdminUrunlerPage() {
-  let products = [];
+  let products: any[] = [];
   try {
     products = await prisma.product.findMany({
       orderBy: { createdAt: "desc" }

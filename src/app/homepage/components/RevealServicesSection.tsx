@@ -3,6 +3,11 @@
 import React, { useEffect, useState } from "react";
 import { RevealImageList } from "@/components/ui/reveal-images";
 
+interface ImageSource {
+  src: string;
+  alt: string;
+}
+
 interface Service {
   id: string;
   name: string;
@@ -43,7 +48,7 @@ export default function RevealServicesSection() {
   }, []);
 
   const items = services
-    .filter(s => s.revealImage1 && s.revealImage2)
+    .filter(s => s.revealImage1 && s.revealImage2 && s.isActive !== false)
     .map(s => ({
       text: s.name,
       images: [

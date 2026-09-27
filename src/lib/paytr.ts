@@ -2,14 +2,14 @@ import crypto from "node:crypto";
 
 export function requiredPaytrEnv() {
   const values = {
-    merchantId: process.env.PAYTR_MERCHANT_ID,
-    merchantKey: process.env.PAYTR_MERCHANT_KEY,
-    merchantSalt: process.env.PAYTR_MERCHANT_SALT,
+    merchantId: process.env.PAYTR_MERCHANT_ID || "",
+    merchantKey: process.env.PAYTR_MERCHANT_KEY || "",
+    merchantSalt: process.env.PAYTR_MERCHANT_SALT || "",
   };
   if (!values.merchantId || !values.merchantKey || !values.merchantSalt) {
     throw new Error("PayTR merchant ortam değişkenleri eksik");
   }
-  return values;
+  return values as { merchantId: string; merchantKey: string; merchantSalt: string };
 }
 
 export function paytrHash(value: string, secret: string) {

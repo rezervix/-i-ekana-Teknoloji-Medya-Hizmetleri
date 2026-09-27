@@ -5,7 +5,7 @@ import { Plus, Edit, Trash2 } from "lucide-react";
 export const dynamic = "force-dynamic";
 
 export default async function AdminBlogPage() {
-  let posts = [];
+  let posts: any[] = [];
   try {
     posts = await prisma.blogPost.findMany({
       orderBy: { createdAt: "desc" }

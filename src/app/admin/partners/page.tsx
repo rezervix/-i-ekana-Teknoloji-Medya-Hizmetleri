@@ -240,7 +240,7 @@ export default function AdminPage() {
                     className="flex-1 px-4 py-2 border border-corp-border rounded-lg focus:outline-none focus:ring-2 focus:ring-corp-teal/20 focus:border-corp-teal"
                     placeholder="https://..."
                   />
-                  <UploadButton<OurFileRouter>
+                  <UploadButton<"logoUploader">
                     endpoint="logoUploader"
                     onClientUploadComplete={(res) => {
                       if (res?.[0]?.url) {
@@ -250,17 +250,8 @@ export default function AdminPage() {
                     onUploadError={(error) => {
                       console.error("Upload error:", error);
                     }}
-                  >
-                    {({ onClick }) => (
-                      <button
-                        type="button"
-                        onClick={onClick}
-                        className="px-4 py-2 bg-corp-surface border border-corp-border rounded-lg hover:bg-corp-teal hover:text-white hover:border-corp-teal transition-colors flex items-center gap-2"
-                      >
-                        <Upload size={16} />
-                      </button>
-                    )}
-                  </UploadButton>
+                    className="px-4 py-2 bg-corp-surface border border-corp-border rounded-lg hover:bg-corp-teal hover:text-white hover:border-corp-teal transition-colors"
+                  />
                 </div>
                 {formData.logoUrl && (
                   <img src={formData.logoUrl} alt="Logo preview" className="mt-2 h-12 w-auto object-contain" />

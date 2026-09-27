@@ -25,8 +25,6 @@ export async function GET() {
         productId: true,
         frontImage: true,
         backImage: true,
-      },
-      include: {
         product: {
           select: {
             name: true,

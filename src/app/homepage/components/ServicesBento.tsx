@@ -31,7 +31,7 @@ const containerVariants = {
 
 const cardVariants = {
   hidden:  { opacity: 0, y: 36 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] } },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] as const } },
 };
 
 export default function ServicesBento() {
@@ -52,7 +52,7 @@ export default function ServicesBento() {
           initial={{ opacity: 0, y: 24 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
+          transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] as const }}
           className="mb-14"
         >
           <span className="font-body text-[11px] text-corp-coral tracking-widest uppercase font-semibold block mb-4">

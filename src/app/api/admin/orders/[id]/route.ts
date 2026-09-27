@@ -10,7 +10,7 @@ const PatchSchema = z.object({
 
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
   if (!session || (session.user as { role?: string })?.role !== "SUPER_ADMIN") {
@@ -20,7 +20,7 @@ export async function PATCH(
     );
   }
 
-  const orderId = params.id;
+  const orderId = (await params).id;
   if (!orderId || typeof orderId !== "string") {
     return NextResponse.json(
       { success: false, error: { code: "INVALID_ID", message: "Geçersiz sipariş ID" } },
@@ -90,7 +90,7 @@ export async function PATCH(
 
 export async function DELETE(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
   if (!session || (session.user as { role?: string })?.role !== "SUPER_ADMIN") {
@@ -100,7 +100,7 @@ export async function DELETE(
     );
   }
 
-  const orderId = params.id;
+  const orderId = (await params).id;
 
   try {
     const existing = await prisma.order.findUnique({ where: { id: orderId }, select: { id: true } });

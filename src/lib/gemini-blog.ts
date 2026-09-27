@@ -7,6 +7,7 @@ const API_KEYS = [
 
 function getClient() {
   const key = API_KEYS[Math.floor(Math.random() * API_KEYS.length)];
+  if (!key) throw new Error("GEMINI_API_KEY is not configured");
   return new GoogleGenerativeAI(key);
 }
 
