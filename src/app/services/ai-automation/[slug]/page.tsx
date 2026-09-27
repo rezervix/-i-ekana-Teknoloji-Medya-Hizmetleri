@@ -8,7 +8,10 @@ import Footer from "@/components/Footer";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import SubscribeButton from "./SubscribeButton";
+import IsolatedHtmlFrame from "./IsolatedHtmlFrame";
 import { formatTryPrice, getStartingPrice, getTierFeatures } from "@/lib/plan-pricing";
+import { sanitizePlanHtml } from "@/lib/admin-plan";
+import { createIsolatedHtmlDocument } from "@/lib/isolated-html";
 
 export const dynamic = "force-dynamic";
 
@@ -36,13 +39,16 @@ export default async function AIAutomationPlanPage({ params }: { params: Promise
   const planFeatures = getTierFeatures(plan.features);
   const tiers = plan.tiers;
   const startingPrice = getStartingPrice(plan);
+  const isolatedContent = createIsolatedHtmlDocument(sanitizePlanHtml(plan.fullContentHtml));
 
   return <main className="min-h-screen bg-[#fcf9f8]"><Header /><section className="mx-auto max-w-[1180px] px-4 py-16 md:px-8">
     <Link href="/services/ai-automation" className="mb-8 inline-flex items-center gap-2 text-sm text-[#41484c] hover:text-[#002638]"><ArrowLeft aria-hidden="true" /> Tüm AI hizmetleri</Link>
     <div className="grid gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-start"><div>
       {plan.imageUrl ? <Image src={plan.imageUrl} alt={`${plan.name} görseli`} width={900} height={500} className="mb-8 max-h-[420px] w-full rounded-2xl object-contain" unoptimized /> : <div className="mb-8 flex h-64 items-center justify-center rounded-2xl bg-[#f6f3f2]"><Bot aria-hidden="true" className="text-[#00b2c9]" size={64} /></div>}
       <p className="mb-3 text-sm font-medium uppercase tracking-wider text-[#00b2c9]">AI Otomasyon</p><h1 className="mb-5 text-4xl font-semibold tracking-tight text-[#002638] md:text-5xl">{plan.name}</h1><p className="mb-3 text-lg leading-8 text-[#41484c]">{plan.shortDescription}</p><p className="mb-8 text-sm font-medium text-[#007c91]">Başlangıç fiyatı: {startingPrice === null ? "Fiyat bilgisi için iletişime geçin" : `${formatTryPrice(startingPrice)}/ay`}</p>
-      <div className="prose max-w-none prose-headings:text-[#002638] prose-p:text-[#41484c]" dangerouslySetInnerHTML={{ __html: plan.fullContentHtml }} />
+      <div className="overflow-hidden rounded-2xl bg-white/40">
+        <IsolatedHtmlFrame srcDoc={isolatedContent} title={`${plan.name} detay içeriği`} />
+      </div>
     </div><aside className="sticky top-8"><p className="mb-4 text-sm font-medium uppercase tracking-wider text-[#00a3b8]">Paketinizi seçin</p><div className="grid gap-4">
       {tiers.length === 0 ? <p className="rounded-2xl border border-[#c1c7cd]/60 bg-white p-6 text-sm text-[#41484c]">Bu hizmet için henüz yayınlanmış bir paket bulunmuyor.</p> : tiers.map((tier) => { const features = getTierFeatures(tier.features); const subscribed = tier.id !== "legacy" && activeSubscriptions.some((item) => item.planTierId === tier.id); return <article key={tier.id} className={`relative rounded-2xl border bg-white p-6 shadow-sm transition ${tier.isRecommended ? "border-[#00a3b8] ring-2 ring-[#00a3b8]/20 lg:scale-[1.02]" : "border-[#c1c7cd]/60"}`}>
         {tier.badge ? <span className="absolute -top-3 left-5 rounded-full bg-[#00a3b8] px-3 py-1 text-xs font-semibold text-white">{tier.badge}</span> : null}<div className="flex items-start justify-between gap-3"><h2 className="text-xl font-semibold text-[#002638]">{tier.name}</h2>{tier.isRecommended ? <span className="rounded-full bg-[#e1f7f8] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-[#007c91]">Önerilen</span> : null}</div><p className="mt-3 text-3xl font-semibold text-[#002638]">{formatTryPrice(tier.priceMonthly)}<span className="text-sm font-normal text-[#41484c]">/ay</span></p>
