@@ -147,6 +147,27 @@ export const STORE_PRODUCTS: Product[] = [
       "Derin piyasa sinyalleri, KAP ve bilanço AI özetleri, risk uyarıları ve özel izleme listeleriyle profesyonel finansal analiz.",
     slug: "kuscu-profesyonel",
   },
+  // ─── ScoreForm: Müşteri Deneyimi ve İtibar Yönetimi ────────────────────────
+  {
+    id: "scoreform-baslangic",
+    name: "ScoreForm Başlangıç",
+    price: 2500,
+    category: "Teknoloji",
+    image: "/images/scoreform-dashboard.png",
+    color: "Müşteri Deneyimi (Aylık)",
+    description: "QR kodlu anketler, Google yönlendirme akışı ve aylık memnuniyet raporlarıyla hızlı başlangıç.",
+    slug: "scoreform-baslangic",
+  },
+  {
+    id: "scoreform-profesyonel",
+    name: "ScoreForm Profesyonel",
+    price: 5000,
+    category: "Teknoloji",
+    image: "/images/scoreform-dashboard.png",
+    color: "İtibar Yönetimi (Aylık)",
+    description: "WhatsApp bildirimleri, AI duygu analizi ve kriz erken uyarılarıyla gelişmiş müşteri deneyimi yönetimi.",
+    slug: "scoreform-profesyonel",
+  },
   // ─── Midvem: Müşteri Destek ve İletişim Sistemi ─────────────────────────────
   {
     id: "midvem-baslangic",
