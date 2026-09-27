@@ -20,6 +20,9 @@ export async function requireAdmin() {
 }
 
 export async function sanitizePlanHtml(html: string) {
-  const { default: DOMPurify } = await import("isomorphic-dompurify");
-  return DOMPurify.sanitize(html, { FORBID_TAGS: ["iframe", "object", "embed"] });
+  return html
+    .replace(/<(iframe|object|embed|script|style|base|link)[^>]*>[\s\S]*?<\/\1\s*>/gi, "")
+    .replace(/<\/?(iframe|object|embed|script|style|base|link)[^>]*>/gi, "")
+    .replace(/\s+on[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
+    .replace(/\s+(href|src)\s*=\s*("\s*javascript:[^"]*"|'\s*javascript:[^']*'|\s*javascript:[^\s>]+)/gi, "");
 }
