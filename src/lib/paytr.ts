@@ -54,8 +54,13 @@ export function publicPaytrUrl(name: "success" | "fail", fallbackPath: string) {
 
 export function callbackUrl() {
   const base = new URL(siteUrl());
-  if (process.env.NODE_ENV === "production" && (base.protocol !== "https:" || /localhost|127\\.0\\.1/.test(base.hostname))) {
-    throw new Error("NEXT_PUBLIC_SITE_URL production ortamında herkese açık HTTPS adresi olmalıdır");
+  if (process.env.NODE_ENV === "production") {
+    if (base.protocol !== "https:" || /localhost|127\\.0\\.1/.test(base.hostname)) {
+      throw new Error("NEXT_PUBLIC_SITE_URL production ortamında herkese açık HTTPS adresi olmalıdır");
+    }
+    if (base.hostname === "cicekanatechmedia.com") {
+      base.hostname = "www.cicekanatechmedia.com";
+    }
   }
   base.pathname = "/api/paytr/callback";
   base.search = "";
