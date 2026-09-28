@@ -114,6 +114,7 @@ export async function POST(request: NextRequest) {
       timeout_limit: "30",
       currency,
       test_mode: testMode,
+      callback_url: callbackUrl(),
     });
 
     const response = await fetch(PAYTR_ENDPOINT, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: params, cache: "no-store" });

@@ -53,7 +53,17 @@ export function publicPaytrUrl(name: "success" | "fail", fallbackPath: string) {
 }
 
 export function callbackUrl() {
-  return process.env.PAYTR_CALLBACK_URL || `${siteUrl()}/api/paytr/callback`;
+  const configured = process.env.PAYTR_CALLBACK_URL || `${siteUrl()}/api/paytr/callback`;
+  let url: URL;
+  try {
+    url = new URL(configured);
+  } catch {
+    throw new Error("PAYTR_CALLBACK_URL geçerli bir mutlak URL olmalıdır");
+  }
+  if (process.env.NODE_ENV === "production" && (url.protocol !== "https:" || /localhost|127\\.0\\.0\\.1/.test(url.hostname))) {
+    throw new Error("PayTR callback URL production ortamında herkese açık HTTPS adresi olmalıdır");
+  }
+  return url.toString();
 }
 
 export function logPaytrError(event: string, error: unknown, details?: Record<string, unknown>) {
