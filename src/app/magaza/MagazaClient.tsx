@@ -4,7 +4,6 @@ import React, { useState, useMemo } from "react";
 import { Search, Filter, ChevronDown } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { InteractiveCheckout, Product } from "@/components/ui/interactive-checkout";
-import { STORE_PRODUCTS } from "@/data/products";
 
 const CATEGORIES = [
   { id: "Tümü", label: "Tüm Koleksiyon" },
@@ -32,7 +31,7 @@ export default function MagazaClient({ products }: { products: any[], featuredPr
         slug: p.slug,
       }));
     }
-    return STORE_PRODUCTS;
+    return [];
   }, [products]);
 
   const filteredProducts = useMemo(() => {
