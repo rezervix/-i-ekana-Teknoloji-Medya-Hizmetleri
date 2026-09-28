@@ -203,7 +203,7 @@ export default function AdminLayout({ children }: Props) {
       {/* Main content area */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Top bar */}
-        <header className="flex items-center justify-between px-6 h-16 border-b border-corp-border bg-white shadow-corp-nav flex-shrink-0">
+        <header className="flex h-14 flex-shrink-0 items-center justify-between gap-3 border-b border-corp-border bg-white px-3 shadow-corp-nav sm:h-16 sm:px-6">
           <button
             className="lg:hidden text-corp-gray hover:text-corp-charcoal transition-colors"
             onClick={() => setSidebarOpen(true)}
@@ -213,13 +213,13 @@ export default function AdminLayout({ children }: Props) {
           </button>
 
           {/* Breadcrumb */}
-          <div className="flex items-center gap-1.5 text-corp-gray">
+          <div className="min-w-0 flex flex-1 items-center gap-1.5 overflow-hidden text-corp-gray">
             {pathname
               .split("/")
               .filter(Boolean)
               .map((seg, i, arr) => (
                 <React.Fragment key={i}>
-                  <span className="font-body text-[13px] capitalize">
+                  <span className="truncate font-body text-[12px] capitalize sm:text-[13px]">
                     {seg === "admin" ? "Ana Sayfa" : seg}
                   </span>
                   {i < arr.length - 1 && (
@@ -236,7 +236,7 @@ export default function AdminLayout({ children }: Props) {
         </header>
 
         {/* Page content */}
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
+        <main className="min-w-0 flex-1 overflow-y-auto p-3 sm:p-6">{children}</main>
       </div>
     </div>
   );
