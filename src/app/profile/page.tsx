@@ -35,20 +35,22 @@ export default async function ProfilePage() {
       user = { ...session.user, ...dbUser };
     }
 
-    orders = await prisma.order.findMany({
-      where: {
-        OR: [
-          { userId: dbUser?.id },
-          { guestEmail: session.user.email as string }
-        ]
-      },
+    const orderOwnerFilters = [
+      ...(dbUser?.id ? [{ userId: dbUser.id }] : []),
+      ...(session.user.email ? [{ guestEmail: session.user.email }] : []),
+    ];
+
+    orders = orderOwnerFilters.length
+      ? await prisma.order.findMany({
+      where: { OR: orderOwnerFilters },
       orderBy: { createdAt: "desc" },
       include: {
         items: {
           include: { product: true }
         }
       }
-    });
+    })
+      : [];
   } catch (error) {
     console.error("Profile Data Fetch Error:", error);
     // Continue with session data if DB is down
