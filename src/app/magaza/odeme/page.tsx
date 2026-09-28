@@ -96,6 +96,22 @@ export default function CheckoutPage() {
     setErrorMessage("");
 
     try {
+      const subscriptionItems = items.filter((item) => item.itemType === "subscription");
+      if (subscriptionItems.length > 0) {
+        if (subscriptionItems.length !== 1 || items.length !== 1) throw new Error("Abonelik paketleri diğer ürünlerle aynı sepette satın alınamaz.");
+        const subscriptionItem = subscriptionItems[0];
+        if (!subscriptionItem.subscriptionPlanId || !subscriptionItem.subscriptionTierId) throw new Error("Abonelik paketi bilgisi eksik. Lütfen ürünü tekrar sepete ekleyin.");
+        const subscriptionResponse = await fetch("/api/subscriptions/create", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ planId: subscriptionItem.subscriptionPlanId, planTierId: subscriptionItem.subscriptionTierId }) });
+        const subscriptionData = await subscriptionResponse.json();
+        if (subscriptionData.alreadySubscribed) { router.push("/profile/subscriptions"); return; }
+        if (!subscriptionResponse.ok || !subscriptionData.subscriptionId) throw new Error(subscriptionData.message || "Abonelik başlatılamadı.");
+        const tokenResponse = await fetch("/api/paytr/get-token", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ subscriptionId: subscriptionData.subscriptionId }) });
+        const tokenData = await tokenResponse.json().catch(() => ({}));
+        if (!tokenResponse.ok || !tokenData.token) throw new Error(tokenData.message || `Ödeme ekranı açılamadı (${tokenResponse.status}).`);
+        setPendingOrderNumber(subscriptionData.subscriptionId);
+        setPaytrToken(tokenData.token);
+        return;
+      }
       const guestName = `${formData.firstName.trim()} ${formData.lastName.trim()}`;
       const payload = {
         guestName: guestName.trim(),

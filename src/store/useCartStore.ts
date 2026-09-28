@@ -4,6 +4,9 @@ import { persist } from 'zustand/middleware';
 export interface CartItemType {
   id: string; // generate a random ID for guest cart
   productId: string;
+  itemType?: "product" | "subscription";
+  subscriptionPlanId?: string;
+  subscriptionTierId?: string;
   name: string;
   price: number;
   quantity: number;

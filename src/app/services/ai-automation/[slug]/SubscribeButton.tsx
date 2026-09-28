@@ -4,14 +4,26 @@ import { useState } from "react";
 import { signIn, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { useCartStore } from "@/store/useCartStore";
 
-export default function SubscribeButton({ planId, planTierId }: { planId: string; planTierId?: string }) {
+export default function SubscribeButton({ planId, planTierId, planName, tierName, price, image }: { planId: string; planTierId?: string; planName: string; tierName: string; price: number; image?: string | null }) {
   const { status } = useSession();
+  const addItem = useCartStore((state) => state.addItem);
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  async function subscribe() {
+  function subscribe() {
+    if (status === "loading") return;
+    if (status !== "authenticated") {
+      void signIn(undefined, { callbackUrl: window.location.href });
+      return;
+    }
+    addItem({ productId: planTierId || planId, itemType: "subscription", subscriptionPlanId: planId, subscriptionTierId: planTierId, name: `${planName} - ${tierName}`, price, quantity: 1, image: image || "https://placehold.co/160x160?text=Plan", category: "subscription" });
+    router.push("/magaza/odeme");
+  }
+
+  async function legacySubscribe() {
     if (status === "loading") return;
     if (status !== "authenticated") {
       await signIn(undefined, { callbackUrl: window.location.href });
@@ -39,5 +51,5 @@ export default function SubscribeButton({ planId, planTierId }: { planId: string
     }
   }
 
-  return <div className="flex flex-col gap-3"><Button size="lg" onClick={subscribe} disabled={loading || status === "loading"}>{loading ? "Ödeme hazırlanıyor…" : "Abone Ol"}</Button>{error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}</div>;
+  return <div className="flex flex-col gap-3"><Button size="lg" onClick={subscribe} disabled={loading || status === "loading"}>{loading ? "Sepete ekleniyor…" : "Sepete Ekle"}</Button>{error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}</div>;
 }

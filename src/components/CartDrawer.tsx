@@ -76,7 +76,7 @@ export default function CartDrawer() {
                     <div className="flex-1 flex flex-col justify-between">
                       <div className="flex justify-between items-start gap-2">
                         <div>
-                          <h3 className="font-display font-semibold text-corp-charcoal text-sm">{item.name}</h3>
+                          <h3 className="font-display font-semibold text-corp-charcoal text-sm">{item.name}</h3>{item.itemType === "subscription" ? <span className="mt-1 inline-block text-[10px] font-bold uppercase tracking-wider text-corp-teal">Aylık abonelik</span> : null}
                           {item.selectedDesignTemplateName && (
                             <div className="inline-block bg-corp-teal/10 text-corp-teal text-[10px] px-2 py-0.5 rounded-full mt-1 font-semibold">
                               Şablon: {item.selectedDesignTemplateName}
@@ -115,7 +115,7 @@ export default function CartDrawer() {
                         </button>
                       </div>
                       <div className="flex justify-between items-center mt-3">
-                        <div className="flex items-center border border-corp-border rounded-md overflow-hidden bg-white">
+                        {item.itemType === "subscription" ? <span className="text-xs font-semibold text-corp-gray">1 paket / ay</span> : <div className="flex items-center border border-corp-border rounded-md overflow-hidden bg-white">
                           <button
                             onClick={() => updateQuantity(item.id, Math.max(1, item.quantity - 1))}
                             className="px-2.5 py-1.5 text-corp-gray hover:bg-corp-surface transition-colors"
@@ -129,7 +129,7 @@ export default function CartDrawer() {
                           >
                             <Plus size={14} />
                           </button>
-                        </div>
+                        </div>}
                         <span className="font-display font-bold text-corp-charcoal text-sm">
                           {((item.price * item.quantity) + (item.extraServices?.reduce((sum, s) => sum + s.price, 0) || 0)).toLocaleString('tr-TR')} TL
                         </span>
