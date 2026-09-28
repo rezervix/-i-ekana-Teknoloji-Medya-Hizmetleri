@@ -53,18 +53,16 @@ export function publicPaytrUrl(name: "success" | "fail", fallbackPath: string) {
 }
 
 export function callbackUrl() {
-  const configured = process.env.PAYTR_CALLBACK_URL || `${siteUrl()}/api/paytr/callback`;
-  let url: URL;
-  try {
-    url = new URL(configured);
-  } catch {
-    throw new Error("PAYTR_CALLBACK_URL geçerli bir mutlak URL olmalıdır");
+  const base = new URL(siteUrl());
+  if (process.env.NODE_ENV === "production" && (base.protocol !== "https:" || /localhost|127\\.0\\.1/.test(base.hostname))) {
+    throw new Error("NEXT_PUBLIC_SITE_URL production ortamında herkese açık HTTPS adresi olmalıdır");
   }
-  if (process.env.NODE_ENV === "production" && (url.protocol !== "https:" || /localhost|127\\.0\\.0\\.1/.test(url.hostname))) {
-    throw new Error("PayTR callback URL production ortamında herkese açık HTTPS adresi olmalıdır");
-  }
-  return url.toString();
+  base.pathname = "/api/paytr/callback";
+  base.search = "";
+  base.hash = "";
+  return base.toString();
 }
+
 
 export function logPaytrError(event: string, error: unknown, details?: Record<string, unknown>) {
   console.error(`[PayTR] ${event}`, { error: error instanceof Error ? error.message : String(error), ...details });
