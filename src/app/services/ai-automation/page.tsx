@@ -37,7 +37,7 @@ export default async function AIAutomationPage() {
     <main className="min-h-screen bg-[#fcf9f8]">
       <Header />
 
-      <section className="mx-auto max-w-[1280px] px-4 py-20 md:px-20" aria-labelledby="ai-automation-title">
+      <section className="mx-auto max-w-[1280px] px-4 pb-16 pt-28 sm:px-6 md:px-20 md:py-20" aria-labelledby="ai-automation-title">
         <header className="mb-10">
           <Link
             className="mb-4 inline-flex items-center gap-2 text-[14px] text-[#41484c] transition-colors hover:text-[#002638]"
@@ -70,7 +70,7 @@ export default async function AIAutomationPage() {
             {plans.map((plan) => (
               <article
                 key={plan.id}
-                className="flex min-h-[420px] flex-col rounded-xl border border-[#c1c7cd]/50 bg-white p-8 shadow-sm transition-all duration-300 hover:shadow-[0px_4px_20px_rgba(10,61,84,0.08)]"
+                className="flex min-h-[380px] flex-col rounded-xl border border-[#c1c7cd]/50 bg-white p-5 shadow-sm transition-all duration-300 hover:shadow-[0px_4px_20px_rgba(10,61,84,0.08)] sm:p-7"
               >
                 <div className="mb-6 flex h-28 items-center justify-center overflow-hidden rounded-lg bg-[#f6f3f2]">
                   {plan.imageUrl ? (
