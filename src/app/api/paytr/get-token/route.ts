@@ -20,6 +20,12 @@ function paytrHash(value: string, key: string) {
   return crypto.createHmac("sha256", key).update(value).digest("base64");
 }
 
+function normalizePhone(value: string | null | undefined) {
+  const digits = String(value ?? "").replace(/\D/g, "");
+  if (digits.startsWith("90") && digits.length === 12) return `0${digits.slice(2)}`;
+  return digits;
+}
+
 export async function POST(request: NextRequest) {
   const authResult = await requireAuth(request);
   if (!authResult.authorized) return authResult.response;
@@ -39,6 +45,11 @@ export async function POST(request: NextRequest) {
       const subscription = await prisma.subscription.findFirst({ where: { id: subscriptionId, userId: authResult.user.id, status: "PENDING" }, include: { plan: true, planTier: true, user: true } });
       if (!subscription) return NextResponse.json({ success: false, message: "Ödeme bekleyen abonelik bulunamadı." }, { status: 404 });
       const totalKurus = subscription.priceAtPurchase;
+      const userPhone = normalizePhone(subscription.user.phone);
+      if (!/^0?5\d{9}$/.test(userPhone)) {
+        logger.warn({ event: "PAYTR_PHONE_REQUIRED", userId: authResult.user.id, details: { subscriptionId: subscription.id } });
+        return NextResponse.json({ success: false, message: "Ödemeye devam etmek için profilinizde geçerli bir cep telefonu numarası bulunmalıdır. Profilim > Hesap Bilgileri bölümünden telefonunuzu ekleyip tekrar deneyin." }, { status: 422 });
+      }
       if (!subscription.planTier) return NextResponse.json({ success: false, message: "Abonelik paketi bulunamadı." }, { status: 409 });
       const basket = [[`${subscription.plan.name} - ${subscription.planTier.name}`, String(totalKurus), 1]];
       const userBasket = Buffer.from(JSON.stringify(basket), "utf8").toString("base64");
@@ -50,12 +61,13 @@ export async function POST(request: NextRequest) {
       const paytrToken = paytrHash(hashString + merchantSalt, merchantKey);
       const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL;
       if (!siteUrl) throw new Error("NEXT_PUBLIC_SITE_URL is not configured");
-      const params = new URLSearchParams({ merchant_id: merchantId, user_ip: getClientIp(request), merchant_oid: subscription.id, email: subscription.user.email, payment_amount: String(totalKurus), paytr_token: paytrToken, user_basket: userBasket, debug_on: process.env.NODE_ENV === "production" ? "0" : "1", no_installment: noInstallment, max_installment: maxInstallment, user_name: subscription.user.name || "Müşteri", user_address: "Adres belirtilmedi", user_phone: subscription.user.phone || "", merchant_ok_url: process.env.PAYTR_SUCCESS_URL || `${siteUrl}/services/ai-automation/${subscription.plan.slug}?payment=success`, merchant_fail_url: process.env.PAYTR_FAIL_URL || `${siteUrl}/services/ai-automation/${subscription.plan.slug}?payment=failed`, timeout_limit: "30", currency, test_mode: testMode, callback_url: callbackUrl() });
+      const params = new URLSearchParams({ merchant_id: merchantId, user_ip: getClientIp(request), merchant_oid: subscription.id, email: subscription.user.email, payment_amount: String(totalKurus), paytr_token: paytrToken, user_basket: userBasket, debug_on: process.env.NODE_ENV === "production" ? "0" : "1", no_installment: noInstallment, max_installment: maxInstallment, user_name: subscription.user.name || "Müşteri", user_address: "Adres belirtilmedi", user_phone: userPhone, merchant_ok_url: process.env.PAYTR_SUCCESS_URL || `${siteUrl}/services/ai-automation/${subscription.plan.slug}?payment=success`, merchant_fail_url: process.env.PAYTR_FAIL_URL || `${siteUrl}/services/ai-automation/${subscription.plan.slug}?payment=failed`, timeout_limit: "30", currency, test_mode: testMode, callback_url: callbackUrl() });
       const response = await fetch(PAYTR_ENDPOINT, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: params, cache: "no-store" });
       const result = await response.json() as { status?: string; token?: string; reason?: string };
       if (result.status !== "success" || !result.token) {
         logger.error({ event: "PAYTR_SUBSCRIPTION_TOKEN_FAILED", userId: authResult.user.id, details: { subscriptionId: subscription.id, status: result.status, reason: result.reason } });
-        return NextResponse.json({ success: false, message: "Ödeme başlatılamadı." }, { status: 502 });
+        const message = result.reason === "user_phone" ? "PayTR telefon numarasını kabul etmedi. Profilinizde 05XXXXXXXXX formatında geçerli bir cep telefonu kullanın." : "Ödeme başlatılamadı.";
+        return NextResponse.json({ success: false, message }, { status: 502 });
       }
       return NextResponse.json({ success: true, token: result.token, subscriptionId: subscription.id });
     }
