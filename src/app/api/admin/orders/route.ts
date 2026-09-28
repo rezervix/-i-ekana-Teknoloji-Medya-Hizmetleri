@@ -11,7 +11,16 @@ export async function GET() {
   try {
     const orders = await prisma.order.findMany({
       orderBy: { createdAt: "desc" },
-      include: { items: true }
+      include: {
+        items: {
+          include: {
+            product: true,
+            selectedTemplate: {
+              include: { product: { select: { id: true, name: true } } },
+            },
+          },
+        },
+      },
     });
     return NextResponse.json(orders);
   } catch (error: any) {
