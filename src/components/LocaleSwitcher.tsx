@@ -4,7 +4,7 @@ import {usePathname} from 'next/navigation';
 import {useRouter} from 'next/navigation';
 import {locales, type Locale, isLocale} from '@/i18n/routing';
 
-const labels: Record<Locale, string> = {tr: 'Türkçe', en: 'English', de: 'Deutsch', fr: 'Français', es: 'Español', it: 'Italiano', ar: 'العربية', ru: 'Русский', zh: '中文', ja: '日本語', ko: '한국어'};
+const labels: Record<Locale, string> = {tr: 'Türkçe', en: 'English', zh: '中文', hi: 'हिन्दी', es: 'Español', fr: 'Français', ar: 'العربية', bn: 'বাংলা', pt: 'Português', ru: 'Русский', ur: 'اردو'};
 
 export default function LocaleSwitcher() {
   const router = useRouter();

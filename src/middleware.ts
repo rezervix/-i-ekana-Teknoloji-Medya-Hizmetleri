@@ -8,7 +8,8 @@ export async function middleware(request: NextRequest) {
   const segments = pathname.split('/').filter(Boolean);
   const hasLocale = isLocale(segments[0]);
   const cookieLocale = request.cookies.get(localeCookie)?.value;
-  const locale: Locale = hasLocale ? segments[0] as Locale : (isLocale(cookieLocale) ? cookieLocale : defaultLocale);
+  const acceptLanguage = request.headers.get('accept-language')?.split(',').map((part) => part.trim().split(';')[0].split('-')[0]).find(isLocale);
+  const locale: Locale = hasLocale ? segments[0] as Locale : (isLocale(cookieLocale) ? cookieLocale : acceptLanguage ?? defaultLocale);
   const internalPath = hasLocale ? `/${segments.slice(1).join('/')}` || '/' : pathname;
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set('x-locale', locale);

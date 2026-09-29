@@ -7,7 +7,7 @@ import localFont from "next/font/local";
 import { cn } from "@/lib/utils";
 import NextAuthProvider from "@/components/SessionProvider";
 import CartDrawer from "@/components/CartDrawer";
-import {defaultLocale, getDirection, isLocale, type Locale} from '@/i18n/routing';
+import {defaultLocale, getDirection, isLocale, locales, type Locale} from '@/i18n/routing';
 
 const inter = localFont({
   src: '../fonts/Inter-Variable.woff2',
@@ -35,16 +35,22 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'),
-  title: 'Çiçekana — Daha Fazlasını Hak Edenler İçin',
-  description: 'Çiçekana Teknoloji ve Medya Hizmetleri — Microsoft, THY ve Casper gibi devlerle çalışmış ekip ile markanızı zirveye taşıyoruz.',
-  alternates: {
-    canonical: '/',
-    languages: {tr: '/', en: '/en', de: '/de', fr: '/fr', es: '/es', it: '/it', ar: '/ar', ru: '/ru', zh: '/zh', ja: '/ja', ko: '/ko'},
-  },
-  icons: {icon: [{url: '/favicon.ico', type: 'image/x-icon'}]},
-};
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+const languageAlternates = Object.fromEntries(locales.map((language) => [language, language === defaultLocale ? '/' : `/${language}`]));
+
+export async function generateMetadata(): Promise<Metadata> {
+  const localeHeader = (await headers()).get('x-locale');
+  const locale: Locale = isLocale(localeHeader ?? undefined) ? localeHeader as Locale : defaultLocale;
+  const messages = (await import(`../../messages/${locale}.json`)).default;
+  return {
+    metadataBase: new URL(siteUrl),
+    title: `${messages.home.title} | Çiçekana`,
+    description: messages.home.description,
+    alternates: {canonical: locale === defaultLocale ? '/' : `/${locale}`, languages: languageAlternates},
+    openGraph: {title: `${messages.home.title} | Çiçekana`, description: messages.home.description, url: locale === defaultLocale ? siteUrl : `${siteUrl}/${locale}`, siteName: 'Çiçekana', type: 'website'},
+    icons: {icon: [{url: '/favicon.ico', type: 'image/x-icon'}]},
+  };
+}
 
 export default async function RootLayout({
   children,
@@ -57,7 +63,7 @@ export default async function RootLayout({
     <html lang={locale} dir={getDirection(locale)} className={cn(inter.variable, plusJakarta.variable)}>
       <head>
         <meta charSet="UTF-8" />
-        {(['tr', 'en', 'de', 'fr', 'es', 'it', 'ar', 'ru', 'zh', 'ja', 'ko'] as const).map((language) => <link key={language} rel="alternate" hrefLang={language} href={`${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}${language === 'tr' ? '/' : `/${language}`}`} />)}
+        {(['tr', 'en', 'zh', 'hi', 'es', 'fr', 'ar', 'bn', 'pt', 'ru', 'ur'] as const).map((language) => <link key={language} rel="alternate" hrefLang={language} href={`${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}${language === 'tr' ? '/' : `/${language}`}`} />)}
         <link rel="alternate" hrefLang="x-default" href={process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'} />
       </head>
       <body>
