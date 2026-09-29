@@ -4,6 +4,7 @@ import React from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowRight, ChevronRight } from "lucide-react";
+import {useTranslations} from 'next-intl';
 import TechIllustration from "./TechIllustration";
 
 const containerVariants = {
@@ -16,18 +17,14 @@ const itemVariants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.65, ease: [0.16, 1, 0.3, 1] as const } },
 };
 
-const stats = [
-  { value: "%98", label: "Başarı Oranı" },
-  { value: "4.9/5", label: "Müşteri Memnuniyeti" },
-  { value: "%340", label: "Ortalama ROI" },
-];
-
 export default function HeroSection() {
+  const t = useTranslations();
+  const stats = [{value: '%98', label: t('metrics.success')}, {value: '4.9/5', label: t('metrics.satisfaction')}, {value: '%340', label: t('metrics.roi')}];
   return (
     <section
       id="hero-section"
       className="relative bg-white overflow-hidden pt-20"
-      aria-label="Ana bölüm"
+      aria-label={t('home.heroLabel')}
     >
       {/* Subtle top-right teal glow */}
       <div
@@ -51,7 +48,7 @@ export default function HeroSection() {
             {/* Section label */}
             <motion.div variants={itemVariants}>
               <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full font-body text-[11px] font-semibold tracking-widest uppercase text-corp-coral bg-corp-coral-light border border-corp-coral/20">
-                B2B TEKNOLOJİ VE MEDYA DANIŞMANLIĞI
+                {t('home.heroEyebrow')}
               </span>
             </motion.div>
 
@@ -61,9 +58,9 @@ export default function HeroSection() {
               className="font-display font-bold text-corp-charcoal leading-[1.08] tracking-tight"
               style={{ fontSize: "clamp(2.4rem, 4vw, 3.6rem)" }}
             >
-              Geçici Çözümler Değil,{" "}
-              <span className="text-corp-teal">Kalıcı Altyapılar</span>{" "}
-              İnşa Ediyoruz.
+              {t('home.heroTitle')} {" "}
+              <span className="text-corp-teal">{t('home.heroHighlight')}</span>{" "}
+              {t('home.heroEnd')}
             </motion.h1>
 
             {/* Subtext */}
@@ -71,8 +68,7 @@ export default function HeroSection() {
               variants={itemVariants}
               className="font-body text-[17px] text-corp-gray leading-[1.75] max-w-xl"
             >
-              Global teknoloji devlerinin kullandığı sağlam mimariyi ve stratejik
-              medya aklını, şirketinizin dinamiklerine uygun biçimde entegre ediyoruz.
+              {t('home.heroDescription')}
             </motion.p>
 
             {/* CTA Buttons */}
@@ -84,7 +80,7 @@ export default function HeroSection() {
                 href="#contact"
                 className="group inline-flex items-center gap-2.5 px-7 py-3.5 rounded-md font-body font-semibold text-[14px] text-white bg-corp-teal hover:bg-corp-teal-600 transition-all duration-200 hover:-translate-y-0.5 shadow-[0_4px_20px_rgba(10,77,104,0.25)]"
               >
-                Stratejik Görüşme Planla
+                {t('home.primaryCta')}
                 <ArrowRight
                   size={15}
                   className="group-hover:translate-x-1 transition-transform duration-200"
@@ -94,7 +90,7 @@ export default function HeroSection() {
                 href="#services"
                 className="group inline-flex items-center gap-2 px-7 py-3.5 rounded-md font-body font-semibold text-[14px] text-corp-teal bg-white border border-corp-teal hover:bg-corp-teal-50 transition-all duration-200 hover:-translate-y-0.5"
               >
-                Çözümlerimiz
+                {t('home.secondaryCta')}
                 <ChevronRight
                   size={15}
                   className="group-hover:translate-x-1 transition-transform duration-200"

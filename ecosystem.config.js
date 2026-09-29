@@ -23,7 +23,7 @@ module.exports = {
       NEXT_PUBLIC_APP_URL: "http://localhost:4028",
 
       // Site URL & Public variables
-      NEXT_PUBLIC_SITE_URL: "https://cicekana2069.builtwithrocket.new",
+      NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL || "",
       NEXT_PUBLIC_SUPABASE_URL: "https://dummy.supabase.co",
       NEXT_PUBLIC_SUPABASE_ANON_KEY: "dummykey.updateyourkkey.here",
       OPENAI_API_KEY: "your-openai-api-key-here",

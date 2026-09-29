@@ -44,7 +44,9 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+if (!siteUrl && process.env.NODE_ENV === 'production') console.warn('[i18n] NEXT_PUBLIC_SITE_URL is not set; canonical and Open Graph URLs cannot be generated.');
+const resolvedSiteUrl = siteUrl || 'http://localhost:3000';
 const languageAlternates = Object.fromEntries(locales.map((language) => [language, language === defaultLocale ? '/' : `/${language}`]));
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -52,11 +54,11 @@ export async function generateMetadata(): Promise<Metadata> {
   const locale: Locale = isLocale(localeHeader ?? undefined) ? localeHeader as Locale : defaultLocale;
   const messages = (await import(`../../messages/${locale}.json`)).default;
   return {
-    metadataBase: new URL(siteUrl),
+    metadataBase: new URL(resolvedSiteUrl),
     title: `${messages.home.title} | Çiçekana`,
     description: messages.home.description,
     alternates: {canonical: locale === defaultLocale ? '/' : `/${locale}`, languages: languageAlternates},
-    openGraph: {title: `${messages.home.title} | Çiçekana`, description: messages.home.description, url: locale === defaultLocale ? siteUrl : `${siteUrl}/${locale}`, siteName: 'Çiçekana', type: 'website'},
+    openGraph: {title: `${messages.home.title} | Çiçekana`, description: messages.home.description, url: locale === defaultLocale ? resolvedSiteUrl : `${resolvedSiteUrl}/${locale}`, siteName: 'Çiçekana', type: 'website'},
     icons: {icon: [{url: '/favicon.ico', type: 'image/x-icon'}]},
   };
 }
@@ -74,8 +76,6 @@ export default async function RootLayout({
     <html lang={locale} dir={getDirection(locale)} className={cn(inter.variable, plusJakarta.variable, localeFont?.variable)} data-locale-font={localeFont ? locale : 'latin'}>
       <head>
         <meta charSet="UTF-8" />
-        {(['tr', 'en', 'zh', 'hi', 'es', 'fr', 'ar', 'bn', 'pt', 'ru', 'ur'] as const).map((language) => <link key={language} rel="alternate" hrefLang={language} href={`${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}${language === 'tr' ? '/' : `/${language}`}`} />)}
-        <link rel="alternate" hrefLang="x-default" href={process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'} />
       </head>
       <body>
         <NextAuthProvider>
@@ -86,8 +86,7 @@ export default async function RootLayout({
           </NextIntlClientProvider>
         </NextAuthProvider>
 
-        <script type="module" async src="https://static.rocket.new/rocket-web.js?_cfg=https%3A%2F%2Fcicekana2069back.builtwithrocket.new&_be=https%3A%2F%2Fappanalytics.rocket.new&_v=0.1.17" />
-        <script type="module" defer src="https://static.rocket.new/rocket-shot.js?v=0.0.2" /></body>
+      </body>
     </html>
   );
 }

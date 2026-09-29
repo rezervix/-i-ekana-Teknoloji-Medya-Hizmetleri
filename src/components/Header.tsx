@@ -19,30 +19,13 @@ import { DropdownNavigation, type NavItem } from "@/components/ui/dropdown-navig
 import LocaleSwitcher from './LocaleSwitcher';
 import {useTranslations} from 'next-intl';
 
-const NAV_ITEMS: NavItem[] = [
-  {
-    id: 1,
-    label: "Hizmetler",
-    subMenus: [
-      {
-        title: "Hizmetlerimiz",
-        items: [
-          {
-            label: "Yapay Zeka & Otomasyon",
-            description: "CrewAI agent & LLM süreç otomasyonu",
-            icon: BrainCircuit,
-            link: "/services/ai-automation",
-          },
-        ],
-      },
-    ],
-  },
-  { id: 2, label: "Projeler", link: "/projects" },
-  { id: 3, label: "Blog", link: "/blog" },
-];
-
 export default function Header() {
   const t = useTranslations();
+  const navItems: NavItem[] = [
+    {id: 1, label: t('nav.services'), subMenus: [{title: t('nav.services'), items: [{label: t('nav.services'), description: t('home.description'), icon: BrainCircuit, link: '/services/ai-automation'}]}]},
+    {id: 2, label: t('nav.projects'), link: '/projects'},
+    {id: 3, label: t('nav.blog'), link: '/blog'},
+  ];
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -94,7 +77,7 @@ export default function Header() {
 
           {/* Desktop Nav */}
           <div className="hidden md:flex items-center">
-            <DropdownNavigation navItems={NAV_ITEMS} />
+            <DropdownNavigation navItems={navItems} />
           </div>
 
           {/* CTA — Auth buttons or user session */}
@@ -168,13 +151,13 @@ export default function Header() {
                   href="/auth?tab=signin"
                   className="inline-flex items-center gap-2 px-5 py-2.5 rounded-md font-body font-semibold text-[13px] text-corp-teal border border-corp-teal hover:bg-corp-teal-50 transition-all duration-200 hover:-translate-y-0.5"
                 >
-                  Giriş Yap
+                  {t('common.signIn')}
                 </Link>
                 <Link
                   href="/auth?tab=signup"
                   className="inline-flex items-center gap-2 px-5 py-2.5 rounded-md font-body font-semibold text-[13px] text-white bg-corp-teal hover:bg-corp-teal-600 transition-all duration-200 hover:-translate-y-0.5 shadow-[0_4px_16px_rgba(10,77,104,0.22)]"
                 >
-                  Kayıt Ol
+                  {t('common.signUp')}
                 </Link>
               </>
             )}
@@ -221,7 +204,7 @@ export default function Header() {
             </div>
 
             <nav className="flex flex-col p-6 gap-1" aria-label="Mobil menü">
-              {NAV_ITEMS.map((link, i) => (
+              {navItems.map((link, i) => (
                 <motion.div
                   key={link.label}
                   initial={{ opacity: 0, x: -16 }}
@@ -268,7 +251,7 @@ export default function Header() {
                       className="flex items-center justify-center gap-2 py-3.5 rounded-md font-body font-semibold text-[14px] text-corp-teal border border-corp-teal hover:bg-corp-teal-50 transition-colors"
                     >
                       <User size={16} />
-                      Profilim
+                      {t('common.profile')}
                     </Link>
                     <button
                       onClick={() => {
@@ -278,7 +261,7 @@ export default function Header() {
                       className="flex items-center justify-center gap-2 py-3.5 rounded-md font-body font-semibold text-[14px] text-corp-gray border border-corp-border hover:bg-corp-surface transition-colors"
                     >
                       <LogOut size={16} />
-                      Çıkış Yap
+                      {t('common.signOut')}
                     </button>
                   </>
                 ) : (

@@ -2,13 +2,8 @@
 
 import React, { useEffect, useRef } from "react";
 import { motion, useInView, useMotionValue, useSpring } from "framer-motion";
+import {useTranslations} from 'next-intl';
 
-const stats = [
-  { value: 98,  suffix: "%",  label: "Başarı Oranı",         desc: "Teslim edilen projelerde" },
-  { value: 4.9, suffix: "/5", label: "Müşteri Memnuniyeti",  desc: "Ortalama NPS skoru" },
-  { value: 340, suffix: "%",  label: "Ortalama ROI",          desc: "İlk 12 ayda" },
-  { value: 70,  suffix: "%",  label: "Süreç Hızlanması",      desc: "Otomasyon sonrası" },
-];
 
 function AnimatedCounter({ value, suffix }: { value: number; suffix: string }) {
   const ref      = useRef<HTMLSpanElement>(null);
@@ -44,6 +39,8 @@ function AnimatedCounter({ value, suffix }: { value: number; suffix: string }) {
 }
 
 export default function MetricsSection() {
+  const t = useTranslations();
+  const stats = [{value: 98, suffix: '%', label: t('home.title'), desc: t('home.description')}, {value: 4.9, suffix: '/5', label: t('home.title'), desc: t('home.description')}, {value: 340, suffix: '%', label: t('home.title'), desc: t('home.description')}, {value: 70, suffix: '%', label: t('home.title'), desc: t('home.description')}];
   return (
     <section
       className="py-24 bg-corp-surface relative overflow-hidden"
@@ -63,14 +60,14 @@ export default function MetricsSection() {
           className="text-center mb-16"
         >
           <span className="font-body text-[11px] text-corp-coral tracking-widest uppercase font-semibold block mb-4">
-            Kanıtlanmış Sonuçlar
+            {t('home.title')}
           </span>
           <h2
             id="metrics-title"
             className="font-display font-bold text-corp-charcoal tracking-tight"
             style={{ fontSize: "clamp(1.8rem, 3vw, 2.4rem)" }}
           >
-            Rakamlar Konuşur
+            {t('home.title')}
           </h2>
         </motion.div>
 
