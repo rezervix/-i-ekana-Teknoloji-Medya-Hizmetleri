@@ -1,16 +1,25 @@
 import { getToken } from "next-auth/jwt";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import {defaultLocale, isLocale, localeCookie, type Locale} from '@/i18n/routing';
 
 export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+  const {pathname} = request.nextUrl;
+  const segments = pathname.split('/').filter(Boolean);
+  const hasLocale = isLocale(segments[0]);
+  const cookieLocale = request.cookies.get(localeCookie)?.value;
+  const locale: Locale = hasLocale ? segments[0] as Locale : (isLocale(cookieLocale) ? cookieLocale : defaultLocale);
+  const internalPath = hasLocale ? `/${segments.slice(1).join('/')}` || '/' : pathname;
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set('x-locale', locale);
+  requestHeaders.set('x-next-intl-locale', locale);
   const token = await getToken({
     req: request,
     secret: process.env.NEXTAUTH_SECRET,
   });
 
   // Admin login is intentionally separate from the normal member auth flow.
-  if (pathname.startsWith("/admin") && pathname !== "/admin/login") {
+  if (internalPath.startsWith("/admin") && internalPath !== "/admin/login") {
     if (!token) {
       const loginUrl = new URL("/admin/login", request.url);
       loginUrl.searchParams.set("callbackUrl", pathname);
@@ -25,7 +34,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // 2. Protect /profile and /magaza/odeme routes (Mandatory Login Enforcement)
-  if (pathname.startsWith("/profile") || pathname.startsWith("/magaza/odeme")) {
+  if (internalPath.startsWith("/profile") || internalPath.startsWith("/magaza/odeme")) {
     if (!token) {
       const loginUrl = new URL("/auth", request.url);
       loginUrl.searchParams.set("callbackUrl", pathname);
@@ -40,9 +49,13 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
-  return NextResponse.next();
+  const response = hasLocale
+    ? NextResponse.rewrite(new URL(internalPath === '/' ? '/homepage' : internalPath, request.url), {request: {headers: requestHeaders}})
+    : NextResponse.next({request: {headers: requestHeaders}});
+  response.cookies.set(localeCookie, locale, {path: '/', maxAge: 31536000, sameSite: 'lax'});
+  return response;
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/profile/:path*", "/magaza/odeme"],
+  matcher: ['/((?!_next|.*\\..*).*)'],
 };

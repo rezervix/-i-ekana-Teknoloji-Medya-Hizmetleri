@@ -16,6 +16,7 @@ import { useSession, signOut } from "next-auth/react";
 import CartButton from "./CartButton";
 import Logo from "./Logo";
 import { DropdownNavigation, type NavItem } from "@/components/ui/dropdown-navigation";
+import LocaleSwitcher from './LocaleSwitcher';
 
 const NAV_ITEMS: NavItem[] = [
   {
@@ -96,6 +97,7 @@ export default function Header() {
 
           {/* CTA — Auth buttons or user session */}
           <div className="hidden md:flex items-center gap-3 flex-shrink-0">
+            <LocaleSwitcher />
             <CartButton />
             {status === "loading" ? (
               <div className="w-32 h-9 rounded-md bg-corp-border animate-pulse" />
@@ -178,6 +180,7 @@ export default function Header() {
 
           {/* Mobile toggle */}
           <div className="flex items-center gap-2 md:hidden">
+            <LocaleSwitcher />
             <CartButton />
             <button
               className="p-2 rounded-md text-corp-charcoal hover:bg-corp-surface transition-colors"
