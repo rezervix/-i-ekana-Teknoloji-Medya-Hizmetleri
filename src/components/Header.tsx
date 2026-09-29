@@ -17,6 +17,7 @@ import CartButton from "./CartButton";
 import Logo from "./Logo";
 import { DropdownNavigation, type NavItem } from "@/components/ui/dropdown-navigation";
 import LocaleSwitcher from './LocaleSwitcher';
+import {useTranslations} from 'next-intl';
 
 const NAV_ITEMS: NavItem[] = [
   {
@@ -41,6 +42,7 @@ const NAV_ITEMS: NavItem[] = [
 ];
 
 export default function Header() {
+  const t = useTranslations();
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -138,21 +140,21 @@ export default function Header() {
                           className="flex items-center gap-2.5 px-4 py-2.5 font-body text-[13px] text-corp-charcoal hover:text-corp-teal hover:bg-corp-teal-50 transition-all"
                         >
                           <User size={14} />
-                          Profilim
+{t('common.profile')}
                         </Link>
                         <Link
                           href="/profile/subscriptions"
                           className="flex items-center gap-2.5 px-4 py-2.5 font-body text-[13px] text-corp-charcoal hover:text-corp-teal hover:bg-corp-teal-50 transition-all"
                         >
                           <CreditCard size={14} />
-                          Aboneliklerim
+                          {t('common.subscriptions')}
                         </Link>
                         <button
                           onClick={() => signOut({ callbackUrl: "/homepage" })}
                           className="w-full flex items-center gap-2.5 px-4 py-2.5 font-body text-[13px] text-corp-gray hover:text-error hover:bg-error/5 transition-all"
                         >
                           <LogOut size={14} />
-                          Çıkış Yap
+{t('common.signOut')}
                         </button>
                       </div>
                     </motion.div>
@@ -185,7 +187,7 @@ export default function Header() {
             <button
               className="p-2 rounded-md text-corp-charcoal hover:bg-corp-surface transition-colors"
               onClick={() => setMobileOpen(true)}
-              aria-label="Menüyü aç"
+              aria-label={t('common.openMenu')}
             >
               <Menu size={22} />
             </button>
@@ -212,7 +214,7 @@ export default function Header() {
               <button
                 className="p-2 rounded-md text-corp-gray hover:text-corp-charcoal hover:bg-corp-surface transition-colors"
                 onClick={() => setMobileOpen(false)}
-                aria-label="Kapat"
+                aria-label={t('common.close')}
               >
                 <X size={22} />
               </button>
@@ -286,14 +288,14 @@ export default function Header() {
                       onClick={() => setMobileOpen(false)}
                       className="flex items-center justify-center py-3.5 rounded-md font-body font-semibold text-[14px] text-corp-teal border border-corp-teal hover:bg-corp-teal-50 transition-colors"
                     >
-                      Giriş Yap
+{t('common.signIn')}
                     </Link>
                     <Link
                       href="/auth?tab=signup"
                       onClick={() => setMobileOpen(false)}
                       className="flex items-center justify-center py-3.5 rounded-md font-body font-semibold text-[14px] text-white bg-corp-teal hover:bg-corp-teal-600 transition-colors"
                     >
-                      Kayıt Ol
+{t('common.signUp')}
                     </Link>
                   </>
                 )}

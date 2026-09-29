@@ -9,6 +9,7 @@ import { z } from "zod";
 import { Mail, Phone, MapPin, CheckCircle2, Loader2, ArrowRight, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { Toaster } from "sonner";
+import {useTranslations} from 'next-intl';
 
 const interests = [
   { value: "yazilim-ai", label: "Yazılım & AI" },

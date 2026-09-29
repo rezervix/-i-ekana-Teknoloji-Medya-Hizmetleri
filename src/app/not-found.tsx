@@ -5,8 +5,10 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Home } from 'lucide-react';
 import Logo from '@/components/Logo';
+import {useTranslations} from 'next-intl';
 
 export default function NotFound() {
+  const t = useTranslations();
   const router = useRouter();
 
   return (
@@ -30,7 +32,7 @@ export default function NotFound() {
         />
 
         <span className="font-body text-[11px] text-corp-coral tracking-widest uppercase font-semibold block mb-6">
-          404 — Sayfa Bulunamadı
+          {`404 — ${t('errors.notFound')}`}
         </span>
 
         <h1 className="font-display font-bold text-corp-charcoal mb-3" style={{ fontSize: "clamp(5rem, 15vw, 10rem)", lineHeight: 1 }}>
@@ -38,11 +40,11 @@ export default function NotFound() {
         </h1>
 
         <h2 className="font-display text-2xl text-corp-charcoal mb-4">
-          Sayfa <span className="text-corp-teal">Bulunamadı</span>
+          {t('errors.notFound')}
         </h2>
 
         <p className="font-body text-corp-gray mb-10 max-w-sm leading-relaxed">
-          Aradığınız sayfa mevcut değil ya da taşınmış olabilir. Ana sayfaya dönebilir veya geri gidebilirsiniz.
+          {t('errors.notFoundDescription')}
         </p>
 
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
@@ -51,14 +53,14 @@ export default function NotFound() {
             className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-md font-body font-semibold text-[14px] text-corp-teal border border-corp-teal hover:bg-corp-teal-50 transition-all duration-200"
           >
             <ArrowLeft size={16} />
-            Geri Dön
+            {t('common.goBack')}
           </button>
           <Link
             href="/homepage"
             className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-md font-body font-semibold text-[14px] text-white bg-corp-teal hover:bg-corp-teal-600 transition-all duration-200 hover:-translate-y-0.5"
           >
             <Home size={16} />
-            Ana Sayfaya Dön
+            {t('common.backHome')}
           </Link>
         </div>
       </div>

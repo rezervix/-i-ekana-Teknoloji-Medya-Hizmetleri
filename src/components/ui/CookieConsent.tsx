@@ -4,10 +4,12 @@ import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { Cookie } from "lucide-react";
+import {useTranslations} from 'next-intl';
 
 const STORAGE_KEY = "cicekana-cookie-consent";
 
 export default function CookieConsent() {
+  const t = useTranslations();
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -39,7 +41,7 @@ export default function CookieConsent() {
           transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
           className="fixed bottom-0 left-0 right-0 z-[200] bg-white border-t border-corp-border shadow-corp-nav"
           role="dialog"
-          aria-label="Çerez bildirimi"
+          aria-label={t('cookie.title')}
           aria-live="polite"
         >
           <div className="max-w-8xl mx-auto px-6 md:px-10 lg:px-16 py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -51,19 +53,19 @@ export default function CookieConsent() {
                 aria-hidden="true"
               />
               <p className="font-body text-[13px] text-corp-gray leading-relaxed">
-                Bu site, deneyiminizi iyileştirmek ve kullanım analitikleri için çerez kullanmaktadır.{" "}
+                {t('cookie.description')}{" "}
                 <Link
                   href="/privacy"
                   className="text-corp-teal hover:underline font-medium"
                 >
-                  Gizlilik Politikası
+                  {t('footer.privacy')}
                 </Link>{" "}
                 ve{" "}
                 <Link
                   href="/kvkk"
                   className="text-corp-teal hover:underline font-medium"
                 >
-                  KVKK Aydınlatma Metni
+                  {t('common.legalNotice')}
                 </Link>
                 'ni inceleyebilirsiniz.
               </p>
@@ -75,13 +77,13 @@ export default function CookieConsent() {
                 onClick={reject}
                 className="px-4 py-2 rounded-md font-body text-[13px] font-semibold text-corp-gray border border-corp-border hover:bg-corp-surface transition-all duration-200"
               >
-                Reddet
+                {t('cookie.reject')}
               </button>
               <button
                 onClick={accept}
                 className="px-5 py-2 rounded-md font-body text-[13px] font-semibold text-white bg-corp-teal hover:bg-corp-teal-600 transition-all duration-200 shadow-[0_2px_12px_rgba(10,77,104,0.2)]"
               >
-                Kabul Et
+                {t('cookie.accept')}
               </button>
             </div>
           </div>
