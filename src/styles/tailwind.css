@@ -1,4 +1,13 @@
 @tailwind base;
+
+:root {
+  --font-locale: var(--font-inter);
+}
+
+html[data-locale-font="zh"], html[data-locale-font="hi"], html[data-locale-font="bn"], html[data-locale-font="ar"], html[data-locale-font="ur"] {
+  font-family: var(--font-locale), var(--font-inter), sans-serif;
+}
+
 @tailwind components;
 @tailwind utilities;
 

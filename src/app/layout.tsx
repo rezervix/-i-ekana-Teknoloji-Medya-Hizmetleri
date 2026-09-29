@@ -4,16 +4,25 @@ import type { Metadata, Viewport } from 'next';
 import '../styles/tailwind.css';
 import MeetingScheduler from '@/components/ui/MeetingScheduler';
 import localFont from "next/font/local";
+import {Noto_Sans_SC, Noto_Sans_Devanagari, Noto_Sans_Bengali, Noto_Sans_Arabic, Noto_Nastaliq_Urdu} from 'next/font/google';
 import { cn } from "@/lib/utils";
 import NextAuthProvider from "@/components/SessionProvider";
 import CartDrawer from "@/components/CartDrawer";
 import {defaultLocale, getDirection, isLocale, locales, type Locale} from '@/i18n/routing';
+import {NextIntlClientProvider} from 'next-intl';
 
 const inter = localFont({
   src: '../fonts/Inter-Variable.woff2',
   variable: '--font-inter',
   display: 'swap',
 });
+
+const notoSansSC = Noto_Sans_SC({subsets: ['latin'], variable: '--font-locale', display: 'swap'});
+const notoSansDevanagari = Noto_Sans_Devanagari({subsets: ['devanagari'], variable: '--font-locale', display: 'swap'});
+const notoSansBengali = Noto_Sans_Bengali({subsets: ['bengali'], variable: '--font-locale', display: 'swap'});
+const notoSansArabic = Noto_Sans_Arabic({subsets: ['arabic'], variable: '--font-locale', display: 'swap'});
+const notoNastaliqUrdu = Noto_Nastaliq_Urdu({subsets: ['arabic'], variable: '--font-locale', display: 'swap'});
+const localeFonts = {zh: notoSansSC, hi: notoSansDevanagari, bn: notoSansBengali, ar: notoSansArabic, ur: notoNastaliqUrdu} as const;
 
 const plusJakarta = localFont({
   src: [
@@ -59,8 +68,10 @@ export default async function RootLayout({
 }>) {
   const localeHeader = (await headers()).get('x-locale');
   const locale: Locale = isLocale(localeHeader ?? undefined) ? localeHeader as Locale : defaultLocale;
+  const localeFont = localeFonts[locale as keyof typeof localeFonts];
+  const messages = (await import(`../../messages/${locale}.json`)).default;
   return (
-    <html lang={locale} dir={getDirection(locale)} className={cn(inter.variable, plusJakarta.variable)}>
+    <html lang={locale} dir={getDirection(locale)} className={cn(inter.variable, plusJakarta.variable, localeFont?.variable)} data-locale-font={localeFont ? locale : 'latin'}>
       <head>
         <meta charSet="UTF-8" />
         {(['tr', 'en', 'zh', 'hi', 'es', 'fr', 'ar', 'bn', 'pt', 'ru', 'ur'] as const).map((language) => <link key={language} rel="alternate" hrefLang={language} href={`${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}${language === 'tr' ? '/' : `/${language}`}`} />)}
@@ -68,9 +79,11 @@ export default async function RootLayout({
       </head>
       <body>
         <NextAuthProvider>
-          {children}
-          <MeetingScheduler />
-          <CartDrawer />
+          <NextIntlClientProvider locale={locale} messages={messages}>
+            {children}
+            <MeetingScheduler />
+            <CartDrawer />
+          </NextIntlClientProvider>
         </NextAuthProvider>
 
         <script type="module" async src="https://static.rocket.new/rocket-web.js?_cfg=https%3A%2F%2Fcicekana2069back.builtwithrocket.new&_be=https%3A%2F%2Fappanalytics.rocket.new&_v=0.1.17" />
