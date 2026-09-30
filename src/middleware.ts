@@ -13,7 +13,7 @@ export async function middleware(request: NextRequest) {
   const locale: Locale = hasLocale ? segments[0] as Locale : pathname === '/' ? rootLocale : defaultLocale;
   const internalPath = hasLocale ? `/${segments.slice(1).join('/')}` || '/' : pathname;
   const isBot = /bot|crawler|spider|slurp|bingpreview|yandex|baidu|duckduckgo/i.test(request.headers.get('user-agent') ?? '');
-  const isRootVisit = pathname === '/' && !hasLocale && !cookieLocale && !isBot;
+  const isRootVisit = pathname === '/' && !hasLocale && !isBot;
   if (isRootVisit && locale !== defaultLocale) {
     const redirectUrl = new URL(`/${locale}/homepage`, request.url);
     const redirect = NextResponse.redirect(redirectUrl, 307);

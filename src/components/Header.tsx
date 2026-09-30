@@ -203,7 +203,7 @@ export default function Header() {
               </button>
             </div>
 
-            <nav className="flex flex-col p-6 gap-1" aria-label="Mobil menü">
+            <nav className="flex flex-col p-6 gap-1" aria-label={t('common.menu')}>
               {navItems.map((link, i) => (
                 <motion.div
                   key={link.label}

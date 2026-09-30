@@ -44,7 +44,7 @@ export default function NotFound() {
         </h2>
 
         <p className="font-body text-corp-gray mb-10 max-w-sm leading-relaxed">
-          {t('errors.notFoundDescription')}
+          {t('common.notFoundDescription')}
         </p>
 
         <div className="flex flex-col sm:flex-row gap-3 justify-center">

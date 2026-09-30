@@ -4,25 +4,12 @@ import React from "react";
 import { motion } from "framer-motion";
 import { BrainCircuit, ShoppingCart, ArrowRight } from "lucide-react";
 import Link from "next/link";
+import {useTranslations} from 'next-intl';
 
 const services = [
-  {
-    icon: BrainCircuit,
-    title: "Yapay Zeka & Otomasyon",
-    desc: "CrewAI agent pipeline'ları, LLM entegrasyonları, süreç otomasyonu ve veri analitiği.",
-    href: "/services/ai-automation",
-    badge: "YENİ",
-    isActive: true,
-  },
-  {
-    icon: ShoppingCart,
-    title: "e-Ticaret",
-    desc: "Uçtan uca yönetilen e-ticaret altyapısı, sepet kurtarma ve çapraz satış araçları.",
-    href: "/e-ticaret",
-    badge: null,
-    isActive: false,
-  },
-];
+  {icon: BrainCircuit, id: 'ai', href: '/services/ai-automation', isActive: true},
+  {icon: ShoppingCart, id: 'ecommerce', href: '/e-ticaret', isActive: false},
+] as const;
 
 const containerVariants = {
   hidden: {},
@@ -35,6 +22,11 @@ const cardVariants = {
 };
 
 export default function ServicesBento() {
+  const t = useTranslations();
+  const copy = {
+    ai: {title: t('footer.ai'), desc: t('home.description'), badge: t('footer.services')},
+    ecommerce: {title: t('footer.ecommerce'), desc: t('home.description'), badge: ''},
+  } as const;
   return (
     <section id="services" className="py-28 bg-white relative overflow-hidden" aria-labelledby="services-title">
       {/* Subtle teal accent top-right */}
@@ -56,7 +48,7 @@ export default function ServicesBento() {
           className="mb-14"
         >
           <span className="font-body text-[11px] text-corp-coral tracking-widest uppercase font-semibold block mb-4">
-            HİZMETLERİMİZ
+            {t('footer.services')}
           </span>
           <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-5">
             <h2
@@ -64,14 +56,13 @@ export default function ServicesBento() {
               className="font-display font-bold text-corp-charcoal tracking-tight max-w-xl"
               style={{ fontSize: "clamp(1.8rem, 3vw, 2.6rem)" }}
             >
-              Kurumsal Ölçekte{" "}
-              <span className="text-corp-teal">Entegre Çözümler</span>
+              {t('footer.description')}
             </h2>
             <Link
               href="/services"
               className="group inline-flex items-center gap-1.5 font-body text-[13px] font-medium text-corp-gray hover:text-corp-teal transition-colors duration-200 whitespace-nowrap"
             >
-              Tüm hizmetleri gör
+              {t('common.learnMore')}
               <ArrowRight
                 size={14}
                 className="group-hover:translate-x-1 transition-transform duration-200"
@@ -89,16 +80,16 @@ export default function ServicesBento() {
           className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"
         >
           {services.filter((s) => s.isActive).map((s) => (
-            <motion.div key={s.title} variants={cardVariants}>
+            <motion.div key={s.id} variants={cardVariants}>
               <Link
                 href={s.href}
                 className="corp-service-card group relative flex flex-col gap-5 h-full p-7 rounded-xl border border-corp-border bg-white overflow-hidden block"
-                aria-label={`${s.title} hizmet detayları`}
+                aria-label={`${copy[s.id].title} ${t('common.learnMore')}`}
               >
                 {/* Badge */}
-                {s.badge && (
+                {copy[s.id].badge && (
                   <span className="absolute top-4 right-4 px-2.5 py-0.5 rounded-full font-body text-[10px] font-bold tracking-widest uppercase text-corp-coral bg-corp-coral-light border border-corp-coral/20">
-                    {s.badge}
+                    {copy[s.id].badge}
                   </span>
                 )}
 
@@ -110,17 +101,17 @@ export default function ServicesBento() {
                 {/* Content */}
                 <div className="flex-1">
                   <h3 className="font-display font-bold text-[17px] text-corp-charcoal mb-2 group-hover:text-corp-teal transition-colors duration-200">
-                    {s.title}
+{copy[s.id].title}
                   </h3>
                   <p className="font-body text-[14px] text-corp-gray leading-relaxed">
-                    {s.desc}
+                    {copy[s.id].desc}
                   </p>
                 </div>
 
                 {/* CTA link */}
                 <div className="flex items-center gap-1.5">
                   <span className="font-body text-[13px] font-semibold text-corp-coral">
-                    Detaylar
+                    {t('common.learnMore')}
                   </span>
                   <ArrowRight
                     size={13}
