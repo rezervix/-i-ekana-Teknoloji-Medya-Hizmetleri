@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { RevealImageList } from "@/components/ui/reveal-images";
+import {useTranslations} from 'next-intl';
 
 interface ImageSource {
   src: string;
@@ -36,6 +37,7 @@ const FALLBACK_SERVICES: Service[] = [
 ];
 
 export default function RevealServicesSection() {
+  const t = useTranslations();
   const [services, setServices] = useState<Service[]>(FALLBACK_SERVICES);
 
   useEffect(() => {

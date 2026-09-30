@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { LogoCloud } from "@/components/ui/logo-cloud-2";
+import {useTranslations} from 'next-intl';
 
 interface LogoItem {
   id: string;
@@ -20,6 +21,7 @@ const FALLBACK_PARTNERS: LogoItem[] = [
 ];
 
 export default function BusinessPartnersSection() {
+  const t = useTranslations();
   const [partners, setPartners] = useState<LogoItem[]>(FALLBACK_PARTNERS);
 
   useEffect(() => {

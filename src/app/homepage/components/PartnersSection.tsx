@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { InfiniteSlider } from "@/components/ui/infinite-slider";
 import { ProgressiveBlur } from "@/components/ui/progressive-blur";
+import {useTranslations} from 'next-intl';
 
 interface LogoItem {
   id: string;
@@ -43,6 +44,7 @@ function LogoMarquee({ logos }: { logos: LogoItem[] }) {
 }
 
 export default function PartnersSection() {
+  const t = useTranslations();
   const [logos, setLogos] = useState<LogoItem[]>(FALLBACK_LOGOS);
 
   useEffect(() => {
