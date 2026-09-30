@@ -19,7 +19,7 @@ export default function NotFound() {
           <Logo width={32} height={32} />
           <div className="flex flex-col leading-none">
             <span className="font-display text-[13px] font-bold tracking-wide text-corp-charcoal">ÇİÇEKANA</span>
-            <span className="font-body text-[9px] tracking-widest font-medium text-corp-gray uppercase mt-0.5">TEKNOLOJİ & MEDYA</span>
+            <span className="font-body text-[9px] tracking-widest font-medium text-corp-gray uppercase mt-0.5">{t('footer.brandLine')}</span>
           </div>
         </Link>
       </div>
@@ -49,6 +49,8 @@ export default function NotFound() {
 
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <button
+            type="button"
+            aria-label={t('common.goBack')}
             onClick={() => window.history.back()}
             className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-md font-body font-semibold text-[14px] text-corp-teal border border-corp-teal hover:bg-corp-teal-50 transition-all duration-200"
           >
@@ -56,6 +58,7 @@ export default function NotFound() {
             {t('common.goBack')}
           </button>
           <Link
+            aria-label={t('common.backHome')}
             href="/homepage"
             className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-md font-body font-semibold text-[14px] text-white bg-corp-teal hover:bg-corp-teal-600 transition-all duration-200 hover:-translate-y-0.5"
           >
