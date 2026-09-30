@@ -9,7 +9,8 @@ export async function middleware(request: NextRequest) {
   const hasLocale = isLocale(segments[0]);
   const cookieLocale = request.cookies.get(localeCookie)?.value;
   const acceptLanguage = request.headers.get('accept-language')?.split(',').map((part) => part.trim().split(';')[0].split('-')[0]).find(isLocale);
-  const locale: Locale = hasLocale ? segments[0] as Locale : (isLocale(cookieLocale) ? cookieLocale : acceptLanguage ?? defaultLocale);
+  const rootLocale: Locale = isLocale(cookieLocale) ? cookieLocale : acceptLanguage ?? defaultLocale;
+  const locale: Locale = hasLocale ? segments[0] as Locale : pathname === '/' ? rootLocale : defaultLocale;
   const internalPath = hasLocale ? `/${segments.slice(1).join('/')}` || '/' : pathname;
   const isBot = /bot|crawler|spider|slurp|bingpreview|yandex|baidu|duckduckgo/i.test(request.headers.get('user-agent') ?? '');
   const isRootVisit = pathname === '/' && !hasLocale && !cookieLocale && !isBot;
@@ -58,10 +59,9 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
-  const response = hasLocale
+  const response = hasLocale || pathname === '/'
     ? NextResponse.rewrite(new URL(internalPath === '/' ? '/homepage' : internalPath, request.url), {request: {headers: requestHeaders}})
     : NextResponse.next({request: {headers: requestHeaders}});
-  response.cookies.set(localeCookie, locale, {path: '/', maxAge: 31536000, sameSite: 'lax'});
   return response;
 }
 
