@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { ProductCategory } from "@prisma/client";
 import { requireAuth } from "@/lib/auth-guard";
 import { z } from "zod";
 import { logger } from "@/lib/logger";
+
+const ProductCategory = {
+  Medya: "Medya",
+  Teknoloji: "Teknoloji",
+  Baski: "Baski",
+} as const;
 
 const orderItemSchema = z.object({
   productId: z.string().min(1, "Ürün kimliği gereklidir."),

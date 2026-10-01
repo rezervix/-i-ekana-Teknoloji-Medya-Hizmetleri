@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import type { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import pg from "pg";
 
@@ -88,13 +88,22 @@ function createMockPrisma(): PrismaClient {
   return prismaMock as PrismaClient;
 }
 
-const getPrismaClient = () => {
+const getPrismaClient = (): PrismaClient => {
   const dbUrl = process.env.DATABASE_URL;
   if (!dbUrl) {
     return createMockPrisma();
   }
 
   try {
+    let PrismaClientConstructor: any;
+    try {
+      // Dynamically require to avoid crash if client not yet generated
+      PrismaClientConstructor = require("@prisma/client").PrismaClient;
+    } catch (err) {
+      console.warn("[prisma] Could not load @prisma/client, using mock:", err);
+      return createMockPrisma();
+    }
+
     const pool = new pg.Pool({
       connectionString: dbUrl,
       connectionTimeoutMillis: Number(process.env.PG_CONNECTION_TIMEOUT_MS ?? 5000),
@@ -103,7 +112,7 @@ const getPrismaClient = () => {
     });
 
     const adapter = new PrismaPg(pool);
-    return new PrismaClient({
+    return new PrismaClientConstructor({
       adapter,
       log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
     });
