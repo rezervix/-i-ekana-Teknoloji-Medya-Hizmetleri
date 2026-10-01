@@ -1,0 +1,8 @@
+{
+  "name": "Çiçekana Teknoloji & Medya",
+  "description": "Kurumsal yazılım, yapay zeka otomasyonları, medya prodüksiyon ve kurumsal dijital dönüşüm platformu.",
+  "permissions": [],
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

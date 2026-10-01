@@ -2,6 +2,7 @@ const { imageHosts } = require('./image-hosts.config.cjs');
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: 'standalone',
   productionBrowserSourceMaps: true,
   distDir: '.next',
   typescript: {

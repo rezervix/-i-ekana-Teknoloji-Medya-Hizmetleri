@@ -1,14 +1,10 @@
 import { prisma } from "@/lib/prisma";
-import { GoogleGenerativeAI } from "@google/generative-ai";
-
-const API_KEYS = [
-  process.env.GEMINI_API_KEY,
-].filter(Boolean);
+import { GoogleGenAI } from "@google/genai";
 
 function getClient() {
-  const key = API_KEYS[Math.floor(Math.random() * API_KEYS.length)];
-  if (!key) throw new Error("GEMINI_API_KEY is not configured");
-  return new GoogleGenerativeAI(key);
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error("GEMINI_API_KEY is not configured");
+  return new GoogleGenAI({ apiKey });
 }
 
 const TOPICS = [
@@ -51,13 +47,14 @@ Kurallar:
 4. Yaz\u0131 en az 400-500 kelime civar\u0131nda dolgun bir i\u00e7erik olmal\u0131.
 5. Sonunda mutlaka Cicekana Teknoloji & Medya'n\u0131n sundu\u011fu ilgili hizmetlere (\u00f6rne\u011fin e-ticaret, yaz\u0131l\u0131m, reklam) ufak bir \u00e7a\u011fr\u0131 (call-to-action) yap.`;
 
-  const genAI = getClient();
+  const ai = getClient();
 
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    let content = response.text();
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt,
+    });
+    let content = response.text || "";
 
     let title = "Guncel Teknoloji ve Medya Haberleri";
     const titleMatch = content.match(/^#\s+(.+)$/m);
