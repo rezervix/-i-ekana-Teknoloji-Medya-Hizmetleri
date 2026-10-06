@@ -191,6 +191,7 @@ export default function QuotesClient() {
             <span>Teklifler yükleniyor...</span>
           </div>
         ) : (
+          <>
             {/* Desktop Table */}
             <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-left">
@@ -325,6 +326,7 @@ export default function QuotesClient() {
                 })
               )}
             </div>
+          </>
         )}
       </div>
 
@@ -415,7 +417,7 @@ export default function QuotesClient() {
               <button
                 onClick={() => handleUpdateStatusAndNotes(selectedQuote.id)}
                 disabled={actionLoading}
-                className="min-h-[44px] flex-1 bg-corp-teal text-white px-4 py-2.5 rounded-xl font-semibold hover:bg-corp-teal-600 transition-colors flex items-center justify-center gap-2 text-sm disabled:opacity-50"
+                className="min-h-[44px] flex-1 bg-corp-teal text-white px-4 py-2.5 rounded-xl font-semibold hover:bg-corp-teal-600 transition-colors flex items-center justify-center gap-2 text-sm"
               >
                 {actionLoading && <Loader2 className="animate-spin" size={16} />} Değişiklikleri Kaydet
               </button>
