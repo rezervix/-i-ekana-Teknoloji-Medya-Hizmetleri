@@ -47,6 +47,7 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write \"src/**/*.{ts,tsx,css,md,json}\"",
     "serve": "next start",
+    "test:cart": "tsx scripts/test-cart-totals.ts",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {

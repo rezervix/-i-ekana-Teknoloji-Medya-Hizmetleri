@@ -1,6 +1,7 @@
 export interface StoreDeliveryConfig {
   shippingEstimateText: string;
-  freeShippingThreshold: number;
+  freeShippingThreshold: number; // Ücretsiz kargo eşiği (TL)
+  standardShippingFee: number; // Eşik altı sabit kargo ücreti (TL)
   freeShippingText: string;
   returnPolicyText: string;
   supportGuaranteeText: string;
@@ -11,11 +12,14 @@ export const STORE_DELIVERY_CONFIG: StoreDeliveryConfig = {
   shippingEstimateText:
     process.env.NEXT_PUBLIC_STORE_SHIPPING_ESTIMATE || "1-3 iş günü içinde kargoda",
   freeShippingThreshold: Number(
-    process.env.NEXT_PUBLIC_STORE_FREE_SHIPPING_THRESHOLD || 500
+    process.env.NEXT_PUBLIC_STORE_FREE_SHIPPING_THRESHOLD || 350
+  ),
+  standardShippingFee: Number(
+    process.env.NEXT_PUBLIC_STORE_STANDARD_SHIPPING_FEE || 49.9
   ),
   freeShippingText:
     process.env.NEXT_PUBLIC_STORE_FREE_SHIPPING_TEXT ||
-    "500 TL ve üzeri siparişlerde kargo bedava",
+    "350 TL ve üzeri siparişlerde kargo bedava",
   returnPolicyText:
     process.env.NEXT_PUBLIC_STORE_RETURN_POLICY ||
     "14 gün içinde koşulsuz kolay iade garantisi",
