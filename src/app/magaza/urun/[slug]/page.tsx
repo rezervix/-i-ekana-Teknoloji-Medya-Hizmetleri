@@ -58,9 +58,31 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
     notFound();
   }
 
+  // Fetch related products from the same category
+  let relatedProducts: any[] = [];
+  try {
+    if (product && product.category) {
+      relatedProducts = await prisma.product.findMany({
+        where: {
+          category: product.category,
+          id: { not: product.id },
+          isActive: true,
+        },
+        take: 4,
+        orderBy: { createdAt: "desc" },
+      });
+    }
+  } catch (err) {
+    console.error("Error fetching related products:", err);
+  }
+
   return (
     <main className="min-h-screen bg-corp-surface pt-28 pb-20">
-      <ProductDetailClient product={product} initialReviews={reviews} />
+      <ProductDetailClient
+        product={product}
+        initialReviews={reviews}
+        relatedProducts={relatedProducts}
+      />
     </main>
   );
 }

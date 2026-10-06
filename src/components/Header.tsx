@@ -17,7 +17,7 @@ import CartButton from "./CartButton";
 import Logo from "./Logo";
 import { DropdownNavigation, type NavItem } from "@/components/ui/dropdown-navigation";
 
-const NAV_ITEMS: NavItem[] = [
+const BASE_NAV_ITEMS: NavItem[] = [
   {
     id: 1,
     label: "Hizmetler",
@@ -43,6 +43,24 @@ export default function Header() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [isTrVisitor, setIsTrVisitor] = useState(true);
+
+  useEffect(() => {
+    if (typeof document !== "undefined") {
+      const match = document.cookie.match(/(?:^|;\s*)cicekana_geo_tr=([01])/);
+      if (match) {
+        setIsTrVisitor(match[1] === "1");
+      }
+    }
+  }, []);
+
+  const navItems = React.useMemo(() => {
+    if (!isTrVisitor) return BASE_NAV_ITEMS;
+    return [
+      ...BASE_NAV_ITEMS,
+      { id: 4, label: "Mağaza", link: "/magaza" },
+    ];
+  }, [isTrVisitor]);
 
   const { data: session, status } = useSession();
 
@@ -91,12 +109,12 @@ export default function Header() {
 
           {/* Desktop Nav */}
           <div className="hidden md:flex items-center">
-            <DropdownNavigation navItems={NAV_ITEMS} />
+            <DropdownNavigation navItems={navItems} />
           </div>
 
           {/* CTA — Auth buttons or user session */}
           <div className="hidden md:flex items-center gap-3 flex-shrink-0">
-            <CartButton />
+            {isTrVisitor && <CartButton />}
             {status === "loading" ? (
               <div className="w-32 h-9 rounded-md bg-corp-border animate-pulse" />
             ) : session ? (
@@ -178,7 +196,7 @@ export default function Header() {
 
           {/* Mobile toggle */}
           <div className="flex items-center gap-2 md:hidden">
-            <CartButton />
+            {isTrVisitor && <CartButton />}
             <button
               className="p-2 rounded-md text-corp-charcoal hover:bg-corp-surface transition-colors"
               onClick={() => setMobileOpen(true)}
@@ -216,7 +234,7 @@ export default function Header() {
             </div>
 
             <nav className="flex flex-col p-6 gap-1" aria-label="Mobil menü">
-              {NAV_ITEMS.map((link, i) => (
+              {navItems.map((link, i) => (
                 <motion.div
                   key={link.label}
                   initial={{ opacity: 0, x: -16 }}

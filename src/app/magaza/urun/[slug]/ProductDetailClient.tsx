@@ -2,7 +2,28 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { useCartStore } from "@/store/useCartStore";
-import { Star, ShoppingBag, ArrowLeft, Check, Plus, Minus, Image as ImageIcon, Upload, Users, X, Eye, FileText, AlertTriangle, Layers, Truck } from "lucide-react";
+import {
+  Star,
+  ShoppingBag,
+  ArrowLeft,
+  Check,
+  Plus,
+  Minus,
+  Image as ImageIcon,
+  Upload,
+  Users,
+  X,
+  Eye,
+  FileText,
+  AlertTriangle,
+  Layers,
+  Truck,
+  Zap,
+  ShieldCheck,
+  RotateCcw,
+  AlertCircle,
+  ArrowRight,
+} from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -10,6 +31,7 @@ import { useUploadThing } from "@/lib/uploadthing.client";
 import { motion, AnimatePresence } from "framer-motion";
 import { SafeImage } from "@/components/ui/SafeImage";
 import { useSession } from "next-auth/react";
+import { STORE_DELIVERY_CONFIG } from "@/config/store.config";
 import type {
   ProductCustomizationOptions,
   NewFormatCustomizationOptions,
@@ -63,12 +85,15 @@ function findMatchingEntry(
 export default function ProductDetailClient({
   product,
   initialReviews,
+  relatedProducts = [],
 }: {
   product: any;
   initialReviews: any[];
+  relatedProducts?: any[];
 }) {
   const [quantity, setQuantity] = useState(1);
   const [customizationData, setCustomizationData] = useState<Record<string, any>>({});
+  const [variantError, setVariantError] = useState<string | null>(null);
   const { addItem } = useCartStore();
   const router = useRouter();
   const { data: session } = useSession();
@@ -294,9 +319,59 @@ export default function ProductDetailClient({
     return undefined;
   }, [resolved.mode, selectedTierNew, selectedLegacyVariant]);
 
+  // ── Varyant Doğrulama ──────────────────────────────────────────────────────
+  const validateVariantSelection = (): boolean => {
+    if (resolved.mode === "new" && resolved.newOpts) {
+      for (const dim of resolved.newOpts.variantDimensions) {
+        if (!selectedDimensions[dim.key]) {
+          const msg = `Lütfen "${dim.label}" seçeneğini belirleyin.`;
+          setVariantError(msg);
+          toast.error(msg);
+          return false;
+        }
+      }
+      if (!matchingEntry) {
+        const msg = "Seçilen varyant kombinasyonu için geçerli bir fiyat bulunamadı.";
+        setVariantError(msg);
+        toast.error(msg);
+        return false;
+      }
+      if (!selectedTierNew || !selectedTierNew.quantity) {
+        const msg = "Lütfen sipariş adedini seçiniz.";
+        setVariantError(msg);
+        toast.error(msg);
+        return false;
+      }
+    } else if (resolved.mode === "legacy_variants") {
+      if (uniqueMaterials.length > 0 && !selectedMaterial) {
+        const msg = "Lütfen malzeme türünü seçiniz.";
+        setVariantError(msg);
+        toast.error(msg);
+        return false;
+      }
+      if (!legacyQuantity) {
+        const msg = "Lütfen adet seçiniz.";
+        setVariantError(msg);
+        toast.error(msg);
+        return false;
+      }
+    }
+    setVariantError(null);
+    return true;
+  };
+
   // ── Sepete Ekle ────────────────────────────────────────────────────────────
 
-  const handleAddToCart = () => {
+  const handleAddToCart = (): boolean => {
+    if (product.stock === 0) {
+      toast.error("Ürün stokta bulunmamaktadır.");
+      return false;
+    }
+
+    if (!validateVariantSelection()) {
+      return false;
+    }
+
     const photoToDesignFee = product.photoToDesignFee ?? 500;
     const extraServices = selectedDesignMethod === 'photo_to_design'
       ? [{ type: "photo_to_design", label: "Fotoğraftan Tasarım Hizmeti", price: photoToDesignFee }]
@@ -364,6 +439,16 @@ export default function ProductDetailClient({
         customizationData: dataWithFiles,
         ...templateFields,
       });
+    }
+
+    toast.success("Ürün sepete eklendi!");
+    return true;
+  };
+
+  const handleBuyNow = () => {
+    const success = handleAddToCart();
+    if (success) {
+      router.push("/magaza/odeme");
     }
   };
 
@@ -457,25 +542,39 @@ export default function ProductDetailClient({
             {product.name}
           </h1>
 
-          {/* 2. Değerlendirme (yıldız + "X Değerlendirme" linki) */}
-          <div className="flex items-center gap-4 mb-4">
-            {product.stock === 0 && (
-              <span className="bg-corp-gray text-white text-xs font-bold px-3 py-1.5 rounded-full uppercase tracking-wider">
-                Stok Dışı
-              </span>
-            )}
-            <div className="flex items-center gap-1.5">
-              <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-              <span className="text-sm font-semibold text-corp-charcoal">
-                {avgRating.toFixed(1)}
-              </span>
-              <span className="text-sm text-corp-gray underline cursor-pointer hover:text-corp-teal">
+          {/* 2. Değerlendirme & Yorum (SADECE yorum varsa göster, yoksa gizle) */}
+          {initialReviews.length > 0 && (
+            <div className="flex items-center gap-3 mb-4">
+              <div className="flex items-center gap-1.5 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200">
+                <Star className="w-4 h-4 text-amber-500 fill-amber-400" />
+                <span className="text-sm font-bold text-corp-charcoal">
+                  {avgRating.toFixed(1)}
+                </span>
+              </div>
+              <a
+                href="#reviews"
+                className="text-sm text-corp-gray underline cursor-pointer hover:text-corp-teal transition-colors"
+              >
                 {initialReviews.length} Değerlendirme
-              </span>
+              </a>
             </div>
-          </div>
+          )}
 
-          {/* 3. Live Viewer Count Badge */}
+          {/* 3. Stok Bilgisi (YALNIZCA düşük stok varsa veya stok dışıysa göster) */}
+          {product.stock === 0 ? (
+            <div className="inline-flex items-center gap-1.5 bg-gray-100 text-gray-700 text-xs font-bold px-3 py-1.5 rounded-full uppercase tracking-wider mb-4 w-fit border border-gray-200">
+              <span>Stok Dışı</span>
+            </div>
+          ) : typeof product.stock === "number" &&
+            product.stock > 0 &&
+            product.stock <= STORE_DELIVERY_CONFIG.lowStockThreshold ? (
+            <div className="inline-flex items-center gap-1.5 bg-amber-50 text-amber-800 text-xs font-bold px-3 py-1.5 rounded-full mb-4 w-fit border border-amber-200">
+              <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+              <span>Son {product.stock} adet stokta kaldı!</span>
+            </div>
+          ) : null}
+
+          {/* 4. Live Viewer Count Badge */}
           <div className="flex items-center gap-2 bg-corp-teal/5 border border-corp-teal/20 rounded-full px-4 py-2 mb-4 w-fit">
             <div className="relative">
               <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
@@ -487,37 +586,62 @@ export default function ProductDetailClient({
             </span>
           </div>
 
-          {/* 4. Fiyat Gösterimi */}
-          <div className="mb-6">
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="font-display text-3xl font-bold text-corp-teal">
-                {displayPrice.toLocaleString("tr-TR")} TL
+          {/* 5. Fiyat Gösterimi (Eski fiyat ve indirim sadece veri varsa gösterilir) */}
+          {(() => {
+            const compareAtPrice = Number(
+              (product as any).compareAtPrice ||
+              (product as any).oldPrice ||
+              (product.customizationOptions as any)?.oldPrice ||
+              0
+            );
+            const hasDiscount = compareAtPrice > displayPrice;
+            const discountPercent = hasDiscount
+              ? Math.round(((compareAtPrice - displayPrice) / compareAtPrice) * 100)
+              : 0;
+
+            return (
+              <div className="mb-6">
+                <div className="flex flex-wrap items-baseline gap-3">
+                  <div className="font-display text-3xl sm:text-4xl font-bold text-corp-teal">
+                    {displayPrice.toLocaleString("tr-TR")} TL
+                  </div>
+                  {hasDiscount && (
+                    <>
+                      <span className="line-through text-corp-gray text-lg sm:text-xl font-normal">
+                        {compareAtPrice.toLocaleString("tr-TR")} TL
+                      </span>
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-600 border border-red-200">
+                        %{discountPercent} İndirim
+                      </span>
+                    </>
+                  )}
+                  {product.freeShipping && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200/90 dark:border-emerald-800/40 shadow-xs">
+                      <Truck size={15} className="text-emerald-600 dark:text-emerald-400" />
+                      <span>Ücretsiz Kargo</span>
+                    </span>
+                  )}
+                </div>
+                {product.freeShipping && (
+                  <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 mt-1.5 flex items-center gap-1">
+                    <span>✓</span> Ücretsiz kargo ile gönderilir
+                  </p>
+                )}
+                {displayUnitPrice !== undefined && displayUnitPrice > 0 && (
+                  <div className="text-sm text-corp-gray mt-1">
+                    Birim fiyat:{" "}
+                    <span className="font-semibold text-corp-charcoal">
+                      {displayUnitPrice.toLocaleString("tr-TR", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}{" "}
+                      TL
+                    </span>
+                  </div>
+                )}
               </div>
-              {product.freeShipping && (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200/90 dark:border-emerald-800/40 shadow-xs">
-                  <Truck size={15} className="text-emerald-600 dark:text-emerald-400" />
-                  <span>Ücretsiz Kargo</span>
-                </span>
-              )}
-            </div>
-            {product.freeShipping && (
-              <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 mt-1.5 flex items-center gap-1">
-                <span>✓</span> Ücretsiz kargo ile gönderilir
-              </p>
-            )}
-            {displayUnitPrice !== undefined && displayUnitPrice > 0 && (
-              <div className="text-sm text-corp-gray mt-1">
-                Birim fiyat:{" "}
-                <span className="font-semibold text-corp-charcoal">
-                  {displayUnitPrice.toLocaleString("tr-TR", {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}{" "}
-                  TL
-                </span>
-              </div>
-            )}
-          </div>
+            );
+          })()}
 
           <p className="text-corp-gray leading-relaxed mb-8 border-b border-corp-border pb-8">
             {product.description}
@@ -707,41 +831,97 @@ export default function ProductDetailClient({
             </div>
           )}
 
-          {/* Add to Cart Area */}
-          <div className="flex flex-col sm:flex-row items-center gap-4 mt-auto">
-            {/* Serbest adet sadece variant/tier olmayan ürünlerde */}
-            {resolved.mode === "none" && (
-              <div className="flex items-center border border-corp-border rounded-xl overflow-hidden bg-white w-full sm:w-auto h-14">
-                <button
-                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                  className="w-14 h-full flex items-center justify-center text-corp-gray hover:bg-corp-surface transition-colors"
-                >
-                  <Minus size={18} />
-                </button>
-                <span className="w-14 h-full flex items-center justify-center font-body text-lg font-semibold text-corp-charcoal">
-                  {quantity}
-                </span>
-                <button
-                  onClick={() => setQuantity(quantity + 1)}
-                  className="w-14 h-full flex items-center justify-center text-corp-gray hover:bg-corp-surface transition-colors"
-                >
-                  <Plus size={18} />
-                </button>
-              </div>
-            )}
+          {/* Variant Selection Error Banner */}
+          {variantError && (
+            <div className="flex items-center gap-2.5 p-3.5 mb-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm animate-in fade-in duration-200">
+              <AlertCircle size={18} className="shrink-0 text-red-600" />
+              <span className="font-medium">{variantError}</span>
+            </div>
+          )}
 
-            <button
-              onClick={handleAddToCart}
-              disabled={product.stock === 0 || (resolved.mode === "new" && newFormatTiers.length === 0)}
-              className="flex-1 h-14 bg-corp-teal text-white flex items-center justify-center gap-3 rounded-xl font-display font-bold text-lg hover:bg-corp-teal-600 transition-all shadow-corp-hover disabled:opacity-50 disabled:cursor-not-allowed w-full"
-            >
-              <ShoppingBag size={20} />
-              {product.stock === 0
-                ? "Stokta Yok"
-                : resolved.mode === "new" && newFormatTiers.length === 0
-                ? "Bu Kombinasyon Mevcut Değil"
-                : "Sepete Ekle"}
-            </button>
+          {/* Add to Cart & Buy Now Area */}
+          <div className="flex flex-col gap-4 mt-auto">
+            <div className="flex flex-col sm:flex-row items-center gap-3 w-full">
+              {/* Serbest adet sadece variant/tier olmayan ürünlerde */}
+              {resolved.mode === "none" && (
+                <div className="flex items-center border border-corp-border rounded-xl overflow-hidden bg-white w-full sm:w-auto h-14">
+                  <button
+                    type="button"
+                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                    className="w-14 h-full flex items-center justify-center text-corp-gray hover:bg-corp-surface transition-colors cursor-pointer"
+                    aria-label="Adeti azalt"
+                  >
+                    <Minus size={18} />
+                  </button>
+                  <span className="w-14 h-full flex items-center justify-center font-body text-lg font-semibold text-corp-charcoal">
+                    {quantity}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setQuantity(quantity + 1)}
+                    className="w-14 h-full flex items-center justify-center text-corp-gray hover:bg-corp-surface transition-colors cursor-pointer"
+                    aria-label="Adeti artır"
+                  >
+                    <Plus size={18} />
+                  </button>
+                </div>
+              )}
+
+              {/* 1. Ana CTA: Sepete Ekle */}
+              <button
+                type="button"
+                onClick={handleAddToCart}
+                disabled={product.stock === 0 || (resolved.mode === "new" && newFormatTiers.length === 0)}
+                className="flex-1 min-h-[52px] sm:min-h-[56px] bg-corp-teal hover:bg-corp-teal-600 active:scale-[0.99] text-white flex items-center justify-center gap-2.5 rounded-xl font-display font-bold text-base sm:text-lg transition-all duration-200 shadow-[0_4px_16px_rgba(10,77,104,0.28)] hover:shadow-[0_6px_22px_rgba(10,77,104,0.38)] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer w-full"
+              >
+                <ShoppingBag size={20} />
+                <span>
+                  {product.stock === 0
+                    ? "Stokta Yok"
+                    : resolved.mode === "new" && newFormatTiers.length === 0
+                    ? "Bu Kombinasyon Mevcut Değil"
+                    : "Sepete Ekle"}
+                </span>
+              </button>
+
+              {/* 1. İkincil CTA: Hemen Al (Doğrudan Ödeme) */}
+              {product.stock !== 0 && !(resolved.mode === "new" && newFormatTiers.length === 0) && (
+                <button
+                  type="button"
+                  onClick={handleBuyNow}
+                  className="flex-1 min-h-[52px] sm:min-h-[56px] bg-amber-500 hover:bg-amber-600 active:scale-[0.99] text-white flex items-center justify-center gap-2 rounded-xl font-display font-bold text-base sm:text-lg transition-all duration-200 shadow-[0_4px_16px_rgba(245,158,11,0.28)] hover:shadow-[0_6px_22px_rgba(245,158,11,0.38)] cursor-pointer w-full"
+                >
+                  <Zap size={20} className="fill-white" />
+                  <span>Hemen Al</span>
+                </button>
+              )}
+            </div>
+
+            {/* 3. CTA Altı Mikro Metinler (Yapılandırmadan gelen dinamik veriler) */}
+            <div className="pt-4 border-t border-corp-border/80 grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="flex items-center gap-2.5 text-xs text-corp-charcoal font-medium">
+                <div className="w-8 h-8 rounded-lg bg-corp-teal/10 flex items-center justify-center shrink-0 text-corp-teal">
+                  <Truck size={16} />
+                </div>
+                <span>{STORE_DELIVERY_CONFIG.shippingEstimateText}</span>
+              </div>
+              <div className="flex items-center gap-2.5 text-xs text-corp-charcoal font-medium">
+                <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center shrink-0 text-emerald-600">
+                  <ShieldCheck size={16} />
+                </div>
+                <span>
+                  {product.freeShipping
+                    ? "Bu üründe kargo ücretsiz"
+                    : STORE_DELIVERY_CONFIG.freeShippingText}
+                </span>
+              </div>
+              <div className="flex items-center gap-2.5 text-xs text-corp-charcoal font-medium">
+                <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0 text-blue-600">
+                  <RotateCcw size={16} />
+                </div>
+                <span>{STORE_DELIVERY_CONFIG.returnPolicyText}</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -1241,39 +1421,146 @@ export default function ProductDetailClient({
           </div>
         </div>
       )}
-      {/* Sticky Mobile Add to Cart Bar */}
+      {/* ── Benzer Ürünler Bölümü (Aynı Kategoriden) ─────────────────────── */}
+      {relatedProducts && relatedProducts.length > 0 && (
+        <section className="pt-16 pb-8 border-t border-corp-border">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <span className="text-xs font-semibold text-corp-teal uppercase tracking-widest">
+                Kategori: {product.category}
+              </span>
+              <h2 className="font-display text-2xl sm:text-3xl font-bold text-corp-charcoal mt-1">
+                Benzer Ürünler
+              </h2>
+            </div>
+            <Link
+              href="/magaza"
+              className="text-sm font-semibold text-corp-teal hover:text-corp-teal-600 flex items-center gap-1 transition-colors"
+            >
+              Mağazaya Git <ArrowRight size={16} />
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {relatedProducts.map((rel: any) => {
+              const relCompareAt = Number(rel.compareAtPrice || rel.oldPrice || 0);
+              const relHasDiscount = relCompareAt > rel.price;
+              const relDiscountPercent = relHasDiscount
+                ? Math.round(((relCompareAt - rel.price) / relCompareAt) * 100)
+                : 0;
+
+              return (
+                <Link
+                  key={rel.id}
+                  href={`/magaza/urun/${rel.slug}`}
+                  className="group bg-white rounded-2xl border border-corp-border p-4 shadow-sm hover:shadow-md hover:border-corp-teal/40 transition-all flex flex-col"
+                >
+                  <div className="aspect-square bg-corp-surface rounded-xl overflow-hidden mb-3.5 p-3 flex items-center justify-center relative">
+                    <SafeImage
+                      src={rel.images?.[0] || "/placeholder.webp"}
+                      alt={rel.name}
+                      className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
+                      fallback="/placeholder.webp"
+                    />
+                    {relHasDiscount && (
+                      <span className="absolute top-2 left-2 px-2 py-0.5 rounded-md text-[11px] font-bold bg-red-500 text-white shadow-xs">
+                        %{relDiscountPercent}
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="font-display font-semibold text-corp-charcoal text-sm sm:text-base line-clamp-1 group-hover:text-corp-teal transition-colors mb-2">
+                    {rel.name}
+                  </h3>
+                  <div className="mt-auto pt-3 flex items-center justify-between border-t border-corp-border/60">
+                    <div className="flex flex-col">
+                      <span className="font-display font-bold text-corp-teal text-base sm:text-lg">
+                        {rel.price.toLocaleString("tr-TR")} TL
+                      </span>
+                      {relHasDiscount && (
+                        <span className="line-through text-xs text-corp-gray">
+                          {relCompareAt.toLocaleString("tr-TR")} TL
+                        </span>
+                      )}
+                    </div>
+                    {rel.freeShipping && (
+                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
+                        Ücretsiz Kargo
+                      </span>
+                    )}
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* 2. Sticky Mobile Add to Cart Bar (Dokunma hedefi min 44px) */}
       <AnimatePresence>
         {showStickyBar && (
           <motion.div
             initial={{ y: "100%" }}
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
-            transition={{ duration: 0.3, ease: "easeOut" }}
-            className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-corp-border p-4 flex items-center justify-between gap-4 lg:hidden shadow-[0_-4px_20px_rgba(0,0,0,0.08)]"
+            transition={{ duration: 0.25, ease: "easeOut" }}
+            className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-corp-border p-3 sm:p-4 flex items-center justify-between gap-3 lg:hidden shadow-[0_-4px_20px_rgba(0,0,0,0.1)] pb-[max(12px,env(safe-area-inset-bottom))]"
           >
-            <div className="flex items-center gap-3 min-w-0">
-              <img
+            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+              <SafeImage
                 src={activeImage}
                 alt={product.name}
-                className="w-12 h-12 object-contain rounded-lg border border-corp-border bg-white flex-shrink-0"
+                className="w-12 h-12 object-contain rounded-lg border border-corp-border bg-white shrink-0 p-1"
+                fallback="/placeholder.webp"
               />
               <div className="min-w-0">
-                <h4 className="text-sm font-semibold text-corp-charcoal truncate">
+                <h4 className="text-xs font-semibold text-corp-charcoal truncate">
                   {product.name}
                 </h4>
-                <div className="font-display text-base font-bold text-corp-teal">
-                  {displayPrice.toLocaleString("tr-TR")} TL
+                <div className="flex items-baseline gap-1.5">
+                  <span className="font-display text-base font-bold text-corp-teal">
+                    {displayPrice.toLocaleString("tr-TR")} TL
+                  </span>
+                  {(() => {
+                    const compareAtPrice = Number(
+                      (product as any).compareAtPrice ||
+                      (product as any).oldPrice ||
+                      (product.customizationOptions as any)?.oldPrice ||
+                      0
+                    );
+                    if (compareAtPrice > displayPrice) {
+                      return (
+                        <span className="line-through text-[11px] text-corp-gray">
+                          {compareAtPrice.toLocaleString("tr-TR")} TL
+                        </span>
+                      );
+                    }
+                    return null;
+                  })()}
                 </div>
               </div>
             </div>
-            <button
-              onClick={handleAddToCart}
-              disabled={product.stock === 0 || (resolved.mode === "new" && newFormatTiers.length === 0)}
-              className="bg-corp-teal text-white px-5 py-3 rounded-xl font-display font-bold text-sm hover:bg-corp-teal-600 transition-all disabled:opacity-50 flex items-center gap-2 whitespace-nowrap shadow-md"
-            >
-              <ShoppingBag size={16} />
-              {product.stock === 0 ? "Stokta Yok" : "Sepete Ekle"}
-            </button>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={handleAddToCart}
+                disabled={product.stock === 0 || (resolved.mode === "new" && newFormatTiers.length === 0)}
+                className="min-h-[44px] px-3.5 sm:px-4 py-2.5 bg-corp-teal text-white rounded-xl font-display font-bold text-xs sm:text-sm hover:bg-corp-teal-600 transition-all disabled:opacity-50 flex items-center gap-1.5 shadow-sm active:scale-95 touch-manipulation cursor-pointer"
+              >
+                <ShoppingBag size={16} />
+                <span>{product.stock === 0 ? "Stokta Yok" : "Sepete Ekle"}</span>
+              </button>
+              {product.stock !== 0 && !(resolved.mode === "new" && newFormatTiers.length === 0) && (
+                <button
+                  type="button"
+                  onClick={handleBuyNow}
+                  className="min-h-[44px] px-3.5 sm:px-4 py-2.5 bg-amber-500 text-white rounded-xl font-display font-bold text-xs sm:text-sm hover:bg-amber-600 transition-all flex items-center gap-1 shadow-sm active:scale-95 touch-manipulation cursor-pointer"
+                >
+                  <Zap size={15} className="fill-white" />
+                  <span>Hemen Al</span>
+                </button>
+              )}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

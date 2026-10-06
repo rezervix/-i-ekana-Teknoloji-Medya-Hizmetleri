@@ -33,15 +33,20 @@ const nextConfig = {
   },
   webpack(config) {
     if (process.env.NODE_ENV === 'development') {
-      config.module.rules.push({
-        test: /\.(jsx|tsx)$/,
-        exclude: [/node_modules/],
-        use: [
-          {
-            loader: '@dhiwise/component-tagger/nextLoader',
-          },
-        ],
-      });
+      try {
+        require.resolve('@dhiwise/component-tagger/nextLoader');
+        config.module.rules.push({
+          test: /\.(jsx|tsx)$/,
+          exclude: [/node_modules/],
+          use: [
+            {
+              loader: '@dhiwise/component-tagger/nextLoader',
+            },
+          ],
+        });
+      } catch (err) {
+        // Safe fallback if loader is not present
+      }
     }
     return config;
   },

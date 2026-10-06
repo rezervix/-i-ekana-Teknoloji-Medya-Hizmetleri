@@ -7,7 +7,7 @@ import { signOut } from "next-auth/react";
 import {
   LayoutDashboard, FileText, FolderOpen, Package, Wrench, Users2, MessageSquareQuote,
   Image, Mail, BarChart3, Settings, LogOut, Menu, X, ChevronRight,
-  Brain, UserSquare2, HelpCircle, Building2, Briefcase, LifeBuoy, FolderGit2, Receipt,
+  Brain, UserSquare2, HelpCircle, Building2, Briefcase, LifeBuoy, FolderGit2, Receipt, ExternalLink
 } from "lucide-react";
 import DatabaseStatus from "./components/DatabaseStatus";
 import Logo from "@/components/Logo";
@@ -234,9 +234,19 @@ export default function AdminLayout({ children }: Props) {
               ))}
           </div>
 
-          {/* User avatar */}
-          <div className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-white text-sm bg-corp-teal flex-shrink-0">
-            A
+          {/* Actions & User avatar */}
+          <div className="flex items-center gap-3">
+            <Link
+              href="/magaza"
+              target="_blank"
+              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-corp-border text-xs font-medium text-corp-charcoal hover:text-corp-teal hover:border-corp-teal/40 transition-colors"
+            >
+              Mağazayı Görüntüle
+              <ExternalLink size={12} />
+            </Link>
+            <div className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-white text-sm bg-corp-teal flex-shrink-0">
+              A
+            </div>
           </div>
         </header>
 
