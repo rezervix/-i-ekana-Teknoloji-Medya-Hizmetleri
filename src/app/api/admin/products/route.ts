@@ -62,6 +62,7 @@ export async function POST(req: Request) {
       description: data.description || null,
       images: Array.isArray(data.images) ? data.images : [],
       customizationOptions,
+      freeShipping: Boolean(data.freeShipping),
       photoToDesignFee: data.photoToDesignFee !== undefined && data.photoToDesignFee !== null && data.photoToDesignFee !== ""
         ? parseFloat(String(data.photoToDesignFee))
         : null,

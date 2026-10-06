@@ -152,9 +152,10 @@ export default function ClientContractsClient({ initialContracts }: { initialCon
         </select>
       </div>
 
-      {/* Contracts table */}
+      {/* Contracts table & cards */}
       <div className="rounded-2xl border border-corp-border bg-white shadow-corp-card overflow-hidden">
-        <div className="overflow-x-auto">
+        {/* Desktop Table View */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b border-corp-border bg-corp-surface">
@@ -244,17 +245,85 @@ export default function ClientContractsClient({ initialContracts }: { initialCon
             </tbody>
           </table>
         </div>
+
+        {/* Mobile Card List View */}
+        <div className="md:hidden divide-y divide-corp-border">
+          {filtered.length === 0 ? (
+            <div className="p-8 text-center font-body text-[14px] text-corp-gray">
+              Kayıt bulunamadı.
+            </div>
+          ) : (
+            filtered.map((contract) => {
+              const st = STATUS_META[contract.status] || { label: contract.status, color: "#6B7280", icon: null };
+              const StatusIcon = st.icon;
+
+              return (
+                <div key={contract.id} className="p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-body text-sm text-corp-charcoal font-bold truncate">
+                        {contract.user.companyTitle || contract.user.name || contract.user.email}
+                      </p>
+                      <p className="font-body text-xs text-corp-gray truncate">{contract.user.email}</p>
+                    </div>
+                    <span
+                      className="px-2.5 py-1 rounded-full font-body text-[10px] font-bold flex items-center gap-1 shrink-0"
+                      style={{
+                        background: `${st.color}14`,
+                        color: st.color,
+                        border: `1px solid ${st.color}30`,
+                      }}
+                    >
+                      {StatusIcon && <StatusIcon size={11} />}
+                      {st.label}
+                    </span>
+                  </div>
+
+                  <p className="font-body text-sm text-corp-charcoal font-medium">
+                    {contract.title}
+                  </p>
+
+                  <div className="flex items-center justify-between text-[11px] text-corp-gray pt-1 border-t border-corp-border/50">
+                    <span>Oluşturma: {formatDate(contract.createdAt)}</span>
+                    {contract.signedAt && (
+                      <span className="text-emerald-600 font-medium">İmza: {formatDate(contract.signedAt)}</span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2 pt-2 border-t border-corp-border/50">
+                    <a
+                      href={contract.fileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="min-h-[40px] px-3 py-1.5 text-xs text-corp-teal bg-corp-teal/10 hover:bg-corp-teal/20 rounded-lg flex items-center gap-1 font-semibold transition-colors"
+                    >
+                      <Download size={14} /> İndir
+                    </a>
+                    {contract.status !== "signed" && (
+                      <button
+                        onClick={() => handleUpdateStatus(contract.id, "signed")}
+                        className="min-h-[40px] px-3 py-1.5 text-xs text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg flex items-center gap-1 font-semibold transition-colors"
+                      >
+                        <CheckCircle2 size={14} /> İmzalandı
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
       </div>
 
       {/* Create Contract Modal */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-corp-border">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm p-0 sm:p-4">
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-2xl max-h-[92vh] sm:max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white z-10 flex items-center justify-between px-6 py-4 border-b border-corp-border">
               <h2 className="font-display text-xl font-bold text-corp-charcoal">Yeni Sözleşme Oluştur</h2>
               <button
                 onClick={() => setModalOpen(false)}
-                className="p-2 text-corp-gray hover:text-corp-charcoal hover:bg-gray-100 rounded-lg transition-all"
+                className="p-2 text-corp-gray hover:text-corp-charcoal hover:bg-gray-100 rounded-lg transition-all min-h-[44px] min-w-[44px] flex items-center justify-center"
               >
                 <X size={20} />
               </button>

@@ -113,9 +113,10 @@ export default function SupportTicketsClient({ initialTickets }: { initialTicket
         </div>
       </div>
 
-      {/* Tickets table */}
+      {/* Tickets table & cards */}
       <div className="rounded-2xl border border-corp-border bg-white shadow-corp-card overflow-hidden">
-        <div className="overflow-x-auto">
+        {/* Desktop Table View */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b border-corp-border bg-corp-surface">
@@ -196,6 +197,70 @@ export default function SupportTicketsClient({ initialTickets }: { initialTicket
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile Card List View */}
+        <div className="md:hidden divide-y divide-corp-border">
+          {sorted.length === 0 ? (
+            <div className="p-8 text-center font-body text-[14px] text-corp-gray">
+              Kayıt bulunamadı.
+            </div>
+          ) : (
+            sorted.map((ticket) => {
+              const st = STATUS_META[ticket.status] || { label: ticket.status, color: "#6B7280", icon: null };
+              const pr = PRIORITY_META[ticket.priority] || { label: ticket.priority, color: "#6B7280" };
+              const StatusIcon = st.icon;
+
+              return (
+                <div
+                  key={ticket.id}
+                  onClick={() => router.push(`/admin/customer-portal/support-tickets/${ticket.id}`)}
+                  className="p-4 space-y-2.5 active:bg-corp-surface/50 cursor-pointer"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-body text-sm text-corp-charcoal font-bold truncate">
+                        {ticket.user.companyTitle || ticket.user.name || ticket.user.email}
+                      </p>
+                      <p className="font-body text-xs text-corp-gray truncate">{ticket.user.email}</p>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span
+                        className="px-2 py-0.5 rounded-full font-body text-[10px] font-bold"
+                        style={{
+                          background: `${pr.color}14`,
+                          color: pr.color,
+                          border: `1px solid ${pr.color}30`,
+                        }}
+                      >
+                        {pr.label}
+                      </span>
+                      <span
+                        className="px-2 py-0.5 rounded-full font-body text-[10px] font-bold flex items-center gap-1"
+                        style={{
+                          background: `${st.color}14`,
+                          color: st.color,
+                          border: `1px solid ${st.color}30`,
+                        }}
+                      >
+                        {StatusIcon && <StatusIcon size={11} />}
+                        {st.label}
+                      </span>
+                    </div>
+                  </div>
+
+                  <p className="font-body text-sm text-corp-charcoal font-medium line-clamp-2">
+                    {ticket.subject}
+                  </p>
+
+                  <div className="flex items-center justify-between text-[11px] text-corp-gray pt-1 border-t border-corp-border/50">
+                    <span>Oluşturma: {formatDate(ticket.createdAt)}</span>
+                    <span>Güncelleme: {formatDate(ticket.updatedAt)}</span>
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
       </div>
     </div>

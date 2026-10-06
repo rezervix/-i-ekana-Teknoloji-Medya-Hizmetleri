@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { useCartStore } from "@/store/useCartStore";
-import { Star, ShoppingBag, ArrowLeft, Check, Plus, Minus, Image as ImageIcon, Upload, Users, X, Eye, FileText, AlertTriangle, Layers } from "lucide-react";
+import { Star, ShoppingBag, ArrowLeft, Check, Plus, Minus, Image as ImageIcon, Upload, Users, X, Eye, FileText, AlertTriangle, Layers, Truck } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -489,9 +489,22 @@ export default function ProductDetailClient({
 
           {/* 4. Fiyat Gösterimi */}
           <div className="mb-6">
-            <div className="font-display text-3xl font-bold text-corp-teal">
-              {displayPrice.toLocaleString("tr-TR")} TL
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="font-display text-3xl font-bold text-corp-teal">
+                {displayPrice.toLocaleString("tr-TR")} TL
+              </div>
+              {product.freeShipping && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200/90 dark:border-emerald-800/40 shadow-xs">
+                  <Truck size={15} className="text-emerald-600 dark:text-emerald-400" />
+                  <span>Ücretsiz Kargo</span>
+                </span>
+              )}
             </div>
+            {product.freeShipping && (
+              <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 mt-1.5 flex items-center gap-1">
+                <span>✓</span> Ücretsiz kargo ile gönderilir
+              </p>
+            )}
             {displayUnitPrice !== undefined && displayUnitPrice > 0 && (
               <div className="text-sm text-corp-gray mt-1">
                 Birim fiyat:{" "}

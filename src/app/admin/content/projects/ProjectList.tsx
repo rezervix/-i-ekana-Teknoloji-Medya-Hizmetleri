@@ -131,7 +131,7 @@ export default function ProjectList({ initialProjects }: ProjectListProps) {
   return (
     <>
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
           <a
             href="https://www.cicekanatechmedia.com/projects"
             target="_blank"
@@ -142,13 +142,14 @@ export default function ProjectList({ initialProjects }: ProjectListProps) {
           </a>
           <button
             onClick={openModal}
-            className="bg-corp-teal text-white px-5 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-corp-teal-600 transition-all shadow-md active:scale-95 text-sm"
+            className="bg-corp-teal text-white px-5 py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-corp-teal-600 transition-all shadow-md active:scale-95 text-sm min-h-[44px]"
           >
             <Plus size={16} /> Yeni Proje
           </button>
         </div>
 
-        <div className="overflow-x-auto rounded-xl border border-corp-border">
+        {/* Desktop Table */}
+        <div className="hidden md:block overflow-x-auto rounded-xl border border-corp-border">
           <table className="w-full text-left">
             <thead className="bg-corp-surface border-b border-corp-border text-corp-gray text-xs uppercase tracking-wider font-semibold">
               <tr>
@@ -212,23 +213,64 @@ export default function ProjectList({ initialProjects }: ProjectListProps) {
             </tbody>
           </table>
         </div>
+
+        {/* Mobile Cards */}
+        <div className="md:hidden divide-y divide-corp-border bg-white rounded-xl border border-corp-border overflow-hidden">
+          {projects.length === 0 ? (
+            <div className="p-8 text-center text-corp-gray text-sm">Henüz proje eklenmedi.</div>
+          ) : (
+            projects.map((project) => (
+              <div key={project.id} className="p-4 space-y-2.5">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-3 min-w-0">
+                    {project.heroImage && (
+                      <img
+                        src={project.heroImage}
+                        alt={project.title}
+                        className="w-10 h-10 rounded-lg object-cover border border-corp-border shrink-0"
+                      />
+                    )}
+                    <div className="min-w-0">
+                      <p className="font-semibold text-corp-charcoal text-sm truncate">{project.title}</p>
+                      <p className="text-xs text-corp-gray truncate">{project.client} • {project.category}</p>
+                    </div>
+                  </div>
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold shrink-0 ${STATUS_COLORS[project.status] || "bg-gray-100 text-gray-600"}`}>
+                    {project.status === "PUBLISHED" ? "Yayında" : project.status === "DRAFT" ? "Taslak" : "Arşiv"}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between text-xs text-corp-gray pt-1 border-t border-corp-border/50">
+                  <span>Yıl: {project.year}</span>
+                  <button
+                    onClick={() => handleDelete(project.id, project.title)}
+                    disabled={loading === project.id}
+                    className="min-h-[38px] px-3 text-xs text-red-600 bg-red-50 hover:bg-red-100 rounded-lg flex items-center gap-1 font-semibold transition-colors"
+                  >
+                    {loading === project.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />} Sil
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
       </div>
 
       {/* New Project Modal */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-corp-border">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm p-0 sm:p-4">
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-2xl max-h-[92vh] sm:max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white z-10 flex items-center justify-between px-6 py-4 border-b border-corp-border">
               <h2 className="font-display text-xl font-bold text-corp-charcoal">Yeni Proje Ekle</h2>
               <button
                 onClick={closeModal}
-                className="p-2 text-corp-gray hover:text-corp-charcoal hover:bg-gray-100 rounded-lg transition-all"
+                className="p-2 text-corp-gray hover:text-corp-charcoal hover:bg-gray-100 rounded-lg transition-all min-h-[44px] min-w-[44px] flex items-center justify-center"
               >
                 <X size={20} />
               </button>
             </div>
 
-            <div className="p-6 space-y-4">
+            <div className="p-4 sm:p-6 space-y-4">
               <div>
                 <label className="block text-sm font-semibold text-corp-charcoal mb-1">
                   Proje Adı <span className="text-red-500">*</span>
@@ -242,7 +284,7 @@ export default function ProjectList({ initialProjects }: ProjectListProps) {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-corp-charcoal mb-1">
                     Müşteri / Marka <span className="text-red-500">*</span>

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useCartStore } from "@/store/useCartStore";
-import { ArrowLeft, CheckCircle2, CreditCard, ShoppingBag, Lock, AlertTriangle, ShieldCheck, MailCheck } from "lucide-react";
+import { ArrowLeft, CheckCircle2, CreditCard, ShoppingBag, Lock, AlertTriangle, ShieldCheck, MailCheck, Building2, User } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -26,6 +26,16 @@ export default function CheckoutPage() {
     city: "",
     district: "",
   });
+
+  // Purchase Type & Corporate states
+  const [customerType, setCustomerType] = useState<"INDIVIDUAL" | "CORPORATE">("INDIVIDUAL");
+  const [corporateData, setCorporateData] = useState({
+    companyName: "",
+    taxOffice: "",
+    taxNumber: "",
+    billingAddress: "",
+  });
+  const [sameAddressAsDelivery, setSameAddressAsDelivery] = useState(true);
 
   const [discountCode, setDiscountCode] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("cc");
@@ -112,10 +122,49 @@ export default function CheckoutPage() {
         setPaytrToken(tokenData.token);
         return;
       }
+      if (customerType === "CORPORATE") {
+        if (!corporateData.companyName.trim()) {
+          setErrorMessage("Kurumsal siparişler için firma unvanı zorunludur.");
+          setIsProcessing(false);
+          return;
+        }
+        if (!corporateData.taxOffice.trim()) {
+          setErrorMessage("Kurumsal siparişler için vergi dairesi zorunludur.");
+          setIsProcessing(false);
+          return;
+        }
+        const cleanTaxNo = corporateData.taxNumber.trim();
+        if (!/^\d{10}$|^\d{11}$/.test(cleanTaxNo)) {
+          setErrorMessage("Vergi numarası 10 haneli VKN veya 11 haneli TCKN formatında ve sadece rakamlardan oluşmalıdır.");
+          setIsProcessing(false);
+          return;
+        }
+        const billingAddressToSubmit = sameAddressAsDelivery
+          ? `${formData.address}${formData.district ? `, ${formData.district}` : ""}${formData.city ? ` / ${formData.city}` : ""}`
+          : corporateData.billingAddress.trim();
+
+        if (!billingAddressToSubmit || billingAddressToSubmit.length < 5) {
+          setErrorMessage("Kurumsal siparişler için fatura adresi zorunludur.");
+          setIsProcessing(false);
+          return;
+        }
+      }
+
       const guestName = `${formData.firstName.trim()} ${formData.lastName.trim()}`;
+      const finalBillingAddr = customerType === "CORPORATE"
+        ? (sameAddressAsDelivery
+            ? `${formData.address}${formData.district ? `, ${formData.district}` : ""}${formData.city ? ` / ${formData.city}` : ""}`
+            : corporateData.billingAddress.trim())
+        : null;
+
       const payload = {
         guestName: guestName.trim(),
         guestEmail: formData.email.trim(),
+        customerType,
+        companyName: customerType === "CORPORATE" ? corporateData.companyName.trim() : null,
+        taxOffice: customerType === "CORPORATE" ? corporateData.taxOffice.trim() : null,
+        taxNumber: customerType === "CORPORATE" ? corporateData.taxNumber.trim() : null,
+        billingAddress: finalBillingAddr,
         shippingAddress: {
           address: `${formData.address}${formData.district ? `, ${formData.district}` : ""}`,
           city: formData.city,
@@ -254,7 +303,155 @@ export default function CheckoutPage() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
           {/* Left Column: Form & Payment */}
           <div className="lg:col-span-7 space-y-8">
-            <form id="checkout-form" onSubmit={handleCheckout} className="bg-white p-8 rounded-2xl border border-corp-border shadow-sm">
+            <form id="checkout-form" onSubmit={handleCheckout} className="bg-white p-6 md:p-8 rounded-2xl border border-corp-border shadow-sm">
+              {/* ── Fatura Bilgilendirme Kutusu (Satın Almayı Engellemez) ── */}
+              <div className="mb-6 p-4 md:p-5 rounded-2xl bg-amber-50 border border-amber-200 shadow-sm flex items-start gap-3.5">
+                <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <AlertTriangle size={18} />
+                </div>
+                <div className="flex-1">
+                  <p className="font-body text-xs md:text-sm text-amber-900 leading-relaxed">
+                    <strong className="font-semibold text-amber-950">Bilgilendirme:</strong> Şu anda siparişleriniz için fatura düzenleyemiyoruz. Siparişiniz normal şekilde alınır ve teslim edilir. Fatura/belge ihtiyacınız varsa lütfen sipariş vermeden önce bizimle iletişime geçin.{" "}
+                    <Link
+                      href={isAuthenticated ? "/profile?tab=support" : `/auth?callbackUrl=${encodeURIComponent("/profile?tab=support")}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-bold text-amber-950 underline hover:text-corp-teal transition-colors inline-flex items-center gap-1"
+                    >
+                      Destek talebi oluştur <span aria-hidden="true">↗</span>
+                    </Link>
+                  </p>
+                </div>
+              </div>
+
+              {/* ── Satın Alma Tipi Seçici (Bireysel | Kurumsal) ── */}
+              <div className="mb-6">
+                <label className="block text-xs font-bold uppercase tracking-wider text-corp-gray mb-2">
+                  Satın Alma Tipi
+                </label>
+                <div className="grid grid-cols-2 gap-2 p-1.5 bg-gray-100 rounded-xl border border-gray-200 w-full">
+                  <button
+                    type="button"
+                    onClick={() => setCustomerType("INDIVIDUAL")}
+                    className={`w-full py-2.5 px-3 md:px-4 rounded-lg font-body font-semibold text-xs md:text-sm transition-all flex items-center justify-center gap-2 ${
+                      customerType === "INDIVIDUAL"
+                        ? "bg-white text-corp-charcoal shadow-sm border border-gray-200/80"
+                        : "text-corp-gray hover:text-corp-charcoal"
+                    }`}
+                  >
+                    <User size={16} /> Bireysel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCustomerType("CORPORATE")}
+                    className={`w-full py-2.5 px-3 md:px-4 rounded-lg font-body font-semibold text-xs md:text-sm transition-all flex items-center justify-center gap-2 ${
+                      customerType === "CORPORATE"
+                        ? "bg-white text-corp-charcoal shadow-sm border border-gray-200/80"
+                        : "text-corp-gray hover:text-corp-charcoal"
+                    }`}
+                  >
+                    <Building2 size={16} /> Kurumsal
+                  </button>
+                </div>
+              </div>
+
+              {/* ── Kurumsal Fatura Bilgileri ── */}
+              {customerType === "CORPORATE" && (
+                <div className="mb-8 p-5 md:p-6 bg-blue-50/50 rounded-2xl border border-blue-200/80 space-y-4">
+                  <div className="flex items-center gap-2 pb-3 border-b border-blue-100">
+                    <Building2 size={18} className="text-corp-teal" />
+                    <h3 className="font-display text-base font-bold text-corp-charcoal">
+                      Kurumsal Fatura Bilgileri
+                    </h3>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-corp-gray mb-1.5">
+                      Firma Unvanı <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      required
+                      type="text"
+                      placeholder="Örn. ABC Teknoloji ve Bilişim Ltd. Şti."
+                      value={corporateData.companyName}
+                      onChange={(e) =>
+                        setCorporateData((prev) => ({ ...prev, companyName: e.target.value }))
+                      }
+                      className="w-full px-4 py-3 rounded-lg border border-corp-border bg-white focus:ring-2 focus:ring-corp-teal focus:border-corp-teal text-sm"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold uppercase text-corp-gray mb-1.5">
+                        Vergi Dairesi <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        required
+                        type="text"
+                        placeholder="Örn. Kadıköy Vergi Dairesi"
+                        value={corporateData.taxOffice}
+                        onChange={(e) =>
+                          setCorporateData((prev) => ({ ...prev, taxOffice: e.target.value }))
+                        }
+                        className="w-full px-4 py-3 rounded-lg border border-corp-border bg-white focus:ring-2 focus:ring-corp-teal focus:border-corp-teal text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold uppercase text-corp-gray mb-1.5">
+                        Vergi No / TCKN <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        required
+                        type="text"
+                        maxLength={11}
+                        placeholder="10 haneli VKN veya 11 haneli TCKN"
+                        value={corporateData.taxNumber}
+                        onChange={(e) => {
+                          const digitsOnly = e.target.value.replace(/\D/g, "");
+                          setCorporateData((prev) => ({ ...prev, taxNumber: digitsOnly }));
+                        }}
+                        className="w-full px-4 py-3 rounded-lg border border-corp-border bg-white focus:ring-2 focus:ring-corp-teal focus:border-corp-teal text-sm"
+                      />
+                      <p className="text-[11px] text-corp-gray mt-1">Sadece rakam (10 veya 11 hane)</p>
+                    </div>
+                  </div>
+
+                  {/* Fatura Adresi Teslimatla Aynı Onay Kutusu */}
+                  <div className="pt-2">
+                    <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={sameAddressAsDelivery}
+                        onChange={(e) => setSameAddressAsDelivery(e.target.checked)}
+                        className="w-4 h-4 rounded text-corp-teal focus:ring-corp-teal border-corp-border"
+                      />
+                      <span className="text-xs md:text-sm font-medium text-corp-charcoal">
+                        Fatura adresi teslimat adresiyle aynı
+                      </span>
+                    </label>
+                  </div>
+
+                  {!sameAddressAsDelivery && (
+                    <div>
+                      <label className="block text-xs font-bold uppercase text-corp-gray mb-1.5">
+                        Fatura Adresi <span className="text-red-500">*</span>
+                      </label>
+                      <textarea
+                        required
+                        rows={3}
+                        placeholder="Firma resmi fatura adresi"
+                        value={corporateData.billingAddress}
+                        onChange={(e) =>
+                          setCorporateData((prev) => ({ ...prev, billingAddress: e.target.value }))
+                        }
+                        className="w-full px-4 py-3 rounded-lg border border-corp-border bg-white focus:ring-2 focus:ring-corp-teal focus:border-corp-teal text-sm"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="flex items-center justify-between mb-6">
                 <h2 className="font-display text-xl font-bold text-corp-charcoal">İletişim & Teslimat Adresi</h2>
                 {isAuthenticated && (

@@ -35,7 +35,7 @@ export default async function AdminUrunlerPage() {
       </div>
 
       {/* Main Content */}
-      <div className="bg-white rounded-3xl border border-corp-border shadow-luxury overflow-hidden p-6">
+      <div className="bg-white rounded-2xl sm:rounded-3xl border border-corp-border shadow-luxury overflow-hidden p-4 sm:p-6">
         <ProductList initialProducts={products} />
       </div>
     </div>

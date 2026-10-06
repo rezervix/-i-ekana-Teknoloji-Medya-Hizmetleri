@@ -133,18 +133,19 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="bg-white p-6 rounded-2xl border border-corp-border shadow-sm">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="font-display text-xl font-bold text-corp-charcoal">Hizmet Yönetimi (Reveal Images)</h2>
+    <div className="bg-white p-4 sm:p-6 rounded-2xl border border-corp-border shadow-sm">
+      <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 mb-6">
+        <h2 className="font-display text-lg sm:text-xl font-bold text-corp-charcoal">Hizmet Yönetimi (Reveal Images)</h2>
         <button 
           onClick={() => openModal()}
-          className="bg-corp-teal text-white px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-corp-teal-600 transition-colors"
+          className="bg-corp-teal text-white px-4 py-2.5 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-corp-teal-600 transition-colors min-h-[44px]"
         >
           <Plus size={16} /> Yeni Ekle
         </button>
       </div>
 
-      <div className="overflow-x-auto">
+      {/* Desktop Table View */}
+      <div className="hidden md:block overflow-x-auto">
         <table className="w-full text-left">
           <thead className="bg-corp-surface border-y border-corp-border text-corp-gray text-xs uppercase tracking-wider font-semibold">
             <tr>
@@ -222,14 +223,71 @@ export default function AdminPage() {
         </table>
       </div>
 
+      {/* Mobile Card View */}
+      <div className="md:hidden divide-y divide-corp-border">
+        {services.length === 0 ? (
+          <div className="p-8 text-center text-corp-gray text-sm">Henüz kayıt bulunamadı.</div>
+        ) : (
+          services.map((service) => (
+            <div key={service.id} className="py-4 space-y-2.5">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-corp-gray font-mono">#{service.displayOrder}</span>
+                    <p className="font-semibold text-corp-charcoal text-sm truncate">{service.name}</p>
+                  </div>
+                  <span className="text-xs text-corp-gray font-mono block mt-0.5 truncate">{service.slug}</span>
+                </div>
+                <button
+                  onClick={() => handleToggleActive(service)}
+                  className={`px-2.5 py-0.5 rounded-full text-[10px] font-medium shrink-0 transition-colors ${
+                    service.isActive 
+                      ? "bg-green-100 text-green-700" 
+                      : "bg-gray-100 text-gray-600"
+                  }`}
+                >
+                  {service.isActive ? "Aktif" : "Pasif"}
+                </button>
+              </div>
+
+              {(service.revealImage1 || service.revealImage2) && (
+                <div className="flex gap-2 pt-1">
+                  {service.revealImage1 && (
+                    <img src={service.revealImage1} alt="Görsel 1" className="h-12 w-12 object-cover rounded-lg border border-corp-border" />
+                  )}
+                  {service.revealImage2 && (
+                    <img src={service.revealImage2} alt="Görsel 2" className="h-12 w-12 object-cover rounded-lg border border-corp-border" />
+                  )}
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-1 pt-1 border-t border-corp-border/50">
+                <button
+                  onClick={() => openModal(service)}
+                  className="min-h-[38px] px-3 text-xs text-corp-teal bg-corp-teal/10 hover:bg-corp-teal/20 rounded-lg flex items-center gap-1 font-semibold transition-colors"
+                >
+                  <Edit size={14} /> Düzenle
+                </button>
+                <button
+                  onClick={() => handleDelete(service.id)}
+                  className="min-h-[38px] px-3 text-xs text-red-600 bg-red-50 hover:bg-red-100 rounded-lg flex items-center gap-1 font-semibold transition-colors"
+                >
+                  <Trash2 size={14} /> Sil
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-6 border-b border-corp-border sticky top-0 bg-white">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+          <div className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full max-w-md max-h-[92vh] sm:max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-corp-border sticky top-0 bg-white z-10">
               <h3 className="font-display text-lg font-bold text-corp-charcoal">
                 {editingService ? "Hizmet Düzenle" : "Yeni Hizmet Ekle"}
               </h3>
-              <button onClick={closeModal} className="p-2 hover:bg-corp-surface rounded-lg transition-colors">
+              <button onClick={closeModal} className="p-2 hover:bg-corp-surface rounded-lg transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center">
                 <X size={20} />
               </button>
             </div>

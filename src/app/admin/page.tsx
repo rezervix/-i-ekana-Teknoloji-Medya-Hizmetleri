@@ -133,61 +133,99 @@ export default async function AdminDashboard() {
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-corp-border bg-corp-surface">
-                  {["Şirket", "Sektör", "Çözüm", "E-posta", "Durum", "Tarih"].map((h) => (
-                    <th
-                      key={h}
-                      className="text-left px-6 py-3 font-body text-[11px] text-corp-gray tracking-widest uppercase font-bold"
-                    >
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {recentLeads.map((lead) => {
-                  const st = LEAD_STATUS_LABELS[lead.status];
-                  return (
-                    <tr
-                      key={lead.id}
-                      className="border-b border-corp-border last:border-0 hover:bg-corp-surface transition-colors"
-                    >
-                      <td className="px-6 py-4 font-body text-[14px] text-corp-charcoal font-semibold">
+          <>
+            {/* Desktop Table */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-corp-border bg-corp-surface">
+                    {["Şirket", "Sektör", "Çözüm", "E-posta", "Durum", "Tarih"].map((h) => (
+                      <th
+                        key={h}
+                        className="text-left px-6 py-3 font-body text-[11px] text-corp-gray tracking-widest uppercase font-bold"
+                      >
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {recentLeads.map((lead) => {
+                    const st = LEAD_STATUS_LABELS[lead.status];
+                    return (
+                      <tr
+                        key={lead.id}
+                        className="border-b border-corp-border last:border-0 hover:bg-corp-surface transition-colors"
+                      >
+                        <td className="px-6 py-4 font-body text-[14px] text-corp-charcoal font-semibold">
+                          {lead.companyName}
+                        </td>
+                        <td className="px-6 py-4 font-body text-[13px] text-corp-gray">
+                          {lead.sector}
+                        </td>
+                        <td className="px-6 py-4 font-body text-[13px] text-corp-gray">
+                          {lead.solutionType.slice(0, 2).join(", ")}
+                        </td>
+                        <td className="px-6 py-4 font-body text-[13px] text-corp-gray-light">
+                          {lead.email}
+                        </td>
+                        <td className="px-6 py-4">
+                          <span
+                            className="px-2.5 py-1 rounded-full font-body text-[11px] font-bold"
+                            style={{
+                              background: `${st.color}14`,
+                              color: st.color,
+                              border: `1px solid ${st.color}30`,
+                            }}
+                          >
+                            {st.label}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 font-body text-[12px] text-corp-gray-light whitespace-nowrap">
+                          {formatDate(lead.createdAt)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Card List */}
+            <div className="md:hidden divide-y divide-corp-border">
+              {recentLeads.map((lead) => {
+                const st = LEAD_STATUS_LABELS[lead.status];
+                return (
+                  <div key={lead.id} className="p-4 space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="font-semibold text-corp-charcoal text-sm">
                         {lead.companyName}
-                      </td>
-                      <td className="px-6 py-4 font-body text-[13px] text-corp-gray">
-                        {lead.sector}
-                      </td>
-                      <td className="px-6 py-4 font-body text-[13px] text-corp-gray">
-                        {lead.solutionType.slice(0, 2).join(", ")}
-                      </td>
-                      <td className="px-6 py-4 font-body text-[13px] text-corp-gray-light">
-                        {lead.email}
-                      </td>
-                      <td className="px-6 py-4">
-                        <span
-                          className="px-2.5 py-1 rounded-full font-body text-[11px] font-bold"
-                          style={{
-                            background: `${st.color}14`,
-                            color: st.color,
-                            border: `1px solid ${st.color}30`,
-                          }}
-                        >
-                          {st.label}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 font-body text-[12px] text-corp-gray-light whitespace-nowrap">
-                        {formatDate(lead.createdAt)}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                      </span>
+                      <span
+                        className="px-2 py-0.5 rounded-full font-body text-[10px] font-bold flex-shrink-0"
+                        style={{
+                          background: `${st.color}14`,
+                          color: st.color,
+                          border: `1px solid ${st.color}30`,
+                        }}
+                      >
+                        {st.label}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-corp-gray">
+                      <span>{lead.sector}</span>
+                      <span>•</span>
+                      <span className="truncate max-w-[180px]">{lead.email}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-[11px] text-corp-gray-light pt-1">
+                      <span>{lead.solutionType.slice(0, 2).join(", ")}</span>
+                      <span>{formatDate(lead.createdAt)}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
         )}
       </div>
     </div>

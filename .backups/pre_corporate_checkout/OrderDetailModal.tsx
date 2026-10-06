@@ -33,7 +33,7 @@ export default function OrderDetailModal({ order, onClose }: OrderDetailModalPro
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-0 sm:p-4"
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
         onClick={onClose}
       >
         <motion.div
@@ -41,24 +41,24 @@ export default function OrderDetailModal({ order, onClose }: OrderDetailModalPro
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.92, opacity: 0 }}
           onClick={(e) => e.stopPropagation()}
-          className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-3xl max-h-[92vh] overflow-hidden flex flex-col"
+          className="bg-white rounded-3xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden"
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
             <div>
               <h3 className="font-bold text-corp-charcoal">Sipariş Detayları</h3>
               <p className="text-sm text-corp-gray">#{order.orderNumber ?? "—"}</p>
             </div>
             <button
               onClick={onClose}
-              className="min-h-[44px] min-w-[44px] p-2 text-corp-gray hover:text-corp-charcoal hover:bg-gray-100 rounded-xl transition-all flex items-center justify-center"
+              className="p-2 text-corp-gray hover:text-corp-charcoal hover:bg-gray-100 rounded-lg transition-all"
               aria-label="Kapat"
             >
               <X size={20} />
             </button>
           </div>
 
-          <div className="p-4 sm:p-6 overflow-y-auto max-h-[calc(92vh-80px)]">
+          <div className="p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
             <div className="space-y-6">
               {/* ── Customer Info ──────────────────────────────────────── */}
               <div className="bg-gray-50 rounded-xl p-4">
@@ -71,14 +71,14 @@ export default function OrderDetailModal({ order, onClose }: OrderDetailModalPro
 
                   return (
                     <>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-sm">
+                      <div className="grid grid-cols-2 gap-4 text-sm">
                         <div>
                           <span className="text-corp-gray">Ad Soyad:</span>
                           <span className="ml-2 font-medium">{order.guestName || "Misafir"}</span>
                         </div>
                         <div>
                           <span className="text-corp-gray">E-posta:</span>
-                          <span className="ml-2 font-medium break-all">{order.guestEmail || "-"}</span>
+                          <span className="ml-2 font-medium">{order.guestEmail || "-"}</span>
                         </div>
                         {phone && (
                           <div>
@@ -95,58 +95,6 @@ export default function OrderDetailModal({ order, onClose }: OrderDetailModalPro
                           <span className="ml-2 font-medium">{order.paymentMethod || "-"}</span>
                         </div>
                       </div>
-
-                      {/* Corporate / Invoice details */}
-                      {order.customerType === "CORPORATE" ? (
-                        <div className="mt-4 pt-4 border-t border-gray-200">
-                          <div className="flex items-center justify-between mb-2">
-                            <h5 className="font-semibold text-xs uppercase tracking-wider text-corp-charcoal">
-                              Kurumsal Fatura Bilgileri
-                            </h5>
-                            <span
-                              className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
-                                order.invoiceStatus === "SENT"
-                                  ? "bg-emerald-100 text-emerald-800"
-                                  : "bg-amber-100 text-amber-800"
-                              }`}
-                            >
-                              {order.invoiceStatus === "SENT"
-                                ? "Fatura Gönderildi"
-                                : "Fatura Bekliyor"}
-                            </span>
-                          </div>
-                          <div className="grid grid-cols-2 gap-3 text-sm">
-                            <div>
-                              <span className="text-corp-gray text-xs">Firma Unvanı:</span>
-                              <p className="font-medium text-corp-charcoal">{order.companyName || "-"}</p>
-                            </div>
-                            <div>
-                              <span className="text-corp-gray text-xs">Vergi Dairesi / No:</span>
-                              <p className="font-medium text-corp-charcoal">
-                                {order.taxOffice || "-"} / {order.taxNumber || "-"}
-                              </p>
-                            </div>
-                            <div className="col-span-2">
-                              <span className="text-corp-gray text-xs">Fatura Adresi:</span>
-                              <p className="font-medium text-corp-charcoal mt-0.5">
-                                {(() => {
-                                  const bAddr = order.billingAddress as any;
-                                  if (!bAddr) return "Belirtilmemiş";
-                                  if (typeof bAddr === "string") return bAddr;
-                                  return [bAddr.address || bAddr.addressDetail, bAddr.district, bAddr.city]
-                                    .filter(Boolean)
-                                    .join(", ") || "Belirtilmemiş";
-                                })()}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="mt-3 pt-3 border-t border-gray-200 text-xs text-corp-gray flex items-center justify-between">
-                          <span>Müşteri Tipi: <strong>Bireysel</strong></span>
-                          <span>Fatura Durumu: <strong>Gerekmiyor</strong></span>
-                        </div>
-                      )}
 
                       {order.shippingAddress && typeof order.shippingAddress === "object" && (
                         <div className="mt-3 pt-3 border-t border-gray-200">

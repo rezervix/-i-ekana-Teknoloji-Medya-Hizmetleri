@@ -137,9 +137,10 @@ export default function PerformanceReportsClient({ initialReports }: { initialRe
         />
       </div>
 
-      {/* Reports table */}
+      {/* Reports table & cards */}
       <div className="rounded-2xl border border-corp-border bg-white shadow-corp-card overflow-hidden">
-        <div className="overflow-x-auto">
+        {/* Desktop Table View */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b border-corp-border bg-corp-surface">
@@ -203,17 +204,58 @@ export default function PerformanceReportsClient({ initialReports }: { initialRe
             </tbody>
           </table>
         </div>
+
+        {/* Mobile Card List View */}
+        <div className="md:hidden divide-y divide-corp-border">
+          {filtered.length === 0 ? (
+            <div className="p-8 text-center font-body text-[14px] text-corp-gray">
+              Kayıt bulunamadı.
+            </div>
+          ) : (
+            filtered.map((report) => (
+              <div key={report.id} className="p-4 space-y-2.5">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-body text-sm text-corp-charcoal font-bold truncate">
+                      {report.user.companyTitle || report.user.name || report.user.email}
+                    </p>
+                    <p className="font-body text-xs text-corp-gray truncate">{report.user.email}</p>
+                  </div>
+                  {report.pdfUrl && (
+                    <a
+                      href={report.pdfUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="min-h-[38px] px-3 py-1 text-xs text-corp-teal bg-corp-teal/10 hover:bg-corp-teal/20 rounded-lg flex items-center gap-1 font-semibold shrink-0"
+                    >
+                      <Download size={13} /> PDF
+                    </a>
+                  )}
+                </div>
+
+                <p className="font-body text-sm text-corp-charcoal font-medium">
+                  {report.title}
+                </p>
+
+                <div className="flex items-center justify-between text-[11px] text-corp-gray pt-1 border-t border-corp-border/50">
+                  <span>Dönem: {formatDate(report.periodStart)} → {formatDate(report.periodEnd)}</span>
+                  <span>{formatDate(report.createdAt)}</span>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
       </div>
 
       {/* Create Report Modal */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-corp-border">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm p-0 sm:p-4">
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-2xl max-h-[92vh] sm:max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white z-10 flex items-center justify-between px-6 py-4 border-b border-corp-border">
               <h2 className="font-display text-xl font-bold text-corp-charcoal">Yeni Rapor Oluştur</h2>
               <button
                 onClick={() => setModalOpen(false)}
-                className="p-2 text-corp-gray hover:text-corp-charcoal hover:bg-gray-100 rounded-lg transition-all"
+                className="p-2 text-corp-gray hover:text-corp-charcoal hover:bg-gray-100 rounded-lg transition-all min-h-[44px] min-w-[44px] flex items-center justify-center"
               >
                 <X size={20} />
               </button>

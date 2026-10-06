@@ -61,7 +61,7 @@ export default async function AdminSiparislerPage() {
         </div>
       </div>
 
-      <div className="bg-white rounded-3xl border border-corp-border shadow-luxury overflow-hidden p-6">
+      <div className="bg-white rounded-2xl sm:rounded-3xl border border-corp-border shadow-luxury overflow-hidden p-4 sm:p-6">
         {fetchError ? (
           <div className="p-12 text-center text-red-600 bg-red-50 rounded-xl">
             <p className="font-semibold">Siparişler yüklenemedi</p>

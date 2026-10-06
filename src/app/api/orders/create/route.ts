@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth-guard";
 import { z } from "zod";
 import { logger } from "@/lib/logger";
+import { sendOrderConfirmationEmail } from "@/lib/email";
 
 const ProductCategory = {
   Medya: "Medya",
@@ -17,20 +18,66 @@ const orderItemSchema = z.object({
   customizationData: z.any().optional(),
 });
 
-const createOrderSchema = z.object({
-  guestName: z.string().optional().nullable(),
-  guestEmail: z.string().email().optional().nullable(),
-  shippingAddress: z.object({
-    address: z.string().min(3, "Adres giriniz."),
-    city: z.string().min(2, "Şehir giriniz."),
-    phone: z.string().min(10, "Telefon numarası giriniz."),
-  }),
-  paymentMethod: z.string().default("cc"),
-  totalAmount: z.number().positive(),
-  discountAmount: z.number().min(0).default(0),
-  finalAmount: z.number().positive(),
-  items: z.array(orderItemSchema).min(1, "En az bir ürün sepetinizde olmalıdır."),
-});
+const createOrderSchema = z
+  .object({
+    guestName: z.string().optional().nullable(),
+    guestEmail: z.string().email().optional().nullable(),
+    customerType: z.enum(["INDIVIDUAL", "CORPORATE"]).default("INDIVIDUAL"),
+    companyName: z.string().optional().nullable(),
+    taxOffice: z.string().optional().nullable(),
+    taxNumber: z.string().optional().nullable(),
+    billingAddress: z.any().optional().nullable(),
+    shippingAddress: z.object({
+      address: z.string().min(3, "Adres giriniz."),
+      city: z.string().min(2, "Şehir giriniz."),
+      phone: z.string().min(10, "Telefon numarası giriniz."),
+    }),
+    paymentMethod: z.string().default("cc"),
+    totalAmount: z.number().positive(),
+    discountAmount: z.number().min(0).default(0),
+    finalAmount: z.number().positive(),
+    items: z.array(orderItemSchema).min(1, "En az bir ürün sepetinizde olmalıdır."),
+  })
+  .superRefine((data, ctx) => {
+    if (data.customerType === "CORPORATE") {
+      if (!data.companyName || data.companyName.trim().length < 2) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["companyName"],
+          message: "Kurumsal siparişler için firma unvanı zorunludur.",
+        });
+      }
+      if (!data.taxOffice || data.taxOffice.trim().length < 2) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["taxOffice"],
+          message: "Kurumsal siparişler için vergi dairesi zorunludur.",
+        });
+      }
+      const cleanTaxNumber = (data.taxNumber || "").trim();
+      if (!/^\d{10}$|^\d{11}$/.test(cleanTaxNumber)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["taxNumber"],
+          message: "Vergi numarası 10 haneli VKN veya 11 haneli TCKN formatında ve sadece rakamlardan oluşmalıdır.",
+        });
+      }
+      const rawBilling = data.billingAddress;
+      const billingStr =
+        typeof rawBilling === "string"
+          ? rawBilling.trim()
+          : rawBilling && typeof rawBilling === "object"
+            ? (rawBilling.address || rawBilling.addressDetail || "").trim()
+            : "";
+      if (!billingStr || billingStr.length < 5) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["billingAddress"],
+          message: "Kurumsal siparişler için fatura adresi zorunludur.",
+        });
+      }
+    }
+  });
 
 function generateOrderNumber(): string {
   const prefix = "ORD";
@@ -62,6 +109,11 @@ export async function POST(req: NextRequest) {
     const {
       guestName,
       guestEmail,
+      customerType,
+      companyName,
+      taxOffice,
+      taxNumber,
+      billingAddress,
       shippingAddress,
       paymentMethod,
       totalAmount,
@@ -125,6 +177,9 @@ export async function POST(req: NextRequest) {
     const userEmail = authResult.user.email;
     const userName = authResult.user.name || guestName || userEmail;
 
+    const isCorporate = customerType === "CORPORATE";
+    const invoiceStatus = isCorporate ? "PENDING" : "NOT_REQUIRED";
+
     // ── Sipariş Oluşturma (Order & OrderItem with user_id linkage) ───────────
     const order = await prisma.order.create({
       data: {
@@ -132,6 +187,12 @@ export async function POST(req: NextRequest) {
         userId: authResult.user.id, // CRITICAL FIX: Link order directly to authenticated user ID!
         guestEmail: guestEmail || userEmail,
         guestName: guestName || userName,
+        customerType,
+        companyName: isCorporate ? companyName?.trim() : null,
+        taxOffice: isCorporate ? taxOffice?.trim() : null,
+        taxNumber: isCorporate ? taxNumber?.trim() : null,
+        billingAddress: isCorporate ? (billingAddress as any) : null,
+        invoiceStatus,
         totalAmount,
         discountAmount,
         finalAmount,
@@ -144,6 +205,18 @@ export async function POST(req: NextRequest) {
         },
       },
     });
+
+    try {
+      await sendOrderConfirmationEmail({
+        to: guestEmail || userEmail,
+        orderNumber: order.orderNumber,
+        customerName: guestName || userName,
+        customerType,
+        finalAmount,
+      });
+    } catch (mailErr) {
+      console.warn("[ORDER_EMAIL_WARNING] Could not send confirmation email:", mailErr);
+    }
 
     logger.info({
       event: "ORDER_CREATED",

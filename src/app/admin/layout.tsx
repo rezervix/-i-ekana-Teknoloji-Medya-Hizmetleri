@@ -92,6 +92,11 @@ export default function AdminLayout({ children }: Props) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pathname = usePathname();
 
+  // Route değişince drawer'ı otomatik kapat
+  React.useEffect(() => {
+    setSidebarOpen(false);
+  }, [pathname]);
+
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
       {/* Logo — same brand identity as main site */}
@@ -184,16 +189,16 @@ export default function AdminLayout({ children }: Props) {
       {sidebarOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <div
-            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            className="absolute inset-0 bg-black/60 backdrop-blur-xs transition-opacity duration-300"
             onClick={() => setSidebarOpen(false)}
           />
-          <aside className="absolute left-0 top-0 bottom-0 w-64 bg-white border-r border-corp-border flex flex-col z-10 shadow-luxury">
+          <aside className="absolute left-0 top-0 bottom-0 w-72 max-w-[85vw] bg-white border-r border-corp-border flex flex-col z-10 shadow-2xl transition-transform duration-300">
             <button
-              className="absolute top-4 right-4 text-corp-gray hover:text-corp-charcoal p-1 transition-colors"
+              className="absolute top-2.5 right-2 text-corp-gray hover:text-corp-charcoal min-h-[44px] min-w-[44px] rounded-xl flex items-center justify-center hover:bg-gray-100 transition-colors z-20"
               onClick={() => setSidebarOpen(false)}
               aria-label="Menüyü kapat"
             >
-              <X size={18} />
+              <X size={20} />
             </button>
             <SidebarContent />
           </aside>
@@ -201,15 +206,15 @@ export default function AdminLayout({ children }: Props) {
       )}
 
       {/* Main content area */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         {/* Top bar */}
         <header className="flex h-14 flex-shrink-0 items-center justify-between gap-3 border-b border-corp-border bg-white px-3 shadow-corp-nav sm:h-16 sm:px-6">
           <button
-            className="lg:hidden text-corp-gray hover:text-corp-charcoal transition-colors"
+            className="lg:hidden text-corp-gray hover:text-corp-charcoal transition-colors min-h-[44px] min-w-[44px] -ml-2 p-2 rounded-xl flex items-center justify-center hover:bg-corp-surface active:scale-95"
             onClick={() => setSidebarOpen(true)}
             aria-label="Menüyü aç"
           >
-            <Menu size={20} />
+            <Menu size={22} />
           </button>
 
           {/* Breadcrumb */}
@@ -223,7 +228,7 @@ export default function AdminLayout({ children }: Props) {
                     {seg === "admin" ? "Ana Sayfa" : seg}
                   </span>
                   {i < arr.length - 1 && (
-                    <ChevronRight size={13} className="text-corp-gray-light" />
+                    <ChevronRight size={13} className="text-corp-gray-light flex-shrink-0" />
                   )}
                 </React.Fragment>
               ))}
@@ -236,7 +241,7 @@ export default function AdminLayout({ children }: Props) {
         </header>
 
         {/* Page content */}
-        <main className="min-w-0 flex-1 overflow-y-auto p-3 sm:p-6">{children}</main>
+        <main className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-3.5 sm:p-6 w-full">{children}</main>
       </div>
     </div>
   );

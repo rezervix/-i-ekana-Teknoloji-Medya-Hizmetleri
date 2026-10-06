@@ -230,7 +230,6 @@ model Product {
   stock                Int? // null = unlimited
   isActive             Boolean         @default(true)
   isFeatured           Boolean         @default(false)
-  freeShipping         Boolean         @default(false)
   customizationOptions Json?
   photoToDesignFee     Float?          @default(500)
 
@@ -304,44 +303,27 @@ enum OrderStatus {
   CANCELLED
 }
 
-enum CustomerType {
-  INDIVIDUAL
-  CORPORATE
-}
-
-enum InvoiceStatus {
-  NOT_REQUIRED
-  PENDING
-  SENT
-}
-
 model Order {
-  id              String        @id @default(cuid())
-  orderNumber     String        @unique // human-readable
+  id              String      @id @default(cuid())
+  orderNumber     String      @unique // human-readable
   userId          String?
-  user            User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user            User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
   guestName       String?
   guestEmail      String?
-  customerType    CustomerType  @default(INDIVIDUAL)
-  companyName     String?
-  taxOffice       String?
-  taxNumber       String?
-  billingAddress  Json?
-  invoiceStatus   InvoiceStatus @default(NOT_REQUIRED)
   items           OrderItem[]
-  status          OrderStatus   @default(PENDING)
+  status          OrderStatus @default(PENDING)
   totalAmount     Float
-  discountAmount  Float         @default(0)
+  discountAmount  Float       @default(0)
   finalAmount     Float
   paymentMethod   String?
-  paymentStatus   String        @default("PENDING") // PENDING, COMPLETED, FAILED
+  paymentStatus   String      @default("PENDING") // PENDING, COMPLETED, FAILED
   shippingAddress Json?
   masterpassToken String?
   trackingNumber  String?
   carrier         String?
-  notes           String?       @db.Text
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  notes           String?     @db.Text
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
 
   @@index([userId])
 }

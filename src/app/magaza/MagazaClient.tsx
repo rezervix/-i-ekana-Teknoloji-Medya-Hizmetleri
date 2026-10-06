@@ -29,6 +29,7 @@ export default function MagazaClient({ products }: { products: any[], featuredPr
         color: p.subcategory || "Standart Baskı",
         description: p.description,
         slug: p.slug,
+        freeShipping: Boolean(p.freeShipping),
       }));
     }
     return [];

@@ -218,9 +218,10 @@ export default function ClientProjectsClient({ initialProjects }: { initialProje
         </div>
       </div>
 
-      {/* Projects table */}
+      {/* Projects table & cards */}
       <div className="rounded-2xl border border-corp-border bg-white shadow-corp-card overflow-hidden">
-        <div className="overflow-x-auto">
+        {/* Desktop Table View */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b border-corp-border bg-corp-surface">
@@ -324,17 +325,105 @@ export default function ClientProjectsClient({ initialProjects }: { initialProje
             </tbody>
           </table>
         </div>
+
+        {/* Mobile Card List View */}
+        <div className="md:hidden divide-y divide-corp-border">
+          {filtered.length === 0 ? (
+            <div className="p-8 text-center font-body text-[14px] text-corp-gray">
+              Kayıt bulunamadı.
+            </div>
+          ) : (
+            filtered.map((project) => {
+              const st = STATUS_META[project.status] || { label: project.status, color: "#6B7280" };
+
+              return (
+                <div key={project.id} className="p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-body text-sm text-corp-charcoal font-bold truncate">
+                        {project.user.companyTitle || project.user.name || project.user.email}
+                      </p>
+                      <p className="font-body text-xs text-corp-gray truncate">{project.user.email}</p>
+                    </div>
+                    <span
+                      className="px-2.5 py-1 rounded-full font-body text-[10px] font-bold shrink-0"
+                      style={{
+                        background: `${st.color}14`,
+                        color: st.color,
+                        border: `1px solid ${st.color}30`,
+                      }}
+                    >
+                      {st.label}
+                    </span>
+                  </div>
+
+                  <div>
+                    <p className="font-body text-sm text-corp-charcoal font-semibold">{project.title}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-xs text-corp-gray font-medium">
+                        {SERVICE_TYPE_LABELS[project.serviceType] || project.serviceType}
+                      </span>
+                      {project.isSubscription && (
+                        <span className="text-[10px] text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full font-medium">
+                          {project.subscriptionTier}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Progress bar */}
+                  <div className="space-y-1 pt-1">
+                    <div className="flex justify-between text-xs text-corp-gray">
+                      <span>İlerleme</span>
+                      <span className="font-bold text-corp-charcoal">{project.progressPercent}%</span>
+                    </div>
+                    <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-corp-teal rounded-full"
+                        style={{ width: `${project.progressPercent}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between text-[11px] text-corp-gray pt-1 border-t border-corp-border/50">
+                    <span>
+                      {project.startDate ? formatDate(project.startDate) : "-"}
+                      {project.endDate && ` → ${formatDate(project.endDate)}`}
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => {
+                          setSelectedProject(project);
+                          setDetailModalOpen(true);
+                        }}
+                        className="min-h-[38px] px-3 text-xs text-corp-teal bg-corp-teal/10 hover:bg-corp-teal/20 rounded-lg flex items-center gap-1 font-semibold transition-colors"
+                      >
+                        <Edit size={14} /> Detay
+                      </button>
+                      <button
+                        onClick={() => handleDeleteProject(project.id, project.title)}
+                        className="min-h-[38px] px-3 text-xs text-red-600 bg-red-50 hover:bg-red-100 rounded-lg flex items-center gap-1 font-semibold transition-colors"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
       </div>
 
       {/* Create Project Modal */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-corp-border">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm p-0 sm:p-4">
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-2xl max-h-[92vh] sm:max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white z-10 flex items-center justify-between px-6 py-4 border-b border-corp-border">
               <h2 className="font-display text-xl font-bold text-corp-charcoal">Yeni Proje Oluştur</h2>
               <button
                 onClick={() => setModalOpen(false)}
-                className="p-2 text-corp-gray hover:text-corp-charcoal hover:bg-gray-100 rounded-lg transition-all"
+                className="p-2 text-corp-gray hover:text-corp-charcoal hover:bg-gray-100 rounded-lg transition-all min-h-[44px] min-w-[44px] flex items-center justify-center"
               >
                 <X size={20} />
               </button>
@@ -508,13 +597,13 @@ export default function ClientProjectsClient({ initialProjects }: { initialProje
 
       {/* Project Detail Modal */}
       {detailModalOpen && selectedProject && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-corp-border">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm p-0 sm:p-4">
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-4xl max-h-[92vh] sm:max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white z-10 flex items-center justify-between px-6 py-4 border-b border-corp-border">
               <h2 className="font-display text-xl font-bold text-corp-charcoal">{selectedProject.title}</h2>
               <button
                 onClick={() => setDetailModalOpen(false)}
-                className="p-2 text-corp-gray hover:text-corp-charcoal hover:bg-gray-100 rounded-lg transition-all"
+                className="p-2 text-corp-gray hover:text-corp-charcoal hover:bg-gray-100 rounded-lg transition-all min-h-[44px] min-w-[44px] flex items-center justify-center"
               >
                 <X size={20} />
               </button>
@@ -527,7 +616,7 @@ export default function ClientProjectsClient({ initialProjects }: { initialProje
                   <Building2 size={16} className="text-corp-teal" />
                   Müşteri Bilgisi
                 </h3>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
                     <p className="text-xs text-corp-gray uppercase tracking-widest">Firma</p>
                     <p className="text-sm font-semibold text-corp-charcoal">{selectedProject.user.companyTitle || "-"}</p>
@@ -538,13 +627,13 @@ export default function ClientProjectsClient({ initialProjects }: { initialProje
                   </div>
                   <div>
                     <p className="text-xs text-corp-gray uppercase tracking-widest">E-posta</p>
-                    <p className="text-sm font-semibold text-corp-charcoal">{selectedProject.user.email}</p>
+                    <p className="text-sm font-semibold text-corp-charcoal truncate">{selectedProject.user.email}</p>
                   </div>
                 </div>
               </div>
 
               {/* Project Info */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <p className="text-xs text-corp-gray uppercase tracking-widest">Hizmet Tipi</p>
                   <p className="text-sm font-semibold text-corp-charcoal">{SERVICE_TYPE_LABELS[selectedProject.serviceType] || selectedProject.serviceType}</p>

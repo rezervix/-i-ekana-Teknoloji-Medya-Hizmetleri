@@ -191,88 +191,147 @@ export default function QuotesClient() {
             <span>Teklifler yükleniyor...</span>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead className="bg-corp-surface border-b border-corp-border text-corp-gray text-xs uppercase tracking-wider font-semibold">
-                <tr>
-                  <th className="p-4 pl-6">Müşteri / Firma</th>
-                  <th className="p-4">Son Geçerlilik</th>
-                  <th className="p-4">Durum</th>
-                  <th className="p-4">Tutar</th>
-                  <th className="p-4 text-right pr-6">İşlemler</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-corp-border">
-                {filteredQuotes.length === 0 ? (
+            {/* Desktop Table */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-left">
+                <thead className="bg-corp-surface border-b border-corp-border text-corp-gray text-xs uppercase tracking-wider font-semibold">
                   <tr>
-                    <td colSpan={5} className="p-8 text-center text-corp-gray font-body">
-                      Kayıtlı teklif bulunamadı.
-                    </td>
+                    <th className="p-4 pl-6">Müşteri / Firma</th>
+                    <th className="p-4">Son Geçerlilik</th>
+                    <th className="p-4">Durum</th>
+                    <th className="p-4">Tutar</th>
+                    <th className="p-4 text-right pr-6">İşlemler</th>
                   </tr>
-                ) : (
-                  filteredQuotes.map((q) => {
-                    const total = q.items.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-                    return (
-                      <tr key={q.id} className="hover:bg-corp-surface/30 transition-colors">
-                        <td className="p-4 pl-6">
-                          <div className="flex flex-col font-body">
-                            <span className="font-semibold text-corp-charcoal text-sm">{q.companyName}</span>
-                            <span className="text-xs text-corp-gray">{q.email}</span>
-                          </div>
-                        </td>
-                        <td className="p-4 text-sm text-corp-gray font-body">
-                          {q.validUntil ? new Date(q.validUntil).toLocaleDateString("tr-TR") : "Belirtilmemiş"}
-                        </td>
-                        <td className="p-4">
-                          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${
-                            q.status === "ACCEPTED" ? "bg-green-100 text-green-700" :
-                            q.status === "DECLINED" ? "bg-red-100 text-red-700" :
-                            q.status === "SENT" ? "bg-blue-100 text-blue-700" :
-                            "bg-gray-100 text-gray-700"
-                          }`}>
-                            {q.status === "ACCEPTED" ? "Onaylandı" :
-                             q.status === "DECLINED" ? "Reddedildi" :
-                             q.status === "SENT" ? "Gönderildi" : "Taslak"}
-                          </span>
-                        </td>
-                        <td className="p-4 font-semibold text-sm text-corp-charcoal font-body">
-                          ₺{total.toLocaleString("tr-TR")}
-                        </td>
-                        <td className="p-4 text-right pr-6">
-                          <div className="flex items-center justify-end gap-2">
-                            <button
-                              onClick={() => {
-                                setSelectedQuote(q);
-                                setStatusVal(q.status);
-                                setNotesVal(q.terms || "");
-                                setIsDetailOpen(true);
-                              }}
-                              className="p-2 text-corp-gray hover:text-corp-teal hover:bg-corp-teal-50 rounded-lg transition-colors"
-                            >
-                              <Eye size={16} />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteQuote(q.id)}
-                              className="p-2 text-corp-gray hover:text-error hover:bg-error/5 rounded-lg transition-colors"
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-corp-border">
+                  {filteredQuotes.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="p-8 text-center text-corp-gray font-body">
+                        Kayıtlı teklif bulunamadı.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredQuotes.map((q) => {
+                      const total = q.items.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+                      return (
+                        <tr key={q.id} className="hover:bg-corp-surface/30 transition-colors">
+                          <td className="p-4 pl-6">
+                            <div className="flex flex-col font-body">
+                              <span className="font-semibold text-corp-charcoal text-sm">{q.companyName}</span>
+                              <span className="text-xs text-corp-gray">{q.email}</span>
+                            </div>
+                          </td>
+                          <td className="p-4 text-sm text-corp-gray font-body">
+                            {q.validUntil ? new Date(q.validUntil).toLocaleDateString("tr-TR") : "Belirtilmemiş"}
+                          </td>
+                          <td className="p-4">
+                            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${
+                              q.status === "ACCEPTED" ? "bg-green-100 text-green-700" :
+                              q.status === "DECLINED" ? "bg-red-100 text-red-700" :
+                              q.status === "SENT" ? "bg-blue-100 text-blue-700" :
+                              "bg-gray-100 text-gray-700"
+                            }`}>
+                              {q.status === "ACCEPTED" ? "Onaylandı" :
+                               q.status === "DECLINED" ? "Reddedildi" :
+                               q.status === "SENT" ? "Gönderildi" : "Taslak"}
+                            </span>
+                          </td>
+                          <td className="p-4 font-semibold text-sm text-corp-charcoal font-body">
+                            ₺{total.toLocaleString("tr-TR")}
+                          </td>
+                          <td className="p-4 text-right pr-6">
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                onClick={() => {
+                                  setSelectedQuote(q);
+                                  setStatusVal(q.status);
+                                  setNotesVal(q.terms || "");
+                                  setIsDetailOpen(true);
+                                }}
+                                className="p-2 text-corp-gray hover:text-corp-teal hover:bg-corp-teal-50 rounded-lg transition-colors"
+                              >
+                                <Eye size={16} />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteQuote(q.id)}
+                                className="p-2 text-corp-gray hover:text-error hover:bg-error/5 rounded-lg transition-colors"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Card List */}
+            <div className="md:hidden divide-y divide-corp-border">
+              {filteredQuotes.length === 0 ? (
+                <div className="p-8 text-center text-corp-gray font-body text-sm">
+                  Kayıtlı teklif bulunamadı.
+                </div>
+              ) : (
+                filteredQuotes.map((q) => {
+                  const total = q.items.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+                  return (
+                    <div key={q.id} className="p-4 space-y-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <h4 className="font-semibold text-corp-charcoal text-base">{q.companyName}</h4>
+                          <span className="text-xs text-corp-gray">{q.email}</span>
+                        </div>
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold flex-shrink-0 ${
+                          q.status === "ACCEPTED" ? "bg-green-100 text-green-700" :
+                          q.status === "DECLINED" ? "bg-red-100 text-red-700" :
+                          q.status === "SENT" ? "bg-blue-100 text-blue-700" :
+                          "bg-gray-100 text-gray-700"
+                        }`}>
+                          {q.status === "ACCEPTED" ? "Onaylandı" :
+                           q.status === "DECLINED" ? "Reddedildi" :
+                           q.status === "SENT" ? "Gönderildi" : "Taslak"}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between text-xs text-corp-gray pt-1">
+                        <span>Son Geçerlilik: {q.validUntil ? new Date(q.validUntil).toLocaleDateString("tr-TR") : "—"}</span>
+                        <span className="font-bold text-corp-charcoal text-sm">₺{total.toLocaleString("tr-TR")}</span>
+                      </div>
+
+                      <div className="flex items-center justify-end gap-2 pt-1 border-t border-corp-border">
+                        <button
+                          onClick={() => {
+                            setSelectedQuote(q);
+                            setStatusVal(q.status);
+                            setNotesVal(q.terms || "");
+                            setIsDetailOpen(true);
+                          }}
+                          className="min-h-[44px] px-3.5 rounded-xl border border-corp-border text-corp-charcoal hover:bg-corp-surface text-xs font-semibold flex items-center gap-1.5"
+                        >
+                          <Eye size={14} /> İncele / Düzenle
+                        </button>
+                        <button
+                          onClick={() => handleDeleteQuote(q.id)}
+                          className="min-h-[44px] px-3 text-red-600 hover:bg-red-50 rounded-xl text-xs font-semibold flex items-center gap-1"
+                        >
+                          <Trash2 size={14} /> Sil
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
         )}
       </div>
 
       {/* Modal - Detail & Edit Quote Status */}
       {isDetailOpen && selectedQuote && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-corp-border max-w-2xl w-full p-6 space-y-4 shadow-luxury animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-white rounded-2xl border border-corp-border max-w-2xl w-full p-4 sm:p-6 space-y-4 shadow-luxury animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-start">
               <div>
                 <h3 className="font-display text-lg font-bold text-corp-charcoal">{selectedQuote.companyName} - Teklif Detayı</h3>
@@ -280,15 +339,16 @@ export default function QuotesClient() {
               </div>
               <button 
                 onClick={() => { setIsDetailOpen(false); setSelectedQuote(null); }}
-                className="p-1 rounded-lg hover:bg-corp-surface text-corp-gray"
+                className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl hover:bg-corp-surface text-corp-gray -mr-2"
+                aria-label="Kapat"
               >
-                <X size={18} />
+                <X size={20} />
               </button>
             </div>
 
             {/* Items table */}
-            <div className="border border-corp-border rounded-xl overflow-hidden">
-              <table className="w-full text-left text-sm font-body">
+            <div className="border border-corp-border rounded-xl overflow-x-auto">
+              <table className="w-full text-left text-sm font-body min-w-[480px]">
                 <thead className="bg-corp-surface text-corp-gray text-xs">
                   <tr>
                     <th className="p-3">Hizmet</th>
@@ -323,7 +383,7 @@ export default function QuotesClient() {
               <div>
                 <label className="block text-xs font-semibold text-corp-gray uppercase mb-1">Teklif Durumu</label>
                 <select
-                  className="w-full bg-white border border-corp-border rounded-xl px-4 py-2.5 font-body text-sm outline-none focus:border-corp-teal"
+                  className="w-full bg-white border border-corp-border rounded-xl px-4 py-2.5 font-body text-base sm:text-sm outline-none focus:border-corp-teal min-h-[44px]"
                   value={statusVal}
                   onChange={(e) => setStatusVal(e.target.value)}
                 >
@@ -337,7 +397,7 @@ export default function QuotesClient() {
               <div>
                 <label className="block text-xs font-semibold text-corp-gray uppercase mb-1">Şartlar / Özel Notlar</label>
                 <textarea
-                  className="w-full bg-white border border-corp-border rounded-xl px-4 py-2.5 font-body text-sm outline-none focus:border-corp-teal h-24 resize-none"
+                  className="w-full bg-white border border-corp-border rounded-xl px-4 py-2.5 font-body text-base sm:text-sm outline-none focus:border-corp-teal h-24 resize-none"
                   value={notesVal}
                   onChange={(e) => setNotesVal(e.target.value)}
                   placeholder="Teklif şartları, ödeme planı veya teslim süresi..."
@@ -345,17 +405,17 @@ export default function QuotesClient() {
               </div>
             </div>
 
-            <div className="flex gap-3 pt-2">
+            <div className="flex flex-col-reverse sm:flex-row gap-3 pt-2">
               <button
                 onClick={() => { setIsDetailOpen(false); setSelectedQuote(null); }}
-                className="flex-1 px-4 py-2.5 rounded-xl border border-corp-border text-corp-charcoal hover:bg-corp-surface transition-colors font-semibold text-sm"
+                className="min-h-[44px] flex-1 px-4 py-2.5 rounded-xl border border-corp-border text-corp-charcoal hover:bg-corp-surface transition-colors font-semibold text-sm flex items-center justify-center"
               >
                 Kapat
               </button>
               <button
                 onClick={() => handleUpdateStatusAndNotes(selectedQuote.id)}
                 disabled={actionLoading}
-                className="flex-1 bg-corp-teal text-white px-4 py-2.5 rounded-xl font-semibold hover:bg-corp-teal-600 transition-colors flex items-center justify-center gap-2 text-sm disabled:opacity-50"
+                className="min-h-[44px] flex-1 bg-corp-teal text-white px-4 py-2.5 rounded-xl font-semibold hover:bg-corp-teal-600 transition-colors flex items-center justify-center gap-2 text-sm disabled:opacity-50"
               >
                 {actionLoading && <Loader2 className="animate-spin" size={16} />} Değişiklikleri Kaydet
               </button>
@@ -367,16 +427,20 @@ export default function QuotesClient() {
       {/* Modal - Create Quote */}
       {isCreateOpen && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-corp-border max-w-2xl w-full p-6 space-y-4 shadow-luxury animate-in fade-in zoom-in-95 duration-200 overflow-y-auto max-h-[90vh]">
+          <div className="bg-white rounded-2xl border border-corp-border max-w-2xl w-full p-4 sm:p-6 space-y-4 shadow-luxury animate-in fade-in zoom-in-95 duration-200 overflow-y-auto max-h-[90vh]">
             <div className="flex justify-between items-start">
               <h3 className="font-display text-lg font-bold text-corp-charcoal">Yeni Teklif Oluştur</h3>
-              <button onClick={() => setIsCreateOpen(false)} className="p-1 rounded-lg hover:bg-corp-surface text-corp-gray">
-                <X size={18} />
+              <button 
+                onClick={() => setIsCreateOpen(false)} 
+                className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl hover:bg-corp-surface text-corp-gray -mr-2"
+                aria-label="Kapat"
+              >
+                <X size={20} />
               </button>
             </div>
 
             <form onSubmit={handleCreateSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-corp-gray uppercase mb-1">Müşteri / Firma Adı</label>
                   <input

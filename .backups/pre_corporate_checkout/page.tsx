@@ -10,19 +10,12 @@ export const metadata: Metadata = {
   description: "Hesap bilgileriniz, sipariş geçmişiniz ve ayarlarınız.",
 };
 
-export default async function ProfilePage({
-  searchParams,
-}: {
-  searchParams?: Promise<{ tab?: string }>;
-}) {
-  const resolvedParams = searchParams ? await searchParams : undefined;
-  const tab = resolvedParams?.tab;
+export default async function ProfilePage() {
   const session = await auth();
 
-  // If not logged in, redirect to login with callbackUrl
+  // If not logged in, redirect to login
   if (!session || !session.user) {
-    const callback = tab ? `/profile?tab=${encodeURIComponent(tab)}` : "/profile";
-    redirect(`/auth?callbackUrl=${encodeURIComponent(callback)}`);
+    redirect("/auth?callbackUrl=/profile");
   }
 
   // Fetch full user data and order history from DB
@@ -63,5 +56,5 @@ export default async function ProfilePage({
     // Continue with session data if DB is down
   }
 
-  return <ProfileClient user={user} orders={orders} initialTab={tab} />;
+  return <ProfileClient user={user} orders={orders} />;
 }

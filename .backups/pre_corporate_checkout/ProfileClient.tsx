@@ -72,19 +72,11 @@ import TeamInviteModal from "./TeamInviteModal";
 interface Props {
   user: any;
   orders: any[];
-  initialTab?: string;
 }
 
-export default function ProfileClient({ user: initialUser, orders: initialOrders, initialTab }: Props) {
+export default function ProfileClient({ user: initialUser, orders: initialOrders }: Props) {
   const { data: session, update: updateSession } = useSession();
-  
-  const resolveTab = (tab?: string) => {
-    if (!tab) return "overview";
-    if (tab === "support" || tab === "destek") return "support";
-    return tab;
-  };
-
-  const [activeTab, setActiveTab] = useState(() => resolveTab(initialTab));
+  const [activeTab, setActiveTab] = useState("overview");
 
   // User state
   const [user, setUser] = useState(initialUser);
@@ -177,13 +169,6 @@ export default function ProfileClient({ user: initialUser, orders: initialOrders
 
   // Fetch initial portal data on mount
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      const t = params.get("tab");
-      if (t === "support" || t === "destek") {
-        setActiveTab("support");
-      }
-    }
     fetchAddresses();
     fetchOrders();
     fetchProjects();

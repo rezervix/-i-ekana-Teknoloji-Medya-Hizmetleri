@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Plus, Edit, Trash2, Loader2, Search, X, Save, Upload, Image as ImageIcon, XCircle, ChevronDown, ChevronUp, Tag } from "lucide-react";
+import { Plus, Edit, Trash2, Loader2, Search, X, Save, Upload, Image as ImageIcon, XCircle, ChevronDown, ChevronUp, Tag, Truck } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useUploadThing } from "@/lib/uploadthing.client";
@@ -17,6 +17,7 @@ interface Product {
   price: number;
   stock?: number | null;
   isActive: boolean;
+  freeShipping?: boolean;
   images: string[];
   description?: string;
   customizationOptions?: any;
@@ -34,6 +35,7 @@ const EMPTY_FORM = {
   price: "",
   stock: "",
   photoToDesignFee: "",
+  freeShipping: false,
   description: "",
   images: [] as string[],
   // Yeni format: variantDimensions düzenlenebilir
@@ -177,6 +179,7 @@ export default function ProductList({ initialProducts }: ProductListProps) {
       price: String(product.price),
       stock: product.stock != null ? String(product.stock) : "",
       photoToDesignFee: product.photoToDesignFee != null ? String(product.photoToDesignFee) : "",
+      freeShipping: Boolean(product.freeShipping),
       description: product.description || "",
       images: product.images || [],
       variantDimensions,
@@ -241,6 +244,7 @@ export default function ProductList({ initialProducts }: ProductListProps) {
         price: parseFloat(formData.price) || 0,
         stock: formData.stock !== "" ? parseInt(formData.stock) : null,
         photoToDesignFee: formData.photoToDesignFee !== "" ? parseFloat(formData.photoToDesignFee) : null,
+        freeShipping: Boolean(formData.freeShipping),
         description: formData.description.trim() || undefined,
         images: formData.images,
         customizationOptions,
@@ -349,7 +353,8 @@ export default function ProductList({ initialProducts }: ProductListProps) {
           </button>
         </div>
 
-        <div className="overflow-x-auto rounded-xl border border-corp-border">
+        {/* Desktop Table View */}
+        <div className="hidden md:block overflow-x-auto rounded-xl border border-corp-border">
           <table className="w-full text-left">
             <thead className="bg-corp-surface border-b border-corp-border text-corp-gray text-xs uppercase tracking-wider font-bold">
               <tr>
@@ -357,6 +362,7 @@ export default function ProductList({ initialProducts }: ProductListProps) {
                 <th className="p-4">Kategori</th>
                 <th className="p-4">Fiyat</th>
                 <th className="p-4">Stok</th>
+                <th className="p-4">Kargo</th>
                 <th className="p-4">Durum</th>
                 <th className="p-4 text-right">İşlemler</th>
               </tr>
@@ -364,7 +370,7 @@ export default function ProductList({ initialProducts }: ProductListProps) {
             <tbody className="divide-y divide-corp-border bg-white text-sm">
               {filteredProducts.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-12 text-center text-corp-gray italic">
+                  <td colSpan={7} className="p-12 text-center text-corp-gray italic">
                     Ürün bulunamadı.
                   </td>
                 </tr>
@@ -414,6 +420,16 @@ export default function ProductList({ initialProducts }: ProductListProps) {
                       </span>
                     </td>
                     <td className="p-4">
+                      {product.freeShipping ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          <Truck size={12} />
+                          <span>Ücretsiz</span>
+                        </span>
+                      ) : (
+                        <span className="text-xs text-corp-gray">Standart</span>
+                      )}
+                    </td>
+                    <td className="p-4">
                       <button
                         onClick={() => toggleStatus(product.id, product.isActive)}
                         className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${
@@ -456,25 +472,125 @@ export default function ProductList({ initialProducts }: ProductListProps) {
             </tbody>
           </table>
         </div>
+
+        {/* Mobile Card List View */}
+        <div className="md:hidden space-y-3">
+          {filteredProducts.length === 0 ? (
+            <div className="p-8 text-center text-corp-gray italic bg-white rounded-xl border border-corp-border">
+              Ürün bulunamadı.
+            </div>
+          ) : (
+            filteredProducts.map((product) => (
+              <div
+                key={product.id}
+                className="bg-white p-4 rounded-2xl border border-corp-border shadow-xs space-y-3"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="w-14 h-14 rounded-xl border border-corp-border overflow-hidden bg-gray-50 flex-shrink-0">
+                    <img
+                      src={product.images[0] || "https://placehold.co/100x100"}
+                      alt={product.name}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src =
+                          "https://placehold.co/100x100?text=Görsel+Yok";
+                      }}
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-bold text-corp-charcoal text-sm truncate">
+                        {product.name}
+                      </span>
+                      <span className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded text-[10px] font-bold uppercase tracking-tight flex-shrink-0">
+                        {product.category}
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-corp-gray font-mono block truncate">
+                      {product.slug}
+                    </span>
+                    <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                      <span className="font-display font-bold text-corp-charcoal text-sm">
+                        {product.price.toLocaleString("tr-TR")} TL
+                      </span>
+                      <span className="text-xs text-corp-gray">
+                        • Stok: {product.stock != null ? product.stock : "∞"}
+                      </span>
+                      {product.freeShipping && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          <Truck size={10} />
+                          <span>Ücretsiz Kargo</span>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-corp-border/60 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-corp-gray">Yayında:</span>
+                    <button
+                      type="button"
+                      onClick={() => toggleStatus(product.id, product.isActive)}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                        product.isActive ? "bg-corp-teal" : "bg-gray-300"
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          product.isActive ? "translate-x-6" : "translate-x-1"
+                        }`}
+                      />
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => openEditModal(product)}
+                      className="min-h-[44px] min-w-[44px] p-2.5 text-corp-charcoal bg-gray-100 hover:bg-corp-teal/10 hover:text-corp-teal rounded-xl flex items-center justify-center transition-colors"
+                      title="Düzenle"
+                      aria-label="Ürünü Düzenle"
+                    >
+                      <Edit size={16} />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(product.id, product.name)}
+                      disabled={loading === product.id}
+                      className="min-h-[44px] min-w-[44px] p-2.5 text-red-600 bg-red-50 hover:bg-red-100 rounded-xl flex items-center justify-center transition-colors disabled:opacity-50"
+                      title="Sil"
+                      aria-label="Ürünü Sil"
+                    >
+                      {loading === product.id ? (
+                        <Loader2 size={16} className="animate-spin" />
+                      ) : (
+                        <Trash2 size={16} />
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
       </div>
 
       {/* Modal */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm p-0 sm:p-4">
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-2xl max-h-[92vh] overflow-y-auto flex flex-col">
             <div className="flex items-center justify-between px-6 py-4 border-b border-corp-border sticky top-0 bg-white z-10 rounded-t-3xl">
               <h2 className="font-display text-xl font-bold text-corp-charcoal">
                 {editTarget ? "Ürünü Düzenle" : "Yeni Ürün Ekle"}
               </h2>
               <button
                 onClick={closeModal}
-                className="p-2 text-corp-gray hover:text-corp-charcoal hover:bg-gray-100 rounded-lg transition-all"
+                className="min-h-[44px] min-w-[44px] p-2 text-corp-gray hover:text-corp-charcoal hover:bg-gray-100 rounded-xl transition-all flex items-center justify-center"
+                aria-label="Kapat"
               >
                 <X size={20} />
               </button>
             </div>
 
-            <div className="p-6 space-y-4">
+            <div className="p-4 sm:p-6 space-y-4">
               {/* Ürün Adı */}
               <div>
                 <label className="block text-sm font-semibold text-corp-charcoal mb-1">
@@ -485,12 +601,12 @@ export default function ProductList({ initialProducts }: ProductListProps) {
                   value={formData.name}
                   onChange={(e) => setFormData((f) => ({ ...f, name: e.target.value }))}
                   placeholder="Örn: Kurumsal Broşür Tasarımı"
-                  className="w-full px-4 py-2.5 rounded-xl border border-corp-border focus:outline-none focus:ring-2 focus:ring-corp-teal/30 text-sm"
+                  className="w-full px-4 py-3 rounded-xl border border-corp-border focus:outline-none focus:ring-2 focus:ring-corp-teal/30 text-base sm:text-sm"
                 />
               </div>
 
               {/* Kategori & Alt Kategori */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-corp-charcoal mb-1">
                     Kategori
@@ -498,7 +614,7 @@ export default function ProductList({ initialProducts }: ProductListProps) {
                   <select
                     value={formData.category}
                     onChange={(e) => setFormData((f) => ({ ...f, category: e.target.value }))}
-                    className="w-full px-4 py-2.5 rounded-xl border border-corp-border focus:outline-none focus:ring-2 focus:ring-corp-teal/30 text-sm bg-white"
+                    className="w-full px-4 py-3 rounded-xl border border-corp-border focus:outline-none focus:ring-2 focus:ring-corp-teal/30 text-base sm:text-sm bg-white min-h-[44px]"
                   >
                     <option value="Medya">Medya</option>
                     <option value="Teknoloji">Teknoloji</option>
@@ -516,7 +632,7 @@ export default function ProductList({ initialProducts }: ProductListProps) {
                       setFormData((f) => ({ ...f, subcategory: e.target.value }))
                     }
                     placeholder="Örn: Sosyal Medya"
-                    className="w-full px-4 py-2.5 rounded-xl border border-corp-border focus:outline-none focus:ring-2 focus:ring-corp-teal/30 text-sm"
+                    className="w-full px-4 py-3 rounded-xl border border-corp-border focus:outline-none focus:ring-2 focus:ring-corp-teal/30 text-base sm:text-sm min-h-[44px]"
                   />
                 </div>
               </div>
@@ -534,7 +650,7 @@ export default function ProductList({ initialProducts }: ProductListProps) {
                     value={formData.price}
                     onChange={(e) => setFormData((f) => ({ ...f, price: e.target.value }))}
                     placeholder="0.00"
-                    className="w-full px-4 py-2.5 rounded-xl border border-corp-border focus:outline-none focus:ring-2 focus:ring-corp-teal/30 text-sm"
+                    className="w-full px-4 py-3 rounded-xl border border-corp-border focus:outline-none focus:ring-2 focus:ring-corp-teal/30 text-base sm:text-sm min-h-[44px]"
                   />
                 </div>
                 <div>
@@ -547,7 +663,7 @@ export default function ProductList({ initialProducts }: ProductListProps) {
                     value={formData.stock}
                     onChange={(e) => setFormData((f) => ({ ...f, stock: e.target.value }))}
                     placeholder="Sınırsız"
-                    className="w-full px-4 py-2.5 rounded-xl border border-corp-border focus:outline-none focus:ring-2 focus:ring-corp-teal/30 text-sm"
+                    className="w-full px-4 py-3 rounded-xl border border-corp-border focus:outline-none focus:ring-2 focus:ring-corp-teal/30 text-base sm:text-sm min-h-[44px]"
                   />
                 </div>
                 <div>
@@ -561,9 +677,42 @@ export default function ProductList({ initialProducts }: ProductListProps) {
                     value={formData.photoToDesignFee}
                     onChange={(e) => setFormData((f) => ({ ...f, photoToDesignFee: e.target.value }))}
                     placeholder="Varsayılan: 500"
-                    className="w-full px-4 py-2.5 rounded-xl border border-corp-border focus:outline-none focus:ring-2 focus:ring-corp-teal/30 text-sm"
+                    className="w-full px-4 py-3 rounded-xl border border-corp-border focus:outline-none focus:ring-2 focus:ring-corp-teal/30 text-base sm:text-sm min-h-[44px]"
                   />
                 </div>
+              </div>
+
+              {/* Ücretsiz Kargo Toggle */}
+              <div className="flex items-center justify-between p-4 rounded-2xl border border-corp-border bg-corp-surface/50">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center flex-shrink-0 border border-emerald-200/60">
+                    <Truck size={18} />
+                  </div>
+                  <div>
+                    <label htmlFor="free-shipping-toggle" className="text-sm font-semibold text-corp-charcoal block cursor-pointer">
+                      Ücretsiz Kargo
+                    </label>
+                    <p className="text-xs text-corp-gray">
+                      Açıksa bu ürün için müşteriye ücretsiz kargo gösterilir.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  id="free-shipping-toggle"
+                  type="button"
+                  role="switch"
+                  aria-checked={formData.freeShipping}
+                  onClick={() => setFormData((f) => ({ ...f, freeShipping: !f.freeShipping }))}
+                  className={`relative inline-flex h-7 w-12 min-h-[44px] min-w-[44px] items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-corp-teal focus:ring-offset-2 ${
+                    formData.freeShipping ? "bg-emerald-600" : "bg-gray-300"
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform ${
+                      formData.freeShipping ? "translate-x-6" : "translate-x-1"
+                    }`}
+                  />
+                </button>
               </div>
 
               {/* Açıklama */}
@@ -578,7 +727,7 @@ export default function ProductList({ initialProducts }: ProductListProps) {
                     setFormData((f) => ({ ...f, description: e.target.value }))
                   }
                   placeholder="Ürün açıklaması..."
-                  className="w-full px-4 py-2.5 rounded-xl border border-corp-border focus:outline-none focus:ring-2 focus:ring-corp-teal/30 text-sm resize-none"
+                  className="w-full px-4 py-3 rounded-xl border border-corp-border focus:outline-none focus:ring-2 focus:ring-corp-teal/30 text-base sm:text-sm resize-none"
                 />
               </div>
 
@@ -834,15 +983,17 @@ export default function ProductList({ initialProducts }: ProductListProps) {
 
             <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-corp-border sticky bottom-0 bg-white rounded-b-3xl">
               <button
+                type="button"
                 onClick={closeModal}
-                className="px-5 py-2 rounded-xl border border-corp-border text-corp-gray font-semibold hover:bg-gray-50 transition-all text-sm"
+                className="min-h-[44px] px-5 py-2.5 rounded-xl border border-corp-border text-corp-gray font-semibold hover:bg-gray-50 transition-all text-sm flex items-center justify-center"
               >
                 İptal
               </button>
               <button
+                type="button"
                 onClick={handleSave}
                 disabled={saving}
-                className="bg-corp-teal text-white px-6 py-2 rounded-xl font-semibold flex items-center gap-2 hover:bg-corp-teal-600 transition-all shadow-md active:scale-95 disabled:opacity-60 text-sm"
+                className="min-h-[44px] bg-corp-teal text-white px-6 py-2.5 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-corp-teal-600 transition-all shadow-md active:scale-95 disabled:opacity-60 text-sm"
               >
                 {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
                 {saving ? "Kaydediliyor..." : editTarget ? "Güncelle" : "Ekle"}

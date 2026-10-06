@@ -28,7 +28,8 @@ export async function middleware(request: NextRequest) {
   if (pathname.startsWith("/profile") || pathname.startsWith("/magaza/odeme")) {
     if (!token) {
       const loginUrl = new URL("/auth", request.url);
-      loginUrl.searchParams.set("callbackUrl", pathname);
+      const fullCallbackUrl = request.nextUrl.pathname + request.nextUrl.search;
+      loginUrl.searchParams.set("callbackUrl", fullCallbackUrl);
       return NextResponse.redirect(loginUrl);
     }
   }

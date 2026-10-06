@@ -142,101 +142,164 @@ export default function CartAbandonmentClient() {
             <span>Kayıtlar yükleniyor...</span>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead className="bg-corp-surface border-b border-corp-border text-corp-gray text-xs uppercase tracking-wider font-semibold">
-                <tr>
-                  <th className="p-4 pl-6">Müşteri / Oturum ID</th>
-                  <th className="p-4">Tarih</th>
-                  <th className="p-4">Gönderilen Hatırlatma</th>
-                  <th className="p-4">Son Gönderim</th>
-                  <th className="p-4">Dönüşüm</th>
-                  <th className="p-4 text-right pr-6">İşlemler</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-corp-border">
-                {filteredLogs.length === 0 ? (
+          <div>
+            {/* Desktop Table View */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-left">
+                <thead className="bg-corp-surface border-b border-corp-border text-corp-gray text-xs uppercase tracking-wider font-semibold">
                   <tr>
-                    <td colSpan={6} className="p-8 text-center text-corp-gray font-body">
-                      Henüz sepet terk etme kaydı bulunamadı.
-                    </td>
+                    <th className="p-4 pl-6">Müşteri / Oturum ID</th>
+                    <th className="p-4">Tarih</th>
+                    <th className="p-4">Gönderilen Hatırlatma</th>
+                    <th className="p-4">Son Gönderim</th>
+                    <th className="p-4">Dönüşüm</th>
+                    <th className="p-4 text-right pr-6">İşlemler</th>
                   </tr>
-                ) : (
-                  filteredLogs.map((log) => (
-                    <tr key={log.id} className="hover:bg-corp-surface/30 transition-colors font-body">
-                      <td className="p-4 pl-6">
-                        <div className="flex flex-col">
-                          <span className="font-semibold text-corp-charcoal text-sm truncate max-w-[200px]">
-                            {log.userId || "Misafir Kullanıcı"}
-                          </span>
-                          <span className="text-[10px] text-corp-gray">Session: {log.sessionId}</span>
-                        </div>
-                      </td>
-                      <td className="p-4 text-sm text-corp-gray">
-                        {new Date(log.createdAt).toLocaleString("tr-TR")}
-                      </td>
-                      <td className="p-4 text-sm text-corp-charcoal">
-                        {log.reminderCount} kez
-                      </td>
-                      <td className="p-4 text-xs text-corp-gray">
-                        {log.emailSentAt ? new Date(log.emailSentAt).toLocaleString("tr-TR") : "Gönderilmedi"}
-                      </td>
-                      <td className="p-4">
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
-                          log.converted ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"
-                        }`}>
-                          {log.converted ? "Satın Aldı" : "Sepette Bekliyor"}
-                        </span>
-                      </td>
-                      <td className="p-4 text-right pr-6">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={() => {
-                              setSelectedLog(log);
-                              setIsDetailOpen(true);
-                            }}
-                            className="p-2 text-corp-gray hover:text-corp-teal hover:bg-corp-teal-50 rounded-lg transition-colors"
-                            title="Sepet İçeriğini Gör"
-                          >
-                            <Eye size={16} />
-                          </button>
-                          {!log.converted && (
-                            <button
-                              disabled={actionId === log.id}
-                              onClick={() => handleSendReminder(log.id)}
-                              className="bg-corp-teal text-white px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 hover:bg-corp-teal-600 disabled:opacity-50 transition-colors"
-                            >
-                              {actionId === log.id ? (
-                                <Loader2 className="animate-spin" size={12} />
-                              ) : (
-                                <Send size={12} />
-                              )}
-                              Hatırlat
-                            </button>
-                          )}
-                        </div>
+                </thead>
+                <tbody className="divide-y divide-corp-border">
+                  {filteredLogs.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="p-8 text-center text-corp-gray font-body">
+                        Henüz sepet terk etme kaydı bulunamadı.
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  ) : (
+                    filteredLogs.map((log) => (
+                      <tr key={log.id} className="hover:bg-corp-surface/30 transition-colors font-body">
+                        <td className="p-4 pl-6">
+                          <div className="flex flex-col">
+                            <span className="font-semibold text-corp-charcoal text-sm truncate max-w-[200px]">
+                              {log.userId || "Misafir Kullanıcı"}
+                            </span>
+                            <span className="text-[10px] text-corp-gray">Session: {log.sessionId}</span>
+                          </div>
+                        </td>
+                        <td className="p-4 text-sm text-corp-gray">
+                          {new Date(log.createdAt).toLocaleString("tr-TR")}
+                        </td>
+                        <td className="p-4 text-sm text-corp-charcoal">
+                          {log.reminderCount} kez
+                        </td>
+                        <td className="p-4 text-xs text-corp-gray">
+                          {log.emailSentAt ? new Date(log.emailSentAt).toLocaleString("tr-TR") : "Gönderilmedi"}
+                        </td>
+                        <td className="p-4">
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
+                            log.converted ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"
+                          }`}>
+                            {log.converted ? "Satın Aldı" : "Sepette Bekliyor"}
+                          </span>
+                        </td>
+                        <td className="p-4 text-right pr-6">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => {
+                                setSelectedLog(log);
+                                setIsDetailOpen(true);
+                              }}
+                              className="p-2 text-corp-gray hover:text-corp-teal hover:bg-corp-teal-50 rounded-lg transition-colors"
+                              title="Sepet İçeriğini Gör"
+                            >
+                              <Eye size={16} />
+                            </button>
+                            {!log.converted && (
+                              <button
+                                disabled={actionId === log.id}
+                                onClick={() => handleSendReminder(log.id)}
+                                className="bg-corp-teal text-white px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 hover:bg-corp-teal-600 disabled:opacity-50 transition-colors"
+                              >
+                                {actionId === log.id ? (
+                                  <Loader2 className="animate-spin" size={12} />
+                                ) : (
+                                  <Send size={12} />
+                                )}
+                                Hatırlat
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Card View */}
+            <div className="md:hidden divide-y divide-corp-border">
+              {filteredLogs.length === 0 ? (
+                <div className="p-8 text-center text-corp-gray font-body text-sm">
+                  Henüz sepet terk etme kaydı bulunamadı.
+                </div>
+              ) : (
+                filteredLogs.map((log) => (
+                  <div key={log.id} className="p-4 space-y-2.5 font-body">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <span className="font-semibold text-corp-charcoal text-sm truncate block">
+                          {log.userId || "Misafir Kullanıcı"}
+                        </span>
+                        <span className="text-[10px] text-corp-gray font-mono truncate block">
+                          Session: {log.sessionId}
+                        </span>
+                      </div>
+                      <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold shrink-0 ${
+                        log.converted ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"
+                      }`}>
+                        {log.converted ? "Satın Aldı" : "Sepette Bekliyor"}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs text-corp-gray">
+                      <span>Hatırlatma: {log.reminderCount} kez</span>
+                      <span>{new Date(log.createdAt).toLocaleDateString("tr-TR")}</span>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2 pt-1 border-t border-corp-border/50">
+                      <button
+                        onClick={() => {
+                          setSelectedLog(log);
+                          setIsDetailOpen(true);
+                        }}
+                        className="min-h-[38px] px-3 text-xs text-corp-teal bg-corp-teal/10 hover:bg-corp-teal/20 rounded-lg flex items-center gap-1 font-semibold transition-colors"
+                      >
+                        <Eye size={14} /> İçerik
+                      </button>
+                      {!log.converted && (
+                        <button
+                          disabled={actionId === log.id}
+                          onClick={() => handleSendReminder(log.id)}
+                          className="min-h-[38px] bg-corp-teal text-white px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 hover:bg-corp-teal-600 disabled:opacity-50 transition-colors"
+                        >
+                          {actionId === log.id ? (
+                            <Loader2 className="animate-spin" size={12} />
+                          ) : (
+                            <Send size={12} />
+                          )}
+                          Hatırlat
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         )}
       </div>
 
       {/* Modal - Details */}
       {isDetailOpen && selectedLog && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-corp-border max-w-lg w-full p-6 space-y-4 shadow-luxury animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="bg-white rounded-t-3xl sm:rounded-2xl border border-corp-border max-w-lg w-full p-4 sm:p-6 space-y-4 shadow-luxury max-h-[92vh] sm:max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-start">
               <div>
                 <h3 className="font-display text-lg font-bold text-corp-charcoal">Terk Edilmiş Sepet İçeriği</h3>
-                <p className="text-xs text-corp-gray font-body">Session ID: {selectedLog.sessionId}</p>
+                <p className="text-xs text-corp-gray font-body truncate max-w-xs">Session: {selectedLog.sessionId}</p>
               </div>
               <button 
                 onClick={() => { setIsDetailOpen(false); setSelectedLog(null); }}
-                className="p-1 rounded-lg hover:bg-corp-surface text-corp-gray"
+                className="p-2 rounded-lg hover:bg-corp-surface text-corp-gray min-h-[44px] min-w-[44px] flex items-center justify-center"
               >
                 <X size={18} />
               </button>

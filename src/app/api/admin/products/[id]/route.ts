@@ -24,6 +24,9 @@ export async function PATCH(
         data.subcategory = detected;
       }
     }
+    if (data.freeShipping !== undefined) {
+      data.freeShipping = Boolean(data.freeShipping);
+    }
 
     const product = await prisma.product.update({
       where: { id: (await params).id },

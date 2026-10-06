@@ -114,16 +114,17 @@ export default function SupportTicketDetailClient({ ticket: initialTicket }: { t
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3">
         <button
           onClick={() => router.back()}
-          className="p-2 rounded-lg hover:bg-corp-surface text-corp-gray transition-colors"
+          className="p-2.5 rounded-xl hover:bg-corp-surface text-corp-gray transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center border border-corp-border/60"
+          aria-label="Geri dön"
         >
           <ArrowLeft size={20} />
         </button>
-        <div className="flex-1">
-          <h1 className="font-display text-2xl font-bold text-corp-charcoal">Destek Talebi Detayı</h1>
-          <p className="text-sm text-corp-gray">
+        <div className="flex-1 min-w-0">
+          <h1 className="font-display text-xl sm:text-2xl font-bold text-corp-charcoal truncate">Destek Talebi Detayı</h1>
+          <p className="text-xs sm:text-sm text-corp-gray">
             #{ticket.id.slice(-6)} • {formatDate(ticket.createdAt)}
           </p>
         </div>
@@ -133,15 +134,15 @@ export default function SupportTicketDetailClient({ ticket: initialTicket }: { t
         {/* Main content */}
         <div className="lg:col-span-2 space-y-6">
           {/* Ticket info */}
-          <div className="bg-white rounded-2xl border border-corp-border shadow-corp-card p-6">
-            <div className="flex items-start justify-between mb-4">
+          <div className="bg-white rounded-2xl border border-corp-border shadow-corp-card p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
               <div>
-                <h2 className="font-display text-xl font-bold text-corp-charcoal">{ticket.subject}</h2>
-                <p className="text-sm text-corp-gray mt-1">
+                <h2 className="font-display text-lg sm:text-xl font-bold text-corp-charcoal">{ticket.subject}</h2>
+                <p className="text-xs sm:text-sm text-corp-gray mt-1">
                   Son güncelleme: {formatDate(ticket.updatedAt)}
                 </p>
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <span
                   className="px-3 py-1.5 rounded-full font-body text-[12px] font-bold flex items-center gap-1.5"
                   style={{
@@ -167,7 +168,7 @@ export default function SupportTicketDetailClient({ ticket: initialTicket }: { t
             </div>
 
             {/* Actions */}
-            <div className="grid grid-cols-2 gap-4 pt-4 border-t border-corp-border">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-corp-border">
               <div>
                 <label className="block text-xs font-bold text-corp-gray uppercase tracking-widest mb-2">
                   Durum

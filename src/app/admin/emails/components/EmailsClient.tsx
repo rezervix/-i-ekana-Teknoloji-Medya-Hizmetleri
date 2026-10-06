@@ -136,62 +136,104 @@ export default function EmailsClient() {
             <span>E-posta geçmişi yükleniyor...</span>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead className="bg-corp-surface border-b border-corp-border text-corp-gray text-xs uppercase tracking-wider font-semibold">
-                <tr>
-                  <th className="p-4 pl-6">Alıcı (Recipient)</th>
-                  <th className="p-4">Konu (Subject)</th>
-                  <th className="p-4">Tarih</th>
-                  <th className="p-4">Durum</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-corp-border">
-                {filteredLogs.length === 0 ? (
+          <div>
+            {/* Desktop Table View */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-left">
+                <thead className="bg-corp-surface border-b border-corp-border text-corp-gray text-xs uppercase tracking-wider font-semibold">
                   <tr>
-                    <td colSpan={4} className="p-8 text-center text-corp-gray font-body">
-                      Henüz e-posta gönderim kaydı bulunamadı.
-                    </td>
+                    <th className="p-4 pl-6">Alıcı (Recipient)</th>
+                    <th className="p-4">Konu (Subject)</th>
+                    <th className="p-4">Tarih</th>
+                    <th className="p-4">Durum</th>
                   </tr>
-                ) : (
-                  filteredLogs.map((log) => (
-                    <tr key={log.id} className="hover:bg-corp-surface/30 transition-colors">
-                      <td className="p-4 pl-6 font-semibold text-sm text-corp-charcoal font-body">
-                        {log.recipient}
-                      </td>
-                      <td className="p-4 text-sm text-corp-gray font-body max-w-xs truncate">
-                        {log.subject}
-                      </td>
-                      <td className="p-4 text-xs text-corp-gray font-body">
-                        {new Date(log.sentAt).toLocaleString("tr-TR")}
-                      </td>
-                      <td className="p-4">
-                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${
-                          log.status === "sent" ? "bg-green-100 text-green-700" :
-                          log.status === "delivered" ? "bg-blue-100 text-blue-700" :
-                          "bg-red-100 text-red-700"
-                        }`}>
-                          <ShieldCheck size={12} />
-                          {log.status === "sent" ? "Gönderildi" :
-                           log.status === "delivered" ? "Ulaştı" : "Hata"}
-                        </span>
+                </thead>
+                <tbody className="divide-y divide-corp-border">
+                  {filteredLogs.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="p-8 text-center text-corp-gray font-body">
+                        Henüz e-posta gönderim kaydı bulunamadı.
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  ) : (
+                    filteredLogs.map((log) => (
+                      <tr key={log.id} className="hover:bg-corp-surface/30 transition-colors">
+                        <td className="p-4 pl-6 font-semibold text-sm text-corp-charcoal font-body">
+                          {log.recipient}
+                        </td>
+                        <td className="p-4 text-sm text-corp-gray font-body max-w-xs truncate">
+                          {log.subject}
+                        </td>
+                        <td className="p-4 text-xs text-corp-gray font-body">
+                          {new Date(log.sentAt).toLocaleString("tr-TR")}
+                        </td>
+                        <td className="p-4">
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${
+                            log.status === "sent" ? "bg-green-100 text-green-700" :
+                            log.status === "delivered" ? "bg-blue-100 text-blue-700" :
+                            "bg-red-100 text-red-700"
+                          }`}>
+                            <ShieldCheck size={12} />
+                            {log.status === "sent" ? "Gönderildi" :
+                             log.status === "delivered" ? "Ulaştı" : "Hata"}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Card List View */}
+            <div className="md:hidden divide-y divide-corp-border">
+              {filteredLogs.length === 0 ? (
+                <div className="p-8 text-center text-corp-gray font-body text-sm">
+                  Henüz e-posta gönderim kaydı bulunamadı.
+                </div>
+              ) : (
+                filteredLogs.map((log) => (
+                  <div key={log.id} className="p-4 space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="font-semibold text-sm text-corp-charcoal font-body truncate">
+                        {log.recipient}
+                      </p>
+                      <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold shrink-0 ${
+                        log.status === "sent" ? "bg-green-100 text-green-700" :
+                        log.status === "delivered" ? "bg-blue-100 text-blue-700" :
+                        "bg-red-100 text-red-700"
+                      }`}>
+                        <ShieldCheck size={11} />
+                        {log.status === "sent" ? "Gönderildi" :
+                         log.status === "delivered" ? "Ulaştı" : "Hata"}
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-corp-gray font-body line-clamp-2">
+                      {log.subject}
+                    </p>
+
+                    <div className="text-[11px] text-corp-gray font-body pt-1 border-t border-corp-border/50">
+                      {new Date(log.sentAt).toLocaleString("tr-TR")}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         )}
       </div>
 
       {/* Modal - Send Email */}
       {isSendOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-corp-border max-w-lg w-full p-6 space-y-4 shadow-luxury animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="bg-white rounded-t-3xl sm:rounded-2xl border border-corp-border max-w-lg w-full p-4 sm:p-6 space-y-4 shadow-luxury max-h-[92vh] sm:max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-start">
               <h3 className="font-display text-lg font-bold text-corp-charcoal">Yeni E-Posta Gönder</h3>
-              <button onClick={() => setIsSendOpen(false)} className="p-1 rounded-lg hover:bg-corp-surface text-corp-gray">
+              <button
+                onClick={() => setIsSendOpen(false)}
+                className="p-2 rounded-lg hover:bg-corp-surface text-corp-gray min-h-[44px] min-w-[44px] flex items-center justify-center"
+              >
                 <X size={18} />
               </button>
             </div>

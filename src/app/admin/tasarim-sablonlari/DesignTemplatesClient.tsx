@@ -219,14 +219,14 @@ export default function DesignTemplatesClient({ initialTemplates, products }: De
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="font-display text-3xl font-bold text-corp-charcoal">Tasarım Şablonları</h1>
-          <p className="text-corp-gray mt-1">Ürünler veya alt kategoriler için tasarım şablonlarını yönetin</p>
+          <h1 className="font-display text-2xl sm:text-3xl font-bold text-corp-charcoal">Tasarım Şablonları</h1>
+          <p className="text-xs sm:text-sm text-corp-gray mt-1">Ürünler veya alt kategoriler için tasarım şablonlarını yönetin</p>
         </div>
         <button
           onClick={openNewModal}
-          className="bg-corp-teal text-white px-6 py-3 rounded-xl font-semibold flex items-center gap-2 hover:bg-corp-teal-600 transition-all shadow-md active:scale-95"
+          className="bg-corp-teal text-white px-5 py-2.5 sm:px-6 sm:py-3 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-corp-teal-600 transition-all shadow-md active:scale-95 w-full sm:w-auto min-h-[44px]"
         >
           <Plus size={20} /> Yeni Şablon
         </button>
@@ -328,21 +328,21 @@ export default function DesignTemplatesClient({ initialTemplates, products }: De
 
       {/* Modal */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-corp-border">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm p-0 sm:p-4">
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-2xl max-h-[92vh] sm:max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white z-10 flex items-center justify-between px-6 py-4 border-b border-corp-border">
               <h2 className="font-display text-xl font-bold text-corp-charcoal">
                 {editTarget ? "Şablonu Düzenle" : "Yeni Şablon Ekle"}
               </h2>
               <button
                 onClick={closeModal}
-                className="p-2 text-corp-gray hover:text-corp-charcoal hover:bg-gray-100 rounded-lg transition-all"
+                className="p-2 text-corp-gray hover:text-corp-charcoal hover:bg-gray-100 rounded-lg transition-all min-h-[44px] min-w-[44px] flex items-center justify-center"
               >
                 <X size={20} />
               </button>
             </div>
 
-            <div className="p-6 space-y-4">
+            <div className="p-4 sm:p-6 space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-corp-charcoal mb-1">
@@ -369,7 +369,7 @@ export default function DesignTemplatesClient({ initialTemplates, products }: De
                   <label className="block text-sm font-semibold text-corp-charcoal mb-1">
                     Alt Kategori Seçimi
                   </label>
-                  <div className="flex gap-2">
+                  <div className="flex flex-col sm:flex-row gap-2">
                     <select
                       value={subcategories.includes(formData.subcategory) ? formData.subcategory : ""}
                       onChange={(e) => {
@@ -393,7 +393,7 @@ export default function DesignTemplatesClient({ initialTemplates, products }: De
                         const val = e.target.value;
                         setFormData((f) => ({ ...f, subcategory: val, productId: val ? "" : f.productId }));
                       }}
-                      className="w-32 px-3 py-2 rounded-xl border border-corp-border focus:outline-none focus:ring-2 focus:ring-corp-teal/30 text-sm"
+                      className="w-full sm:w-32 px-3 py-2 rounded-xl border border-corp-border focus:outline-none focus:ring-2 focus:ring-corp-teal/30 text-sm"
                     />
                   </div>
                 </div>

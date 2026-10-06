@@ -109,7 +109,8 @@ export default function LeadsClient({ leads: initialLeads }: { leads: Lead[] }) 
 
       {/* Leads table */}
       <div className="rounded-2xl border border-corp-border bg-white shadow-corp-card overflow-hidden">
-        <div className="overflow-x-auto">
+        {/* Desktop Table */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b border-corp-border bg-corp-surface">
@@ -173,6 +174,51 @@ export default function LeadsClient({ leads: initialLeads }: { leads: Lead[] }) 
             </tbody>
           </table>
         </div>
+
+        {/* Mobile Card List */}
+        <div className="md:hidden divide-y divide-corp-border">
+          {filtered.length === 0 ? (
+            <div className="p-8 text-center text-corp-gray text-sm">
+              Kayıt bulunamadı.
+            </div>
+          ) : (
+            filtered.map((lead) => {
+              const st = STATUS_META[lead.status];
+              return (
+                <div
+                  key={lead.id}
+                  onClick={() => setSelected(lead)}
+                  className="p-4 space-y-2.5 active:bg-corp-surface/50 transition-colors cursor-pointer"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="font-semibold text-corp-charcoal text-base">
+                      {lead.companyName}
+                    </span>
+                    <span
+                      className="px-2.5 py-0.5 rounded-full font-body text-[10px] font-bold flex-shrink-0"
+                      style={{
+                        background: `${st.color}14`,
+                        color: st.color,
+                        border: `1px solid ${st.color}30`,
+                      }}
+                    >
+                      {st.label}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-corp-gray">
+                    <span>{lead.sector}</span>
+                    <span>•</span>
+                    <span className="truncate max-w-[200px]">{lead.email}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-[11px] text-corp-gray-light pt-1">
+                    <span>{lead.solutionType.slice(0, 2).join(", ")}</span>
+                    <span>{formatDate(lead.createdAt)}</span>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
       </div>
 
       {/* Lead detail drawer */}
@@ -188,10 +234,10 @@ export default function LeadsClient({ leads: initialLeads }: { leads: Lead[] }) 
               <h2 className="font-display text-lg text-corp-charcoal">{selected.companyName}</h2>
               <button
                 onClick={() => setSelected(null)}
-                className="text-corp-gray hover:text-corp-charcoal transition-colors"
+                className="text-corp-gray hover:text-corp-charcoal transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center -mr-2 rounded-xl hover:bg-gray-100"
                 aria-label="Kapat"
               >
-                <X size={18} />
+                <X size={20} />
               </button>
             </div>
 
