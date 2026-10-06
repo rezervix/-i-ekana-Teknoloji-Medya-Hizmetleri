@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { 
   Users2, Mail, Plus, Edit, Trash2, Shield, ToggleLeft, ToggleRight, 
-  Search, Loader2, AlertCircle, CheckCircle2 
+  Search, Loader2, AlertCircle, CheckCircle2, X
 } from "lucide-react";
 
 interface User {
@@ -207,6 +207,7 @@ export default function UsersPage() {
             <span>Kullanıcı listesi yükleniyor...</span>
           </div>
         ) : (
+          <>
             {/* Desktop Table */}
             <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-left">
@@ -370,6 +371,7 @@ export default function UsersPage() {
                 ))
               )}
             </div>
+          </>
         )}
       </div>
 
