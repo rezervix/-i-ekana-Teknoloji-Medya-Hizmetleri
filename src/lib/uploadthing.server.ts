@@ -10,8 +10,9 @@ const utapi = new UTApi();
 // Auth helper — verify admin session on uploads
 async function authGuard() {
   const session = await auth();
+  console.log("[authGuard] Session:", session?.user?.email, "Role:", (session?.user as any)?.role);
   if (!session || !["SUPER_ADMIN", "ADMIN"].includes((session.user as any)?.role)) {
-    throw new Error("Unauthorized");
+    throw new Error("Unauthorized: Missing session or invalid role");
   }
   return { userId: (session.user as { id?: string })?.id || "admin" };
 }
@@ -23,18 +24,25 @@ async function tryOptimiseImage(buffer: Buffer): Promise<Buffer | null> {
   try {
     // Attempt sharp optimization first (fast, native)
     const sharp = (await import("sharp")).default;
-    return await sharp(buffer).webp({ quality: 82 }).toBuffer();
+    const result = await sharp(buffer).webp({ quality: 82 }).toBuffer();
+    console.log("[uploadthing] Sharp WebP conversion successful, size:", result.length);
+    return result;
   } catch (sharpErr) {
-    console.warn("[uploadthing] Sharp optimization failed or unsupported. Falling back to Jimp...", sharpErr);
+    console.warn("[uploadthing] Sharp optimization failed or unsupported:", sharpErr);
     try {
       // Dynamic import so that a Jimp load failure is isolated to this helper
       const Jimp = (await import("jimp")).default;
       const image = await Jimp.read(buffer);
       try {
-        return await image.getBufferAsync("image/webp" as any);
+        const result = await image.getBufferAsync("image/webp" as any);
+        console.log("[uploadthing] Jimp WebP conversion successful, size:", result.length);
+        return result;
       } catch {
         // WebP not supported by this Jimp build — fall back to JPEG
-        return await image.getBufferAsync(Jimp.MIME_JPEG);
+        console.log("[uploadthing] Jimp WebP failed, trying JPEG...");
+        const result = await image.getBufferAsync(Jimp.MIME_JPEG);
+        console.log("[uploadthing] Jimp JPEG conversion successful, size:", result.length);
+        return result;
       }
     } catch (jimpErr) {
       console.error("[uploadthing] Jimp optimization failed too:", jimpErr);
@@ -48,12 +56,16 @@ async function tryOptimiseImage(buffer: Buffer): Promise<Buffer | null> {
  *  On any failure, returns the original file's URL unchanged. */
 async function optimiseAndReplace(file: { url: string; key: string; name: string }): Promise<string> {
   try {
+    console.log("[optimiseAndReplace] Starting for file:", file.name, "key:", file.key);
+    
     const response = await fetch(file.url);
     if (!response.ok) {
-      console.warn("[uploadthing] Could not fetch uploaded file for optimisation:", response.status);
+      console.warn("[uploadthing] Could not fetch uploaded file for optimisation:", response.status, response.statusText);
       return file.url;
     }
     const buffer = Buffer.from(await response.arrayBuffer());
+    console.log("[optimiseAndReplace] File fetched, buffer size:", buffer.length);
+    
     const optimised = await tryOptimiseImage(buffer);
 
     if (!optimised) {
@@ -65,6 +77,7 @@ async function optimiseAndReplace(file: { url: string; key: string; name: string
     const baseName = file.name.replace(/\.[^/.]+$/, "");
     const webpFile = new File([new Uint8Array(optimised)], `${baseName}.webp`, { type: "image/webp" });
 
+    console.log("[optimiseAndReplace] Uploading WebP:", `${baseName}.webp`, "size:", optimised.length);
     const uploadResult = await utapi.uploadFiles(webpFile);
     if (uploadResult.error || !uploadResult.data) {
       console.error("[uploadthing] Re-upload of WebP file failed:", uploadResult.error);
@@ -81,7 +94,7 @@ async function optimiseAndReplace(file: { url: string; key: string; name: string
       console.warn("[uploadthing] Could not delete original file after WebP conversion:", delErr);
     }
 
-    console.log("[uploadthing] Image converted to WebP:", newUrl, "size:", optimised.length);
+    console.log("[uploadthing] Image converted to WebP successfully:", newUrl);
     return newUrl;
   } catch (error) {
     console.error("[uploadthing] Optimisation/replace pipeline error:", error);
@@ -107,11 +120,15 @@ export const ourFileRouter = {
   // the file size for fast page loads.)
   productImageUploader: f({ image: { maxFileSize: "8MB", maxFileCount: 10 } })
     .middleware(async () => {
+      console.log("[productImageUploader] Middleware called - checking auth...");
       const user = await authGuard();
+      console.log("[productImageUploader] Auth passed, userId:", user.userId);
       return { userId: user.userId };
     })
     .onUploadComplete(async ({ metadata, file }) => {
+      console.log("[productImageUploader] Upload complete for:", file.name, "- starting optimization...");
       const finalUrl = await optimiseAndReplace(file);
+      console.log("[productImageUploader] Final URL:", finalUrl);
       return { url: finalUrl };
     }),
 
