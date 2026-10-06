@@ -1,104 +1,146 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { useCartStore } from "@/store/useCartStore";
-import { ArrowLeft, CheckCircle2, CreditCard, ShoppingBag, Lock, AlertTriangle, ShieldCheck, MailCheck, Building2, User } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
 import Script from "next/script";
+import { useCartStore } from "@/store/useCartStore";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { ArrowLeft, ArrowRight, Building2, CheckCircle2, CreditCard, Landmark, MapPin, ShieldCheck, ShoppingBag, User } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+
+const cityDistricts: Record<string, string[]> = {
+  "İstanbul": ["Adalar", "Arnavutköy", "Ataşehir", "Bahçelievler", "Bakırköy", "Beşiktaş", "Beykoz", "Beyoğlu", "Büyükçekmece", "Çatalca", "Çekmeköy", "Esenler", "Esenyurt", "Eyüpsultan", "Fatih", "Gaziosmanpaşa", "Güngören", "Kadıköy", "Kağıthane", "Kartal", "Küçükçekmece", "Maltepe", "Pendik", "Sancaktepe", "Sarıyer", "Silivri", "Şile", "Şişli", "Tuzla", "Ümraniye", "Üsküdar", "Zeytinburnu"],
+  "Ankara": ["Akyurt", "Altındağ", "Ayaş", "Bala", "Beypazarı", "Çamlıdere", "Çankaya", "Çubuk", "Elmadağ", "Etimesgut", "Gölbaşı", "Keçiören", "Kazan", "Mamak", "Nallıhan", "Polatlı", "Pursaklar", "Sincan", "Yenimahalle"],
+  "İzmir": ["Aliağa", "Balçova", "Bayraklı", "Bergama", "Bornova", "Buca", "Çeşme", "Dikili", "Foça", "Gaziemir", "Karabağlar", "Karaburun", "Konak", "Menderes", "Menemen", "Narlıdere", "Ödemiş", "Seferihisar", "Selçuk", "Tire", "Urla"],
+};
+
+const paymentOptions = [
+  { value: "credit_card", label: "Kart ile Öde", detail: "PayTR 3D Secure", icon: CreditCard },
+  { value: "bank_transfer", label: "Havale / EFT", detail: "Ön izleme — mevcut entegrasyonda eklenebilir", icon: Landmark },
+  { value: "cash_on_delivery", label: "Kapıda Ödeme", detail: "Ön izleme — mevcut entegrasyonda eklenebilir", icon: MapPin },
+];
+
+const fieldClass = "w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-cyan-600 focus:ring-2 focus:ring-cyan-100";
 
 export default function CheckoutPage() {
-  const { data: session, status } = useSession();
-  const { items, clearCart } = useCartStore();
-  const [mounted, setMounted] = useState(false);
   const router = useRouter();
-
-  // Form states
+  const { data: session } = useSession();
+  const { items, clearCart } = useCartStore();
+  const [step, setStep] = useState(1);
+  const [mounted, setMounted] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState("credit_card");
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [paytrToken, setPaytrToken] = useState<string | null>(null);
+  const [pendingOrderNumber, setPendingOrderNumber] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState("");
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
     email: "",
     phone: "",
+    city: "İstanbul",
+    district: "Kadıköy",
     address: "",
-    city: "",
-    district: "",
   });
-
-  // Purchase Type & Corporate states
-  const [customerType, setCustomerType] = useState<"INDIVIDUAL" | "CORPORATE">("INDIVIDUAL");
-  const [corporateData, setCorporateData] = useState({
-    companyName: "",
-    taxOffice: "",
-    taxNumber: "",
-    billingAddress: "",
-  });
-  const [sameAddressAsDelivery, setSameAddressAsDelivery] = useState(true);
-
-  const [discountCode, setDiscountCode] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState("cc");
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [paytrToken, setPaytrToken] = useState<string | null>(null);
-  const [pendingOrderNumber, setPendingOrderNumber] = useState<string | null>(null);
-  const [errorMessage, setErrorMessage] = useState("");
-
-  const isAuthenticated = status === "authenticated" && Boolean(session?.user);
-  const isEmailVerified = Boolean((session?.user as any)?.isEmailVerified);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [guestCreateAccount, setGuestCreateAccount] = useState(false);
 
   useEffect(() => {
     setMounted(true);
-
-    // Pre-fill user details if logged in
     if (session?.user) {
-      const nameParts = (session.user.name || "").trim().split(" ");
-      const firstName = nameParts[0] || "";
-      const lastName = nameParts.slice(1).join(" ") || "";
-      
+      const fullName = (session.user.name || "").trim();
+      const [firstName, ...rest] = fullName.split(" ");
       setFormData((prev) => ({
         ...prev,
-        firstName: prev.firstName || firstName,
-        lastName: prev.lastName || lastName,
-        email: session.user?.email || prev.email,
+        firstName: prev.firstName || firstName || "",
+        lastName: prev.lastName || rest.join(" ") || "",
+        email: prev.email || session.user.email || "",
       }));
-
-      // Fetch saved user default address if available
-      fetch("/api/profile/addresses")
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.success && data.addresses && data.addresses.length > 0) {
-            const defaultAddr = data.addresses.find((a: any) => a.isDefault) || data.addresses[0];
-            if (defaultAddr) {
-              setFormData((prev) => ({
-                ...prev,
-                firstName: prev.firstName || defaultAddr.firstName,
-                lastName: prev.lastName || defaultAddr.lastName,
-                phone: prev.phone || defaultAddr.phone,
-                address: prev.address || defaultAddr.addressDetail,
-                city: prev.city || defaultAddr.city,
-                district: prev.district || defaultAddr.district,
-              }));
-            }
-          }
-        })
-        .catch(() => {});
     }
-  }, [session, mounted]);
+  }, [session]);
 
-  const subtotal = items.reduce((acc, item) => {
-    const servicesTotal = item.extraServices?.reduce((sum, s) => sum + s.price, 0) || 0;
-    return acc + item.price * item.quantity + servicesTotal;
-  }, 0);
-  const discount = 0;
-  const finalAmount = subtotal - discount;
+  const subtotal = useMemo(() => items.reduce((sum, item) => {
+      const extras = item.extraServices?.reduce((acc, service) => acc + service.price, 0) || 0;
+      return sum + item.price * item.quantity + extras;
+    }, 0), [items]);
+  const finalAmount = subtotal;
 
-  const handleCheckout = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (items.length === 0) return;
+  const isGuestMode = !session?.user;
 
-    if (!isAuthenticated) {
-      router.push("/auth?callbackUrl=/magaza/odeme");
+  const districtOptions = cityDistricts[formData.city] || [];
+
+  const validateField = (name: string, value: string) => {
+    switch (name) {
+      case "firstName":
+        if (!value.trim()) return "Ad alanı zorunludur.";
+        return "";
+      case "lastName":
+        if (!value.trim()) return "Soyad alanı zorunludur.";
+        return "";
+      case "email":
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return "Geçerli bir e-posta adresi giriniz.";
+        return "";
+      case "phone": {
+        const digits = value.replace(/\D/g, "");
+        if (!/^05\d{9}$/.test(digits)) return "Telefon numarası 05XXXXXXXXX formatında olmalıdır.";
+        return "";
+      }
+      case "city":
+        if (!value.trim()) return "İl seçimi zorunludur.";
+        return "";
+      case "district":
+        if (!value.trim()) return "İlçe seçimi zorunludur.";
+        return "";
+      case "address":
+        if (value.trim().length < 10) return "Açık adres en az 10 karakter olmalıdır.";
+        return "";
+      default:
+        return "";
+    }
+  };
+
+  const handleFieldChange = (name: string, value: string) => {
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    setErrors((prev) => ({ ...prev, [name]: "" }));
+  };
+
+  const handleBlur = (name: string, value: string) => {
+    const error = validateField(name, value);
+    setErrors((prev) => ({ ...prev, [name]: error }));
+  };
+
+  const validateStepOne = () => {
+    const nextErrors: Record<string, string> = {};
+    (Object.keys(formData) as Array<keyof typeof formData>).forEach((field) => {
+      const error = validateField(field, formData[field]);
+      if (error) nextErrors[field] = error;
+    });
+    setErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
+
+  const handleContinue = () => {
+    if (!validateStepOne()) {
+      setErrorMessage("Lütfen form alanlarını kontrol edip eksik bilgileri tamamlayın.");
+      return;
+    }
+    setErrorMessage("");
+    setStep(2);
+  };
+
+  const handleSubmitOrder = async () => {
+    if (items.length === 0) {
+      setErrorMessage("Sepetinizde ürün bulunmuyor.");
+      return;
+    }
+
+    if (paymentMethod !== "credit_card") {
+      setErrorMessage("Mevcut ödeme altyapısı yalnızca kart ödemesini desteklemektedir. Havale/EFT ve kapıda ödeme için eklenebilir listesi aşağıdadır.");
+      return;
+    }
+
+    if (!validateStepOne()) {
+      setErrorMessage("Önce iletişim ve adres bilgilerini kontrol edin.");
       return;
     }
 
@@ -106,554 +148,370 @@ export default function CheckoutPage() {
     setErrorMessage("");
 
     try {
-      const subscriptionItems = items.filter((item) => item.itemType === "subscription");
-      if (subscriptionItems.length > 0) {
-        if (subscriptionItems.length !== 1 || items.length !== 1) throw new Error("Abonelik paketleri diğer ürünlerle aynı sepette satın alınamaz.");
-        const subscriptionItem = subscriptionItems[0];
-        if (!subscriptionItem.subscriptionPlanId || !subscriptionItem.subscriptionTierId) throw new Error("Abonelik paketi bilgisi eksik. Lütfen ürünü tekrar sepete ekleyin.");
-        const subscriptionResponse = await fetch("/api/subscriptions/create", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ planId: subscriptionItem.subscriptionPlanId, planTierId: subscriptionItem.subscriptionTierId }) });
-        const subscriptionData = await subscriptionResponse.json();
-        if (subscriptionData.alreadySubscribed) { router.push("/profile/subscriptions"); return; }
-        if (!subscriptionResponse.ok || !subscriptionData.subscriptionId) throw new Error(subscriptionData.message || "Abonelik başlatılamadı.");
-        const tokenResponse = await fetch("/api/paytr/get-token", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ subscriptionId: subscriptionData.subscriptionId }) });
-        const tokenData = await tokenResponse.json().catch(() => ({}));
-        if (!tokenResponse.ok || !tokenData.token) throw new Error(tokenData.message || `Ödeme ekranı açılamadı (${tokenResponse.status}).`);
-        setPendingOrderNumber(subscriptionData.subscriptionId);
-        setPaytrToken(tokenData.token);
-        return;
-      }
-      if (customerType === "CORPORATE") {
-        if (!corporateData.companyName.trim()) {
-          setErrorMessage("Kurumsal siparişler için firma unvanı zorunludur.");
-          setIsProcessing(false);
-          return;
-        }
-        if (!corporateData.taxOffice.trim()) {
-          setErrorMessage("Kurumsal siparişler için vergi dairesi zorunludur.");
-          setIsProcessing(false);
-          return;
-        }
-        const cleanTaxNo = corporateData.taxNumber.trim();
-        if (!/^\d{10}$|^\d{11}$/.test(cleanTaxNo)) {
-          setErrorMessage("Vergi numarası 10 haneli VKN veya 11 haneli TCKN formatında ve sadece rakamlardan oluşmalıdır.");
-          setIsProcessing(false);
-          return;
-        }
-        const billingAddressToSubmit = sameAddressAsDelivery
-          ? `${formData.address}${formData.district ? `, ${formData.district}` : ""}${formData.city ? ` / ${formData.city}` : ""}`
-          : corporateData.billingAddress.trim();
-
-        if (!billingAddressToSubmit || billingAddressToSubmit.length < 5) {
-          setErrorMessage("Kurumsal siparişler için fatura adresi zorunludur.");
-          setIsProcessing(false);
-          return;
-        }
-      }
-
-      const guestName = `${formData.firstName.trim()} ${formData.lastName.trim()}`;
-      const finalBillingAddr = customerType === "CORPORATE"
-        ? (sameAddressAsDelivery
-            ? `${formData.address}${formData.district ? `, ${formData.district}` : ""}${formData.city ? ` / ${formData.city}` : ""}`
-            : corporateData.billingAddress.trim())
-        : null;
-
+      const idempotencyKey = `checkout-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
       const payload = {
-        guestName: guestName.trim(),
+        idempotencyKey,
+        guestName: `${formData.firstName.trim()} ${formData.lastName.trim()}`.trim(),
         guestEmail: formData.email.trim(),
-        customerType,
-        companyName: customerType === "CORPORATE" ? corporateData.companyName.trim() : null,
-        taxOffice: customerType === "CORPORATE" ? corporateData.taxOffice.trim() : null,
-        taxNumber: customerType === "CORPORATE" ? corporateData.taxNumber.trim() : null,
-        billingAddress: finalBillingAddr,
+        customerType: "INDIVIDUAL",
+        paymentMethod: "credit_card",
+        totalAmount: subtotal,
+        discountAmount: 0,
+        finalAmount,
         shippingAddress: {
-          address: `${formData.address}${formData.district ? `, ${formData.district}` : ""}`,
+          address: `${formData.address.trim()}`,
           city: formData.city,
+          district: formData.district,
           phone: formData.phone,
         },
-        paymentMethod,
-        totalAmount: subtotal,
-        discountAmount: discount,
-        finalAmount,
         items: items.map((item) => ({
           productId: item.productId,
           quantity: item.quantity,
           unitPrice: item.price,
           customizationData: {
             ...(item.customizationData || {}),
-            extraServices: item.extraServices || null,
+            extraServices: item.extraServices || [],
           },
         })),
       };
 
-      const res = await fetch("/api/orders/create", {
+      const orderRes = await fetch("/api/orders/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
-      const data = await res.json();
-
-      if (!res.ok || !data.success) {
-        if (data.error?.code === "UNAUTHORIZED" || res.status === 401) {
-          router.push("/auth?callbackUrl=/magaza/odeme");
-          return;
-        }
-        if (data.error?.code === "EMAIL_VERIFICATION_REQUIRED" || res.status === 403) {
-          setErrorMessage("E-posta adresiniz henüz doğrulanmadı. Lütfen giriş yapıp e-postanızı doğrulayınız.");
-          return;
-        }
-        throw new Error(data.error?.message || "Sipariş oluşturulamadı.");
+      const orderData = await orderRes.json();
+      if (!orderRes.ok || !orderData.success) {
+        throw new Error(orderData?.error?.message || "Sipariş oluşturulamadı.");
       }
 
-      const tokenResponse = await fetch("/api/paytr/get-token", {
+      const tokenRes = await fetch("/api/paytr/get-token", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderNumber: data.orderNumber }),
+        body: JSON.stringify({ orderNumber: orderData.orderNumber }),
       });
-      const tokenData = await tokenResponse.json();
-      if (!tokenResponse.ok || !tokenData.success || !tokenData.token) {
-        throw new Error(tokenData.message || "Ödeme ekranı açılamadı.");
+
+      const tokenData = await tokenRes.json().catch(() => ({}));
+      if (!tokenRes.ok || !tokenData.success || !tokenData.token) {
+        throw new Error(tokenData?.message || "Ödeme ekranı açılamadı.");
       }
-      setPendingOrderNumber(data.orderNumber);
+
+      setPendingOrderNumber(orderData.orderNumber);
       setPaytrToken(tokenData.token);
     } catch (error: any) {
-      console.error("Checkout error:", error);
-      setErrorMessage(error.message || "Sipariş oluşturulurken beklenmeyen bir hata oluştu.");
+      console.error(error);
+      setErrorMessage(error.message || "Sipariş hazırlanırken bir hata oluştu.");
     } finally {
       setIsProcessing(false);
     }
   };
 
-  if (!mounted) return <div className="min-h-screen bg-corp-surface pt-28 pb-20" />;
+  if (!mounted) return <div className="min-h-screen bg-slate-100" />;
+
+  if (paytrToken && pendingOrderNumber) {
+    return (
+      <main className="min-h-screen bg-slate-100 pb-16 pt-24">
+        <Header />
+        <div className="mx-auto max-w-5xl px-4 pt-10 md:px-8">
+          <div className="mb-8 rounded-3xl border border-cyan-200 bg-white p-5 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-cyan-100 text-cyan-700"><ShieldCheck size={20} /></div>
+              <div>
+                <h1 className="text-xl font-bold text-slate-900">Güvenli Ödeme</h1>
+                <p className="text-sm text-slate-500">Kart bilgileriniz PayTR güvenli ekranında işlenir.</p>
+              </div>
+            </div>
+          </div>
+          <Script src="https://www.paytr.com/js/iframeResizer.min.js" strategy="afterInteractive" />
+          <iframe
+            src={`https://www.paytr.com/odeme/guvenli/${paytrToken}`}
+            title="PayTR güvenli ödeme ekranı"
+            className="h-[700px] w-full rounded-3xl border border-slate-200 bg-white shadow-sm"
+            onLoad={() => {
+              const resize = (window as any).iFrameResize;
+              resize?.({}, "#paytriframe");
+            }}
+            id="paytriframe"
+          />
+        </div>
+        <Footer />
+      </main>
+    );
+  }
 
   return (
-    <main className="min-h-screen bg-corp-surface">
+    <main className="min-h-screen bg-slate-100 pb-20 pt-24">
       <Header />
-      <div className="pt-28 pb-20 max-w-6xl mx-auto px-6 md:px-10">
-        <Link href="/magaza" className="inline-flex items-center gap-2 text-corp-gray hover:text-corp-teal transition-colors mb-8">
-          <ArrowLeft size={16} /> Mağazaya Dön
+      <div className="mx-auto max-w-6xl px-4 md:px-8">
+        <Link href="/magaza" className="mb-8 inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-cyan-700">
+          <ArrowLeft size={16} /> Mağazaya dön
         </Link>
 
-        <h1 className="font-display text-3xl font-bold text-corp-charcoal mb-8">Siparişi Tamamla & Ödeme</h1>
-
-        {/* ── KAPSAM 2: Auth Guard Banner for Unauthenticated / Unverified Users ── */}
-        {!isAuthenticated ? (
-          <div className="mb-8 p-6 md:p-8 bg-white border-2 border-corp-teal/30 rounded-2xl shadow-md flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-xl bg-corp-teal/10 text-corp-teal flex items-center justify-center flex-shrink-0">
-                <Lock size={24} />
+        <div className="mb-8 flex items-center gap-3">
+          {[
+            { label: "İletişim & Adres", index: 1 },
+            { label: "Ödeme", index: 2 },
+          ].map((item, index) => (
+            <div key={item.label} className="flex flex-1 items-center gap-3">
+              <div className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold ${step >= item.index ? "bg-cyan-600 text-white" : "bg-white text-slate-400 border border-slate-200"}`}>
+                {item.index}
               </div>
-              <div>
-                <h3 className="font-display font-bold text-lg text-corp-charcoal">Sipariş Oluşturmak İçin Giriş Yapmalısınız</h3>
-                <p className="font-body text-sm text-corp-gray mt-1">
-                  Güvenliğiniz için sipariş vermeden önce hesabınıza giriş yapmalı veya kaydolmalısınız. <strong>Sepetinizdeki ürünler korunacaktır.</strong>
-                </p>
-              </div>
+              <div className="hidden sm:block text-sm font-semibold text-slate-700">{item.label}</div>
+              {index < 1 && <div className="h-px flex-1 bg-slate-200" />}
             </div>
-            <Link
-              href="/auth?callbackUrl=/magaza/odeme"
-              className="w-full md:w-auto px-8 py-3.5 rounded-xl bg-corp-teal text-white font-bold text-sm hover:bg-corp-teal-600 transition-all text-center whitespace-nowrap shadow-lg shadow-corp-teal/20"
-            >
-              Giriş Yap / Kayıt Ol →
-            </Link>
-          </div>
-        ) : !isEmailVerified ? (
-          <div className="mb-8 p-6 bg-amber-50 border border-amber-200 rounded-2xl flex items-start gap-4">
-            <div className="w-10 h-10 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center flex-shrink-0">
-              <AlertTriangle size={20} />
-            </div>
-            <div className="flex-1">
-              <h3 className="font-display font-bold text-amber-900 text-base">E-posta Adresiniz Doğrulanmadı</h3>
-              <p className="font-body text-xs text-amber-800 mt-1">
-                Sipariş verebilmek için e-posta adresinizi doğrulamanız gerekmektedir. Doğrulama kodunu almak için profil sayfanızdaki ayarları kontrol edin.
-              </p>
-              <Link href="/auth?tab=signin" className="inline-block mt-2 text-xs font-bold text-corp-teal hover:underline">
-                E-posta Doğrulama Adımına Git →
-              </Link>
-            </div>
-          </div>
-        ) : null}
+          ))}
+        </div>
 
         {errorMessage && (
-          <div className="mb-6 p-4 rounded-xl bg-error/10 border border-error/25 text-error text-sm font-medium">
+          <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
             {errorMessage}
           </div>
         )}
 
-        {paytrToken && pendingOrderNumber ? (
-          <section className="bg-white rounded-2xl border border-corp-border shadow-sm p-6 md:p-8" aria-labelledby="paytr-payment-title">
-            <Script src="https://www.paytr.com/js/iframeResizer.min.js" strategy="afterInteractive" />
-            <h2 id="paytr-payment-title" className="font-display text-2xl font-bold text-corp-charcoal mb-2">Güvenli Ödeme</h2>
-            <p className="text-sm text-corp-gray mb-6">Kart bilgileriniz PayTR&apos;nin güvenli ödeme ekranında işlenir. Ödeme tamamlanana kadar bu sayfadan ayrılmayın.</p>
-            <iframe
-              src={`https://www.paytr.com/odeme/guvenli/${paytrToken}`}
-              id="paytriframe"
-              title="PayTR güvenli ödeme formu"
-              frameBorder="0"
-              scrolling="no"
-              className="w-full min-h-[620px]"
-              onLoad={() => {
-                const resize = (window as Window & { iFrameResize?: (options: object, selector: string) => void }).iFrameResize;
-                resize?.({}, "#paytriframe");
-              }}
-            />
-            <Link href="/magaza" className="inline-flex items-center gap-2 text-sm text-corp-gray hover:text-corp-teal">Ödemeyi iptal et ve sepete dön</Link>
-          </section>
-        ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-          {/* Left Column: Form & Payment */}
-          <div className="lg:col-span-7 space-y-8">
-            <form id="checkout-form" onSubmit={handleCheckout} className="bg-white p-6 md:p-8 rounded-2xl border border-corp-border shadow-sm">
-              {/* ── Fatura Bilgilendirme Kutusu (Satın Almayı Engellemez) ── */}
-              <div className="mb-6 p-4 md:p-5 rounded-2xl bg-amber-50 border border-amber-200 shadow-sm flex items-start gap-3.5">
-                <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <AlertTriangle size={18} />
-                </div>
-                <div className="flex-1">
-                  <p className="font-body text-xs md:text-sm text-amber-900 leading-relaxed">
-                    <strong className="font-semibold text-amber-950">Bilgilendirme:</strong> Şu anda siparişleriniz için fatura düzenleyemiyoruz. Siparişiniz normal şekilde alınır ve teslim edilir. Fatura/belge ihtiyacınız varsa lütfen sipariş vermeden önce bizimle iletişime geçin.{" "}
-                    <Link
-                      href={isAuthenticated ? "/profile?tab=support" : `/auth?callbackUrl=${encodeURIComponent("/profile?tab=support")}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="font-bold text-amber-950 underline hover:text-corp-teal transition-colors inline-flex items-center gap-1"
-                    >
-                      Destek talebi oluştur <span aria-hidden="true">↗</span>
-                    </Link>
-                  </p>
-                </div>
-              </div>
-
-              {/* ── Satın Alma Tipi Seçici (Bireysel | Kurumsal) ── */}
-              <div className="mb-6">
-                <label className="block text-xs font-bold uppercase tracking-wider text-corp-gray mb-2">
-                  Satın Alma Tipi
-                </label>
-                <div className="grid grid-cols-2 gap-2 p-1.5 bg-gray-100 rounded-xl border border-gray-200 w-full">
-                  <button
-                    type="button"
-                    onClick={() => setCustomerType("INDIVIDUAL")}
-                    className={`w-full py-2.5 px-3 md:px-4 rounded-lg font-body font-semibold text-xs md:text-sm transition-all flex items-center justify-center gap-2 ${
-                      customerType === "INDIVIDUAL"
-                        ? "bg-white text-corp-charcoal shadow-sm border border-gray-200/80"
-                        : "text-corp-gray hover:text-corp-charcoal"
-                    }`}
-                  >
-                    <User size={16} /> Bireysel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setCustomerType("CORPORATE")}
-                    className={`w-full py-2.5 px-3 md:px-4 rounded-lg font-body font-semibold text-xs md:text-sm transition-all flex items-center justify-center gap-2 ${
-                      customerType === "CORPORATE"
-                        ? "bg-white text-corp-charcoal shadow-sm border border-gray-200/80"
-                        : "text-corp-gray hover:text-corp-charcoal"
-                    }`}
-                  >
-                    <Building2 size={16} /> Kurumsal
-                  </button>
-                </div>
-              </div>
-
-              {/* ── Kurumsal Fatura Bilgileri ── */}
-              {customerType === "CORPORATE" && (
-                <div className="mb-8 p-5 md:p-6 bg-blue-50/50 rounded-2xl border border-blue-200/80 space-y-4">
-                  <div className="flex items-center gap-2 pb-3 border-b border-blue-100">
-                    <Building2 size={18} className="text-corp-teal" />
-                    <h3 className="font-display text-base font-bold text-corp-charcoal">
-                      Kurumsal Fatura Bilgileri
-                    </h3>
-                  </div>
-
+        <div className="grid gap-8 lg:grid-cols-[1.4fr_0.8fr]">
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm md:p-8">
+            {step === 1 ? (
+              <div className="space-y-6">
+                <div className="flex items-center justify-between gap-4">
                   <div>
-                    <label className="block text-xs font-bold uppercase text-corp-gray mb-1.5">
-                      Firma Unvanı <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      required
-                      type="text"
-                      placeholder="Örn. ABC Teknoloji ve Bilişim Ltd. Şti."
-                      value={corporateData.companyName}
-                      onChange={(e) =>
-                        setCorporateData((prev) => ({ ...prev, companyName: e.target.value }))
-                      }
-                      className="w-full px-4 py-3 rounded-lg border border-corp-border bg-white focus:ring-2 focus:ring-corp-teal focus:border-corp-teal text-sm"
-                    />
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Adım 1</p>
+                    <h1 className="mt-2 text-2xl font-bold text-slate-900">İletişim ve teslimat</h1>
                   </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-bold uppercase text-corp-gray mb-1.5">
-                        Vergi Dairesi <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        required
-                        type="text"
-                        placeholder="Örn. Kadıköy Vergi Dairesi"
-                        value={corporateData.taxOffice}
-                        onChange={(e) =>
-                          setCorporateData((prev) => ({ ...prev, taxOffice: e.target.value }))
-                        }
-                        className="w-full px-4 py-3 rounded-lg border border-corp-border bg-white focus:ring-2 focus:ring-corp-teal focus:border-corp-teal text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold uppercase text-corp-gray mb-1.5">
-                        Vergi No / TCKN <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        required
-                        type="text"
-                        maxLength={11}
-                        placeholder="10 haneli VKN veya 11 haneli TCKN"
-                        value={corporateData.taxNumber}
-                        onChange={(e) => {
-                          const digitsOnly = e.target.value.replace(/\D/g, "");
-                          setCorporateData((prev) => ({ ...prev, taxNumber: digitsOnly }));
-                        }}
-                        className="w-full px-4 py-3 rounded-lg border border-corp-border bg-white focus:ring-2 focus:ring-corp-teal focus:border-corp-teal text-sm"
-                      />
-                      <p className="text-[11px] text-corp-gray mt-1">Sadece rakam (10 veya 11 hane)</p>
-                    </div>
-                  </div>
-
-                  {/* Fatura Adresi Teslimatla Aynı Onay Kutusu */}
-                  <div className="pt-2">
-                    <label className="inline-flex items-center gap-2 cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={sameAddressAsDelivery}
-                        onChange={(e) => setSameAddressAsDelivery(e.target.checked)}
-                        className="w-4 h-4 rounded text-corp-teal focus:ring-corp-teal border-corp-border"
-                      />
-                      <span className="text-xs md:text-sm font-medium text-corp-charcoal">
-                        Fatura adresi teslimat adresiyle aynı
-                      </span>
-                    </label>
-                  </div>
-
-                  {!sameAddressAsDelivery && (
-                    <div>
-                      <label className="block text-xs font-bold uppercase text-corp-gray mb-1.5">
-                        Fatura Adresi <span className="text-red-500">*</span>
-                      </label>
-                      <textarea
-                        required
-                        rows={3}
-                        placeholder="Firma resmi fatura adresi"
-                        value={corporateData.billingAddress}
-                        onChange={(e) =>
-                          setCorporateData((prev) => ({ ...prev, billingAddress: e.target.value }))
-                        }
-                        className="w-full px-4 py-3 rounded-lg border border-corp-border bg-white focus:ring-2 focus:ring-corp-teal focus:border-corp-teal text-sm"
-                      />
-                    </div>
+                  {isGuestMode && (
+                    <button type="button" onClick={() => setGuestCreateAccount((prev) => !prev)} className="rounded-full border border-cyan-600 bg-cyan-50 px-3 py-2 text-xs font-semibold text-cyan-700">
+                      {guestCreateAccount ? "Sonra oluştur" : "Hesap oluştur"}
+                    </button>
                   )}
                 </div>
-              )}
 
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="font-display text-xl font-bold text-corp-charcoal">İletişim & Teslimat Adresi</h2>
-                {isAuthenticated && (
-                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-100">
-                    <ShieldCheck size={13} /> Giriş Yapıldı
-                  </span>
+                {isGuestMode && guestCreateAccount && (
+                  <div className="rounded-2xl border border-cyan-200 bg-cyan-50 p-4 text-sm text-cyan-800">
+                    Sipariş sonrası şifre belirleyip hesabınızı oluşturabilirsiniz. Sipariş bilgileri korunur.
+                  </div>
                 )}
-              </div>
 
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div>
-                  <label className="block text-xs font-bold uppercase text-corp-gray mb-1.5">Ad</label>
-                  <input
-                    required
-                    type="text"
-                    value={formData.firstName}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, firstName: e.target.value }))}
-                    className="w-full px-4 py-3 rounded-lg border border-corp-border focus:ring-2 focus:ring-corp-teal focus:border-corp-teal text-sm"
-                  />
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Ad</label>
+                    <input
+                      name="given-name"
+                      autoComplete="given-name"
+                      value={formData.firstName}
+                      onChange={(e) => handleFieldChange("firstName", e.target.value)}
+                      onBlur={(e) => handleBlur("firstName", e.target.value)}
+                      className={fieldClass}
+                      placeholder="Adınız"
+                    />
+                    {errors.firstName && <p className="mt-2 text-xs text-rose-600">{errors.firstName}</p>}
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Soyad</label>
+                    <input
+                      name="family-name"
+                      autoComplete="family-name"
+                      value={formData.lastName}
+                      onChange={(e) => handleFieldChange("lastName", e.target.value)}
+                      onBlur={(e) => handleBlur("lastName", e.target.value)}
+                      className={fieldClass}
+                      placeholder="Soyadınız"
+                    />
+                    {errors.lastName && <p className="mt-2 text-xs text-rose-600">{errors.lastName}</p>}
+                  </div>
                 </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">E-posta</label>
+                    <input
+                      type="email"
+                      inputMode="email"
+                      name="email"
+                      autoComplete="email"
+                      value={formData.email}
+                      onChange={(e) => handleFieldChange("email", e.target.value)}
+                      onBlur={(e) => handleBlur("email", e.target.value)}
+                      className={fieldClass}
+                      placeholder="ornek@posta.com"
+                    />
+                    {errors.email && <p className="mt-2 text-xs text-rose-600">{errors.email}</p>}
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Telefon</label>
+                    <input
+                      type="tel"
+                      inputMode="tel"
+                      name="tel"
+                      autoComplete="tel"
+                      value={formData.phone}
+                      onChange={(e) => handleFieldChange("phone", e.target.value)}
+                      onBlur={(e) => handleBlur("phone", e.target.value)}
+                      className={fieldClass}
+                      placeholder="05XXXXXXXXX"
+                    />
+                    {errors.phone && <p className="mt-2 text-xs text-rose-600">{errors.phone}</p>}
+                  </div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">İl</label>
+                    <select
+                      name="address-level1"
+                      autoComplete="address-level1"
+                      value={formData.city}
+                      onChange={(e) => {
+                        const city = e.target.value;
+                        const firstDistrict = cityDistricts[city]?.[0] || "";
+                        setFormData((prev) => ({ ...prev, city, district: firstDistrict }));
+                        setErrors((prev) => ({ ...prev, city: "", district: "" }));
+                      }}
+                      className={fieldClass}
+                    >
+                      {Object.keys(cityDistricts).map((city) => (
+                        <option key={city} value={city}>{city}</option>
+                      ))}
+                    </select>
+                    {errors.city && <p className="mt-2 text-xs text-rose-600">{errors.city}</p>}
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">İlçe</label>
+                    <select
+                      name="address-level2"
+                      autoComplete="address-level2"
+                      value={formData.district}
+                      onChange={(e) => handleFieldChange("district", e.target.value)}
+                      onBlur={(e) => handleBlur("district", e.target.value)}
+                      className={fieldClass}
+                    >
+                      {districtOptions.map((district) => (
+                        <option key={district} value={district}>{district}</option>
+                      ))}
+                    </select>
+                    {errors.district && <p className="mt-2 text-xs text-rose-600">{errors.district}</p>}
+                  </div>
+                </div>
+
                 <div>
-                  <label className="block text-xs font-bold uppercase text-corp-gray mb-1.5">Soyad</label>
-                  <input
-                    required
-                    type="text"
-                    value={formData.lastName}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, lastName: e.target.value }))}
-                    className="w-full px-4 py-3 rounded-lg border border-corp-border focus:ring-2 focus:ring-corp-teal focus:border-corp-teal text-sm"
+                  <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Açık adres</label>
+                  <textarea
+                    name="street-address"
+                    autoComplete="street-address"
+                    value={formData.address}
+                    onChange={(e) => handleFieldChange("address", e.target.value)}
+                    onBlur={(e) => handleBlur("address", e.target.value)}
+                    className={`${fieldClass} min-h-[120px] resize-none`}
+                    placeholder="Mahalle, cadde, sokak, bina no, daire no"
                   />
+                  {errors.address && <p className="mt-2 text-xs text-rose-600">{errors.address}</p>}
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <button
+                    type="button"
+                    onClick={handleContinue}
+                    className="inline-flex items-center gap-2 rounded-2xl bg-cyan-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-cyan-700"
+                  >
+                    Ödemeye geç <ArrowRight size={16} />
+                  </button>
                 </div>
               </div>
-
-              <div className="grid grid-cols-2 gap-4 mb-4">
+            ) : (
+              <div className="space-y-6">
                 <div>
-                  <label className="block text-xs font-bold uppercase text-corp-gray mb-1.5">E-posta</label>
-                  <input
-                    required
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, email: e.target.value }))}
-                    className="w-full px-4 py-3 rounded-lg border border-corp-border focus:ring-2 focus:ring-corp-teal focus:border-corp-teal text-sm"
-                  />
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Adım 2</p>
+                  <h1 className="mt-2 text-2xl font-bold text-slate-900">Ödeme yöntemi</h1>
                 </div>
-                <div>
-                  <label className="block text-xs font-bold uppercase text-corp-gray mb-1.5">Telefon</label>
-                  <input
-                    required
-                    type="tel"
-                    placeholder="05XXXXXXXXX"
-                    value={formData.phone}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, phone: e.target.value }))}
-                    className="w-full px-4 py-3 rounded-lg border border-corp-border focus:ring-2 focus:ring-corp-teal focus:border-corp-teal text-sm"
-                  />
+
+                <div className="space-y-3">
+                  {paymentOptions.map((option) => {
+                    const Icon = option.icon;
+                    const active = paymentMethod === option.value;
+                    const disabled = option.value !== "credit_card";
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        disabled={disabled}
+                        onClick={() => !disabled && setPaymentMethod(option.value)}
+                        className={`flex w-full items-center justify-between rounded-2xl border p-4 text-left transition ${
+                          active ? "border-cyan-600 bg-cyan-50" : disabled ? "border-slate-200 bg-slate-50 opacity-70" : "border-slate-200 bg-white hover:border-cyan-300"
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`rounded-xl p-2 ${active ? "bg-cyan-100 text-cyan-700" : "bg-slate-100 text-slate-600"}`}>
+                            <Icon size={18} />
+                          </div>
+                          <div>
+                            <div className="font-semibold text-slate-900">{option.label}</div>
+                            <div className="text-xs text-slate-500">{option.detail}</div>
+                          </div>
+                        </div>
+                        {active && <CheckCircle2 size={18} className="text-cyan-700" />}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+                  <div className="mb-2 flex items-center gap-2 font-semibold text-slate-900"><User size={16} /> Eklenebilir yöntemler</div>
+                  <ul className="space-y-1 list-disc pl-5">
+                    <li>Havale/EFT: mevcut ödeme altyapısına göre eklenebilir.</li>
+                    <li>Kapıda ödeme: mevcut entegrasyon kapsamında eklenebilir.</li>
+                    <li>Taksit seçeneği: kart entegrasyonu ile aktif edilebilir.</li>
+                  </ul>
+                </div>
+
+                <div className="flex justify-between gap-3 pt-4">
+                  <button type="button" onClick={() => setStep(1)} className="rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 hover:border-slate-300">
+                    Geri dön
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isProcessing}
+                    onClick={handleSubmitOrder}
+                    className="inline-flex items-center justify-center gap-2 rounded-2xl bg-cyan-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-70"
+                  >
+                    {isProcessing ? "İşleniyor..." : "Siparişi onayla ve öde"}
+                  </button>
                 </div>
               </div>
-
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div>
-                  <label className="block text-xs font-bold uppercase text-corp-gray mb-1.5">İl (Şehir)</label>
-                  <input
-                    required
-                    type="text"
-                    placeholder="Örn. İstanbul"
-                    value={formData.city}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, city: e.target.value }))}
-                    className="w-full px-4 py-3 rounded-lg border border-corp-border focus:ring-2 focus:ring-corp-teal focus:border-corp-teal text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold uppercase text-corp-gray mb-1.5">İlçe</label>
-                  <input
-                    type="text"
-                    placeholder="Örn. Kadıköy"
-                    value={formData.district}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, district: e.target.value }))}
-                    className="w-full px-4 py-3 rounded-lg border border-corp-border focus:ring-2 focus:ring-corp-teal focus:border-corp-teal text-sm"
-                  />
-                </div>
-              </div>
-
-              <div className="mb-4">
-                <label className="block text-xs font-bold uppercase text-corp-gray mb-1.5">Açık Adres</label>
-                <textarea
-                  required
-                  rows={3}
-                  placeholder="Mahalle, Cadde, Sokak, Bina No, Daire No"
-                  value={formData.address}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, address: e.target.value }))}
-                  className="w-full px-4 py-3 rounded-lg border border-corp-border focus:ring-2 focus:ring-corp-teal focus:border-corp-teal text-sm"
-                />
-              </div>
-
-              <h2 className="font-display text-xl font-bold text-corp-charcoal mb-6 mt-10">Ödeme Yöntemi</h2>
-
-              <div className="space-y-3">
-                <label
-                  className={`flex items-center gap-4 p-4 rounded-xl border cursor-pointer transition-colors ${
-                    paymentMethod === "cc" ? "border-corp-teal bg-corp-teal/5" : "border-corp-border hover:border-corp-gray"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="payment"
-                    value="cc"
-                    checked={paymentMethod === "cc"}
-                    onChange={() => setPaymentMethod("cc")}
-                    className="w-4 h-4 text-corp-teal focus:ring-corp-teal"
-                  />
-                  <CreditCard className={paymentMethod === "cc" ? "text-corp-teal" : "text-corp-gray"} />
-                  <span className="font-semibold text-corp-charcoal text-sm">Kredi Kartı / Banka Kartı</span>
-                </label>
-
-                <label
-                  className={`flex items-center gap-4 p-4 rounded-xl border cursor-pointer transition-colors ${
-                    paymentMethod === "masterpass" ? "border-corp-teal bg-corp-teal/5" : "border-corp-border hover:border-corp-gray"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="payment"
-                    value="masterpass"
-                    checked={paymentMethod === "masterpass"}
-                    onChange={() => setPaymentMethod("masterpass")}
-                    className="w-4 h-4 text-corp-teal focus:ring-corp-teal"
-                  />
-                  <span className="font-semibold text-corp-charcoal text-sm">Masterpass Güvenli Ödeme</span>
-                </label>
-              </div>
-            </form>
+            )}
           </div>
 
-          {/* Right Column: Summary */}
-          <div className="lg:col-span-5 space-y-6">
-            <div className="bg-white p-6 md:p-8 rounded-2xl border border-corp-border shadow-sm">
-              <h2 className="font-display text-xl font-bold text-corp-charcoal mb-6 flex items-center gap-2">
-                <ShoppingBag size={20} /> Sipariş Özeti
-              </h2>
+          <aside className="lg:sticky lg:top-24 lg:self-start">
+            <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
+              <div className="mb-5 flex items-center gap-3">
+                <div className="rounded-xl bg-cyan-50 p-2 text-cyan-700"><ShoppingBag size={18} /></div>
+                <h2 className="text-xl font-bold text-slate-900">Sipariş özeti</h2>
+              </div>
 
-              <div className="flex flex-col gap-4 mb-6 max-h-64 overflow-y-auto pr-2">
+              <div className="space-y-4">
                 {items.map((item) => (
-                  <div key={item.id} className="flex gap-4 border-b border-corp-border/50 pb-4 last:border-b-0 last:pb-0">
-                    <img
-                      src={item.image}
-                      alt={item.name}
-                      className="w-16 h-16 object-cover rounded-lg border border-corp-border"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = "https://placehold.co/64x64?text=Görsel+Yok";
-                      }}
-                    />
-                    <div className="flex-1">
-                      <h4 className="font-semibold text-sm text-corp-charcoal">{item.name}</h4>
-                      <p className="text-xs text-corp-gray">Adet: {item.quantity}</p>
-                      <p className="text-sm font-bold text-corp-charcoal mt-1">
-                        {(
-                          item.price * item.quantity +
-                          (item.extraServices?.reduce((sum, s) => sum + s.price, 0) || 0)
-                        ).toLocaleString("tr-TR")}{" "}
-                        TL
-                      </p>
+                  <div key={item.id} className="flex gap-3 border-b border-slate-100 pb-3 last:border-none last:pb-0">
+                    <img src={item.image} alt={item.name} className="h-16 w-16 rounded-xl object-cover" onError={(e) => {(e.currentTarget as HTMLImageElement).src = "https://placehold.co/80x80?text=Gorsel";}} />
+                    <div className="min-w-0 flex-1">
+                      <div className="line-clamp-2 text-sm font-semibold text-slate-800">{item.name}</div>
+                      <div className="mt-1 text-xs text-slate-500">Adet: {item.quantity}</div>
+                      <div className="mt-1 text-sm font-bold text-slate-900">{((item.price * item.quantity) + (item.extraServices?.reduce((sum, service) => sum + service.price, 0) || 0)).toLocaleString("tr-TR")} TL</div>
                     </div>
                   </div>
                 ))}
               </div>
 
-              <div className="space-y-3 pt-6 border-t border-corp-border mb-6">
-                <div className="flex justify-between text-sm">
-                  <span className="text-corp-gray">Ara Toplam</span>
-                  <span className="font-semibold">{subtotal.toLocaleString("tr-TR")} TL</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-corp-gray">Kargo</span>
-                  <span className="font-semibold text-emerald-600">Ücretsiz</span>
-                </div>
+              <div className="mt-6 space-y-3 border-t border-slate-200 pt-5 text-sm">
+                <div className="flex items-center justify-between"><span className="text-slate-500">Ara toplam</span><strong>{subtotal.toLocaleString("tr-TR")} TL</strong></div>
+                <div className="flex items-center justify-between"><span className="text-slate-500">Kargo</span><strong className="text-emerald-600">Ücretsiz</strong></div>
+                <div className="flex items-center justify-between border-t border-slate-200 pt-3 text-base font-bold text-slate-900"><span>Toplam</span><span>{finalAmount.toLocaleString("tr-TR")} TL</span></div>
               </div>
 
-              <div className="flex justify-between items-center pt-6 border-t border-corp-border mb-8">
-                <span className="font-semibold text-corp-charcoal">Toplam</span>
-                <span className="font-display text-2xl font-bold text-corp-charcoal">{finalAmount.toLocaleString("tr-TR")} TL</span>
+              <div className="mt-6 rounded-2xl bg-slate-50 p-3 text-xs text-slate-600">
+                <div className="flex items-center gap-2 font-semibold text-slate-800"><Building2 size={14} /> Teslimat bilgisi</div>
+                <div className="mt-2">{formData.city} / {formData.district}</div>
               </div>
-
-              {!isAuthenticated ? (
-                <Link
-                  href="/auth?callbackUrl=/magaza/odeme"
-                  className="w-full bg-corp-teal text-white py-4 rounded-xl font-display font-bold text-center block hover:bg-corp-teal-600 transition-all shadow-corp-hover"
-                >
-                  Giriş Yaparak Tamamla →
-                </Link>
-              ) : (
-                <button
-                  type="submit"
-                  form="checkout-form"
-                  disabled={isProcessing || items.length === 0}
-                  className="w-full bg-corp-teal text-white py-4 rounded-xl font-display font-bold text-lg hover:bg-corp-teal-600 transition-all shadow-corp-hover disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  {isProcessing ? "Sipariş İşleniyor..." : "Siparişi Onayla ve Öde"}
-                  {!isProcessing && <CheckCircle2 size={20} />}
-                </button>
-              )}
             </div>
-          </div>
+          </aside>
         </div>
-        )}
       </div>
       <Footer />
     </main>
