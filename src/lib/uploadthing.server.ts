@@ -3,19 +3,19 @@ import { UTApi } from "uploadthing/server";
 import { auth } from "@/lib/auth";
 // NOTE: Jimp is imported dynamically inside handlers so a failed native-module
 // load does NOT crash the entire UploadThing route — uploads still work.
- 
+
 const f = createUploadthing();
 const utapi = new UTApi();
- 
+
 // Auth helper — verify admin session on uploads
 async function authGuard() {
   const session = await auth();
-  if (!session || (session.user as any)?.role !== "SUPER_ADMIN") {
+  if (!session || !["SUPER_ADMIN", "ADMIN"].includes((session.user as any)?.role)) {
     throw new Error("Unauthorized");
   }
   return { userId: (session.user as { id?: string })?.id || "admin" };
 }
- 
+
 /** Attempt a best-effort image optimisation and return the buffer.
  *  Returns null if Jimp is unavailable or conversion fails — caller should
  *  fall back to the original file URL in that case. */
@@ -42,7 +42,7 @@ async function tryOptimiseImage(buffer: Buffer): Promise<Buffer | null> {
     }
   }
 }
- 
+
 /** Convert the just-uploaded file to WebP, re-upload it to UploadThing,
  *  delete the original (non-WebP) file, and return the new WebP URL.
  *  On any failure, returns the original file's URL unchanged. */
@@ -55,24 +55,24 @@ async function optimiseAndReplace(file: { url: string; key: string; name: string
     }
     const buffer = Buffer.from(await response.arrayBuffer());
     const optimised = await tryOptimiseImage(buffer);
- 
+
     if (!optimised) {
       console.log("[uploadthing] Optimisation skipped, keeping original file.");
       return file.url;
     }
- 
+
     // Build a .webp filename based on the original name
     const baseName = file.name.replace(/\.[^/.]+$/, "");
     const webpFile = new File([new Uint8Array(optimised)], `${baseName}.webp`, { type: "image/webp" });
- 
+
     const uploadResult = await utapi.uploadFiles(webpFile);
     if (uploadResult.error || !uploadResult.data) {
       console.error("[uploadthing] Re-upload of WebP file failed:", uploadResult.error);
       return file.url;
     }
- 
+
     const newUrl = uploadResult.data.ufsUrl || uploadResult.data.url;
- 
+
     // Best-effort delete of the original (non-WebP) file — don't fail the
     // whole flow if this errors.
     try {
@@ -80,7 +80,7 @@ async function optimiseAndReplace(file: { url: string; key: string; name: string
     } catch (delErr) {
       console.warn("[uploadthing] Could not delete original file after WebP conversion:", delErr);
     }
- 
+
     console.log("[uploadthing] Image converted to WebP:", newUrl, "size:", optimised.length);
     return newUrl;
   } catch (error) {
@@ -88,7 +88,7 @@ async function optimiseAndReplace(file: { url: string; key: string; name: string
     return file.url;
   }
 }
- 
+
 export const ourFileRouter = {
   // General image uploads (blog, projects, team, etc.)
   imageUploader: f({ image: { maxFileSize: "4MB", maxFileCount: 10 } })
@@ -100,7 +100,7 @@ export const ourFileRouter = {
       console.log("Image upload complete:", file.url);
       return { url: file.url };
     }),
- 
+
   // Product image uploads — automatically converted to WebP. ("Lossless" is
   // not literally possible since WebP itself is the destination format, so
   // quality is kept high at 82 to preserve visual fidelity while shrinking
@@ -114,7 +114,7 @@ export const ourFileRouter = {
       const finalUrl = await optimiseAndReplace(file);
       return { url: finalUrl };
     }),
- 
+
   // Design template uploads (front/back images) — same WebP conversion.
   templateImageUploader: f({ image: { maxFileSize: "8MB", maxFileCount: 2 } })
     .middleware(async () => {
@@ -125,7 +125,7 @@ export const ourFileRouter = {
       const finalUrl = await optimiseAndReplace(file);
       return { url: finalUrl };
     }),
- 
+
   // Logo uploads for clients/partners marquee (PNG, SVG, WebP)
   logoUploader: f({ image: { maxFileSize: "2MB", maxFileCount: 1 } })
     .middleware(async () => {
@@ -136,7 +136,7 @@ export const ourFileRouter = {
       console.log("Logo upload complete:", file.url);
       return { url: file.url };
     }),
- 
+
   // Avatar uploads (team, testimonials)
   avatarUploader: f({ image: { maxFileSize: "2MB", maxFileCount: 1 } })
     .middleware(async () => {
@@ -146,7 +146,7 @@ export const ourFileRouter = {
     .onUploadComplete(async ({ metadata, file }) => {
       return { url: file.url };
     }),
- 
+
   // Document uploads (PDFs for projects, quotes)
   documentUploader: f({ pdf: { maxFileSize: "16MB", maxFileCount: 1 } })
     .middleware(async () => {
@@ -156,7 +156,7 @@ export const ourFileRouter = {
     .onUploadComplete(async ({ metadata, file }) => {
       return { url: file.url };
     }),
- 
+
   // Design file uploads (PDF, AI, CDR for customer designs)
   designFileUploader: f({ 
     "application/pdf": { maxFileSize: "32MB", maxFileCount: 5 },
@@ -171,5 +171,5 @@ export const ourFileRouter = {
       return { url: file.url, name: file.name, size: file.size };
     }),
 } satisfies FileRouter;
- 
+
 export type OurFileRouter = typeof ourFileRouter;
