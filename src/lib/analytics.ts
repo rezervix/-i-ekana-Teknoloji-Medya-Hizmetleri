@@ -102,11 +102,16 @@ export function getUtmSource(): string | null {
   try {
     const params = new URLSearchParams(window.location.search);
     const utm = params.get("utm_source") || params.get("ref");
-    if (utm) {
-      sessionStorage.setItem(UTM_STORAGE_KEY, utm);
-      return utm;
-    }
-    return sessionStorage.getItem(UTM_STORAGE_KEY);
+    const campaign = params.get("utm_campaign");
+    const term = params.get("utm_term");
+    const medium = params.get("utm_medium");
+
+    if (utm) sessionStorage.setItem(UTM_STORAGE_KEY, utm);
+    if (campaign) sessionStorage.setItem("cicekana_utm_campaign", campaign);
+    if (term) sessionStorage.setItem("cicekana_utm_term", term);
+    if (medium) sessionStorage.setItem("cicekana_utm_medium", medium);
+
+    return utm || sessionStorage.getItem(UTM_STORAGE_KEY);
   } catch {
     return null;
   }

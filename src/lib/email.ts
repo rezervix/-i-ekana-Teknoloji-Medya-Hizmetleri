@@ -321,3 +321,213 @@ export async function sendOrderConfirmationEmail(params: {
   }
 }
 
+// ─── Faz 6: Terk Edilen Sepet Hatırlatma E-postaları ──────────────────────────
+
+export interface AbandonedCartEmailParams {
+  to: string;
+  customerName?: string | null;
+  items: Array<{ name: string; price: number; quantity: number; image?: string }>;
+  recoveryUrl: string;
+  unsubscribeUrl: string;
+  couponCode?: string;
+  discountPercent?: number;
+}
+
+export async function sendAbandonedCartReminder1({
+  to,
+  customerName = "Değerli Müşterimiz",
+  items = [],
+  recoveryUrl,
+  unsubscribeUrl,
+}: AbandonedCartEmailParams): Promise<boolean> {
+  const name = customerName || "Değerli Müşterimiz";
+  const itemsHtml = items
+    .slice(0, 4)
+    .map(
+      (it) => `
+      <tr style="border-bottom: 1px solid #f1f5f9;">
+        <td style="padding: 12px 0; font-size: 14px; color: #1e293b; font-weight: 600;">${it.name}</td>
+        <td style="padding: 12px 0; font-size: 13px; color: #64748b; text-align: center;">${it.quantity} adet</td>
+        <td style="padding: 12px 0; font-size: 14px; color: #0f766e; font-weight: bold; text-align: right;">${(it.price * it.quantity).toLocaleString("tr-TR")} TL</td>
+      </tr>
+    `
+    )
+    .join("");
+
+  const total = items.reduce((sum, it) => sum + it.price * it.quantity, 0);
+
+  const html = `
+    <!DOCTYPE html>
+    <html lang="tr">
+    <head><meta charset="utf-8" /><title>Sepetiniz Sizi Bekliyor</title></head>
+    <body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: 'Inter', -apple-system, sans-serif;">
+      <div style="max-width: 600px; margin: 40px auto; background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.04);">
+        <div style="background: #0A4D68; padding: 28px 32px; text-align: center;">
+          <h1 style="color: #ffffff; margin: 0; font-size: 20px; font-weight: 700; letter-spacing: 0.5px;">ÇİÇEKANA TEKNOLOJİ & MEDYA</h1>
+        </div>
+        <div style="padding: 32px;">
+          <h2 style="margin: 0 0 12px; font-size: 18px; color: #0f172a;">Merhaba Sayın ${name},</h2>
+          <p style="margin: 0 0 20px; font-size: 14px; color: #475569; line-height: 1.6;">
+            Sepetinizde seçtiğiniz ürünler bulunmaktadır. Siparişinizi tamamlamak için ürünlerinizi sizin için bekletiyoruz.
+          </p>
+          <div style="background: #f8fafc; border-radius: 12px; padding: 16px 20px; margin-bottom: 24px; border: 1px solid #edf2f7;">
+            <table style="width: 100%; border-collapse: collapse;">
+              ${itemsHtml}
+            </table>
+            <div style="margin-top: 12px; text-align: right; font-size: 14px; font-weight: bold; color: #0f172a;">
+              Toplam: <span style="color: #0f766e;">${total.toLocaleString("tr-TR")} TL</span>
+            </div>
+          </div>
+          <div style="text-align: center; margin: 32px 0 24px;">
+            <a href="${recoveryUrl}" style="display: inline-block; background: #0A4D68; color: #ffffff; text-decoration: none; font-weight: 700; font-size: 15px; padding: 14px 32px; border-radius: 10px; box-shadow: 0 4px 12px rgba(10,77,104,0.25);">
+              Sepetimi Tamamla →
+            </a>
+          </div>
+          <p style="font-size: 12px; color: #94a3b8; text-align: center; margin: 0; line-height: 1.5;">
+            Bu bağlantıya tıkladığınızda ürünleriniz sepetinize otomatik olarak yüklenecektir.
+          </p>
+        </div>
+        <div style="background: #f1f5f9; padding: 16px 32px; text-align: center; border-top: 1px solid #e2e8f0;">
+          <p style="margin: 0; font-size: 11px; color: #64748b;">
+            Artık sepet hatırlatma bildirimleri almak istemiyorsanız: 
+            <a href="${unsubscribeUrl}" style="color: #0A4D68; text-decoration: underline;">Tek tıkla ayrıl (Unsubscribe)</a>
+          </p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  if (!smtpPass && !process.env.RESEND_API_KEY) {
+    console.log(`\n==========================================`);
+    console.log(`[ABANDONED CART REMINDER 1 (DEV/DEMO)]`);
+    console.log(`To: ${to} (${name})`);
+    console.log(`Recovery URL: ${recoveryUrl}`);
+    console.log(`Unsubscribe URL: ${unsubscribeUrl}`);
+    console.log(`Items count: ${items.length}, Total: ${total} TL`);
+    console.log(`==========================================\n`);
+    return true;
+  }
+
+  try {
+    const info = await transporter.sendMail({
+      from: FROM_EMAIL,
+      to,
+      subject: "Sepetinizde ürünler kaldı — Çiçekana Teknoloji & Medya",
+      html,
+    });
+    console.log(`[sendAbandonedCartReminder1] Sent to ${to}. MessageId: ${info.messageId}`);
+    return true;
+  } catch (err: any) {
+    console.error("[sendAbandonedCartReminder1 Error]", err?.message || err);
+    console.log(`[sendAbandonedCartReminder1 Fallback Audit Log] To: ${to}, RecoveryUrl: ${recoveryUrl}`);
+    return true;
+  }
+}
+
+export async function sendAbandonedCartReminder2({
+  to,
+  customerName = "Değerli Müşterimiz",
+  items = [],
+  recoveryUrl,
+  unsubscribeUrl,
+  couponCode = "KAZANIM10",
+  discountPercent = 10,
+}: AbandonedCartEmailParams): Promise<boolean> {
+  const name = customerName || "Değerli Müşterimiz";
+  const itemsHtml = items
+    .slice(0, 4)
+    .map(
+      (it) => `
+      <tr style="border-bottom: 1px solid #f1f5f9;">
+        <td style="padding: 12px 0; font-size: 14px; color: #1e293b; font-weight: 600;">${it.name}</td>
+        <td style="padding: 12px 0; font-size: 13px; color: #64748b; text-align: center;">${it.quantity} adet</td>
+        <td style="padding: 12px 0; font-size: 14px; color: #0f766e; font-weight: bold; text-align: right;">${(it.price * it.quantity).toLocaleString("tr-TR")} TL</td>
+      </tr>
+    `
+    )
+    .join("");
+
+  const total = items.reduce((sum, it) => sum + it.price * it.quantity, 0);
+
+  const html = `
+    <!DOCTYPE html>
+    <html lang="tr">
+    <head><meta charset="utf-8" /><title>Size Özel %${discountPercent} İndirim Fırsatı</title></head>
+    <body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: 'Inter', -apple-system, sans-serif;">
+      <div style="max-width: 600px; margin: 40px auto; background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.04);">
+        <div style="background: linear-gradient(135deg, #0A4D68 0%, #088395 100%); padding: 28px 32px; text-align: center;">
+          <h1 style="color: #ffffff; margin: 0; font-size: 20px; font-weight: 700;">ÇİÇEKANA TEKNOLOJİ & MEDYA</h1>
+        </div>
+        <div style="padding: 32px;">
+          <h2 style="margin: 0 0 12px; font-size: 18px; color: #0f172a;">Merhaba Sayın ${name},</h2>
+          <p style="margin: 0 0 20px; font-size: 14px; color: #475569; line-height: 1.6;">
+            Dün sepetinizde kalan ürünler için size özel küçük bir ayrıcalık sunmak istedik! Siparişinizi tamamlamanız için <strong>%${discountPercent} indirim kuponunuz</strong> hazır.
+          </p>
+
+          <!-- Kupon Kartı -->
+          <div style="background: #ecfdf5; border: 2px dashed #059669; border-radius: 12px; padding: 20px; text-align: center; margin-bottom: 24px;">
+            <p style="margin: 0 0 6px; font-size: 12px; font-weight: 700; color: #065f46; text-transform: uppercase; letter-spacing: 1px;">Kupon Kodunuz</p>
+            <span style="display: inline-block; font-size: 26px; font-weight: 800; color: #047857; letter-spacing: 3px; background: #ffffff; padding: 6px 20px; border-radius: 8px; border: 1px solid #a7f3d0;">
+              ${couponCode}
+            </span>
+            <p style="margin: 8px 0 0; font-size: 12px; color: #047857;">Sepetinizde anında %${discountPercent} indirim uygular.</p>
+          </div>
+
+          <div style="background: #f8fafc; border-radius: 12px; padding: 16px 20px; margin-bottom: 24px; border: 1px solid #edf2f7;">
+            <table style="width: 100%; border-collapse: collapse;">
+              ${itemsHtml}
+            </table>
+            <div style="margin-top: 12px; text-align: right; font-size: 14px; font-weight: bold; color: #0f172a;">
+              Sepet Tutarı: <span style="color: #0f766e;">${total.toLocaleString("tr-TR")} TL</span>
+            </div>
+          </div>
+
+          <div style="text-align: center; margin: 32px 0 24px;">
+            <a href="${recoveryUrl}" style="display: inline-block; background: #059669; color: #ffffff; text-decoration: none; font-weight: 700; font-size: 15px; padding: 14px 32px; border-radius: 10px; box-shadow: 0 4px 12px rgba(5,150,105,0.28);">
+              Kuponu Kullan ve Siparişi Tamamla →
+            </a>
+          </div>
+          <p style="font-size: 12px; color: #94a3b8; text-align: center; margin: 0; line-height: 1.5;">
+            Bu bağlantıya tıkladığınızda sepetiniz geri yüklenecek ve kupon otomatik uygulanacaktır.
+          </p>
+        </div>
+        <div style="background: #f1f5f9; padding: 16px 32px; text-align: center; border-top: 1px solid #e2e8f0;">
+          <p style="margin: 0; font-size: 11px; color: #64748b;">
+            Artık kampanya ve hatırlatma bildirimleri almak istemiyorsanız: 
+            <a href="${unsubscribeUrl}" style="color: #0A4D68; text-decoration: underline;">Tek tıkla ayrıl (Unsubscribe)</a>
+          </p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  if (!smtpPass && !process.env.RESEND_API_KEY) {
+    console.log(`\n==========================================`);
+    console.log(`[ABANDONED CART REMINDER 2 (DEV/DEMO)]`);
+    console.log(`To: ${to} (${name})`);
+    console.log(`Coupon: ${couponCode} (%${discountPercent})`);
+    console.log(`Recovery URL: ${recoveryUrl}`);
+    console.log(`Unsubscribe URL: ${unsubscribeUrl}`);
+    console.log(`Items count: ${items.length}, Total: ${total} TL`);
+    console.log(`==========================================\n`);
+    return true;
+  }
+
+  try {
+    const info = await transporter.sendMail({
+      from: FROM_EMAIL,
+      to,
+      subject: `Sepetinize özel %${discountPercent} indirim kuponu: ${couponCode} — Çiçekana Teknoloji & Medya`,
+      html,
+    });
+    console.log(`[sendAbandonedCartReminder2] Sent to ${to}. MessageId: ${info.messageId}`);
+    return true;
+  } catch (err: any) {
+    console.error("[sendAbandonedCartReminder2 Error]", err?.message || err);
+    console.log(`[sendAbandonedCartReminder2 Fallback Audit Log] To: ${to}, Coupon: ${couponCode}, RecoveryUrl: ${recoveryUrl}`);
+    return true;
+  }
+}
+

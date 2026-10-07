@@ -225,6 +225,26 @@ export async function POST(req: NextRequest) {
       details: { orderId: order.id, orderNumber: order.orderNumber, finalAmount },
     });
 
+    // Terk edilen sepet dönüşümü (Geri kazanım kaydı)
+    try {
+      await prisma.cartAbandonmentLog.updateMany({
+        where: {
+          OR: [
+            ...(guestEmail || userEmail ? [{ email: (guestEmail || userEmail).toLowerCase() }] : []),
+            { userId: authResult.user.id },
+          ],
+          converted: false,
+        },
+        data: {
+          converted: true,
+          recoveredAt: new Date(),
+          status: "RECOVERED",
+        },
+      });
+    } catch (convErr) {
+      console.warn("[ORDER_CONVERT_WARNING]", convErr);
+    }
+
     return NextResponse.json({
       success: true,
       orderNumber: order.orderNumber,

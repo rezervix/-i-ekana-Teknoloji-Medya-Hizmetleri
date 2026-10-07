@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import type { Metadata, Viewport } from 'next';
 import Script from 'next/script';
 import '../styles/tailwind.css';
@@ -9,6 +9,7 @@ import NextAuthProvider from "@/components/SessionProvider";
 import CartDrawer from "@/components/CartDrawer";
 import CookieConsent from "@/components/ui/CookieConsent";
 import MicrosoftClarity from "@/components/analytics/MicrosoftClarity";
+import CartRecoveryListener from "@/components/analytics/CartRecoveryListener";
 
 const inter = localFont({
   src: '../fonts/Inter-Variable.woff2',
@@ -80,6 +81,9 @@ export default function RootLayout({
         />
 
         <NextAuthProvider>
+          <Suspense fallback={null}>
+            <CartRecoveryListener />
+          </Suspense>
           {children}
           <MeetingScheduler />
           <CartDrawer />

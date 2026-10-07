@@ -33,6 +33,10 @@ import { SafeImage } from "@/components/ui/SafeImage";
 import { useSession } from "next-auth/react";
 import { STORE_DELIVERY_CONFIG } from "@/config/store.config";
 import { trackViewItem, trackAddToCart, getABVariant } from "@/lib/analytics";
+import { recordRecentlyViewed } from "@/lib/recently-viewed";
+import AdCongruentHeadline from "@/components/products/AdCongruentHeadline";
+import RecentlyViewedSection from "@/components/products/RecentlyViewedSection";
+import RecommendationsSection from "@/components/products/RecommendationsSection";
 import type {
   ProductCustomizationOptions,
   NewFormatCustomizationOptions,
@@ -120,6 +124,14 @@ export default function ProductDetailClient({
     const variant = getABVariant("cta_button");
     setCtaVariant(variant);
     if (product?.id) {
+      recordRecentlyViewed({
+        id: product.id,
+        name: product.name,
+        slug: product.slug,
+        price: product.price,
+        image: product.images?.[0] || (product as any).image || "",
+        category: product.category,
+      });
       trackViewItem(
         {
           id: product.id,
@@ -130,7 +142,7 @@ export default function ProductDetailClient({
         variant
       );
     }
-  }, [product?.id, product?.name, product?.price, product?.category]);
+  }, [product?.id, product?.name, product?.price, product?.category, product?.slug, product?.images]);
 
   // Populate guest name if user session is active
   useEffect(() => {
@@ -570,6 +582,9 @@ export default function ProductDetailClient({
 
         {/* Product Info & Actions */}
         <div className="flex flex-col px-4 sm:px-0">
+          {/* Faz 6: UTM / Reklam ile tutarlı dinamik başlık ve değer teklifi */}
+          <AdCongruentHeadline productName={product.name} />
+
           {/* 1. Ürün adı (başlık) */}
           <h1 className="font-display text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-corp-charcoal mb-4">
             {product.name}
@@ -1529,6 +1544,12 @@ export default function ProductDetailClient({
           </div>
         </section>
       )}
+
+      {/* Faz 6: Son Baktığın Ürünler (Gerçek Tarayıcı Verisi) */}
+      <RecentlyViewedSection currentSlug={product.slug} />
+
+      {/* Faz 6: Bunlara da Bakabilirsin (Birlikte Satın Alma & Kategori Verisi) */}
+      <RecommendationsSection productId={product.id} category={product.category} />
 
       {/* 2. Sticky Mobile Add to Cart Bar (Dokunma hedefi min 44px) */}
       <AnimatePresence>

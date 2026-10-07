@@ -82,7 +82,7 @@ export default function CartDrawer() {
           quantity: i.quantity,
           category: i.category,
         })),
-        totals.total
+        totals.grandTotal
       );
     }
   }, [isOpen]);

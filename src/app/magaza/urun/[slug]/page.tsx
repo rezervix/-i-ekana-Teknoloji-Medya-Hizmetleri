@@ -64,7 +64,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
     if (product && product.category) {
       relatedProducts = await prisma.product.findMany({
         where: {
-          category: product.category,
+          category: product.category as any,
           id: { not: product.id },
           isActive: true,
         },

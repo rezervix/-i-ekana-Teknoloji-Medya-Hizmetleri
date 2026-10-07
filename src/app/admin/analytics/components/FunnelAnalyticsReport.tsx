@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { 
   Filter, Smartphone, Monitor, Tablet, ShoppingCart, 
   ArrowRight, CheckCircle2, TrendingUp, AlertTriangle, 
-  Split, Database, Copy, Check, RefreshCw
+  Split, Database, Copy, Check, RefreshCw, Mail, Send, Sparkles
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -58,6 +58,8 @@ export default function FunnelAnalyticsReport() {
   const [data, setData] = useState<FunnelData | null>(null);
   const [loading, setLoading] = useState(true);
   const [copiedQuery, setCopiedQuery] = useState<string | null>(null);
+  const [recoveryStats, setRecoveryStats] = useState<any>(null);
+  const [triggeringCron, setTriggeringCron] = useState(false);
 
   const fetchData = async () => {
     setLoading(true);
@@ -66,6 +68,13 @@ export default function FunnelAnalyticsReport() {
       const json = await res.json();
       if (json.success) {
         setData(json);
+      }
+
+      // Faz 6: Terk Edilen Sepet Kurtarma İstatistiklerini Çek
+      const recRes = await fetch("/api/admin/cart-abandonment/stats");
+      const recJson = await recRes.json();
+      if (recJson.success && recJson.stats) {
+        setRecoveryStats(recJson.stats);
       }
     } catch (err) {
       console.error("Funnel verisi çekilemedi:", err);
@@ -126,6 +135,67 @@ SELECT
   SUM(has_purchase) AS step4_purchase,
   ROUND((SUM(has_purchase)::decimal / NULLIF(SUM(has_view_item), 0)) * 100, 2) AS overall_conversion_rate_pct
 FROM session_funnel;`;
+
+  const triggerManualReminders = async () => {
+    setTriggeringCron(true);
+    try {
+      const res = await fetch("/api/cron/abandoned-cart-reminders?manual=true", { method: "POST" });
+      const json = await res.json();
+      if (json.success) {
+        toast.success(`Manuel görev tamamlandı: ${json.processedCount} e-posta gönderildi.`);
+        fetchData();
+      } else {
+        toast.error(json.message || "Görev çalıştırılamadı.");
+      }
+    } catch (err: any) {
+      toast.error("İstek sırasında hata oluştu: " + err.message);
+    } finally {
+      setTriggeringCron(false);
+    }
+  };
+
+  const recoverySqlQuery = `-- Faz 6: Terk Edilen Sepet Kurtarma Oranı Raporlama Sorgusu
+WITH cart_summary AS (
+  SELECT
+    COUNT(*)::int AS total_abandoned,
+    COUNT(*) FILTER (WHERE "allowMarketing" = true AND "unsubscribed" = false)::int AS marketing_eligible,
+    COUNT(*) FILTER (WHERE "reminderCount" > 0)::int AS reminded_count,
+    COUNT(*) FILTER (WHERE "reminderCount" = 1)::int AS reminded_stage_1,
+    COUNT(*) FILTER (WHERE "reminderCount" >= 2)::int AS reminded_stage_2,
+    COUNT(*) FILTER (WHERE "converted" = true)::int AS total_recovered,
+    COUNT(*) FILTER (WHERE "converted" = true AND "reminderCount" > 0)::int AS recovered_via_campaign,
+    COUNT(*) FILTER (WHERE "converted" = true AND "reminderCount" = 0)::int AS recovered_organic,
+    COUNT(*) FILTER (WHERE "unsubscribed" = true)::int AS unsubscribed_count,
+    COALESCE(SUM(
+      CASE WHEN ("cartSnapshot"->>'totalAmount') IS NOT NULL 
+      THEN ("cartSnapshot"->>'totalAmount')::numeric ELSE 0 END
+    ), 0) AS total_abandoned_value,
+    COALESCE(SUM(
+      CASE WHEN "converted" = true AND ("cartSnapshot"->>'totalAmount') IS NOT NULL 
+      THEN ("cartSnapshot"->>'totalAmount')::numeric ELSE 0 END
+    ), 0) AS total_recovered_value
+  FROM "CartAbandonmentLog"
+)
+SELECT
+  total_abandoned,
+  marketing_eligible,
+  reminded_count,
+  total_recovered,
+  recovered_via_campaign,
+  unsubscribed_count,
+  total_abandoned_value,
+  total_recovered_value,
+  ROUND(
+    CASE WHEN total_abandoned > 0 
+    THEN (total_recovered::numeric / total_abandoned::numeric) * 100 
+    ELSE 0 END, 2
+  ) AS overall_recovery_rate_percent,
+  ROUND(
+    CASE WHEN reminded_count > 0 
+    THEN (recovered_via_campaign::numeric / reminded_count::numeric) * 100 
+    ELSE 0 END, 2
+  ) AS campaign_recovery_rate_percent
+FROM cart_summary;`;
 
   return (
     <div className="space-y-6">
@@ -218,6 +288,97 @@ FROM session_funnel;`;
           <p className="text-xs text-corp-gray mt-1">
             Başarıyla tamamlanan purchase olayları
           </p>
+        </div>
+      </div>
+
+      {/* Faz 6: Terk Edilen Sepet Geri Kazanım (Recovery) & Hatırlatma Yönetimi */}
+      <div className="bg-gradient-to-br from-white via-corp-surface/50 to-corp-teal/5 p-6 rounded-2xl border border-corp-border shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-corp-teal text-white shadow-xs">
+              <Mail size={20} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-0.5 rounded-md text-[11px] font-bold uppercase tracking-wider bg-corp-teal/10 text-corp-teal">
+                  Faz 6: Geri Kazanım
+                </span>
+                <h4 className="font-display font-bold text-lg text-corp-charcoal">
+                  Terk Edilen Sepet Kurtarma & Hatırlatma Yönetimi
+                </h4>
+              </div>
+              <p className="text-xs text-corp-gray mt-0.5">
+                1 saat sonra ilk hatırlatma, 24 saat sonra %10 kuponlu teklif, tek tıkla sepeti geri yükleme
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={triggerManualReminders}
+            disabled={triggeringCron}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-corp-teal text-white hover:bg-corp-teal-600 transition-all shadow-sm active:scale-95 disabled:opacity-60"
+          >
+            <Send size={14} className={triggeringCron ? "animate-pulse" : ""} />
+            {triggeringCron ? "Görev Çalıştırılıyor..." : "Hatırlatma Görevini Manuel Tetikle"}
+          </button>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
+          <div className="bg-white p-3.5 rounded-xl border border-corp-border/70">
+            <span className="text-[11px] font-bold text-corp-gray uppercase">Toplam Terk</span>
+            <div className="text-2xl font-display font-bold text-corp-charcoal mt-1">
+              {recoveryStats?.total_abandoned ?? 0}
+            </div>
+            <span className="text-[10px] text-corp-gray">İletişim bırakanlar</span>
+          </div>
+
+          <div className="bg-white p-3.5 rounded-xl border border-corp-border/70">
+            <span className="text-[11px] font-bold text-corp-gray uppercase">İzinli Kullanıcı</span>
+            <div className="text-2xl font-display font-bold text-corp-teal mt-1">
+              {recoveryStats?.marketing_eligible ?? 0}
+            </div>
+            <span className="text-[10px] text-corp-gray">allowMarketing=true</span>
+          </div>
+
+          <div className="bg-white p-3.5 rounded-xl border border-corp-border/70">
+            <span className="text-[11px] font-bold text-corp-gray uppercase">Hatırlatılan</span>
+            <div className="text-2xl font-display font-bold text-blue-600 mt-1">
+              {recoveryStats?.reminded_count ?? 0}
+            </div>
+            <span className="text-[10px] text-corp-gray">
+              Aşama 1: {recoveryStats?.reminded_stage_1 ?? 0} | Aşama 2: {recoveryStats?.reminded_stage_2 ?? 0}
+            </span>
+          </div>
+
+          <div className="bg-white p-3.5 rounded-xl border border-corp-border/70 border-l-4 border-l-green-500">
+            <span className="text-[11px] font-bold text-corp-gray uppercase">Kurtarılan Sepet</span>
+            <div className="text-2xl font-display font-bold text-green-600 mt-1">
+              {recoveryStats?.total_recovered ?? 0}
+            </div>
+            <span className="text-[10px] text-corp-gray">
+              Kampanya: {recoveryStats?.recovered_via_campaign ?? 0}
+            </span>
+          </div>
+
+          <div className="bg-white p-3.5 rounded-xl border border-corp-border/70 bg-gradient-to-b from-green-50/50 to-white">
+            <span className="text-[11px] font-bold text-green-700 uppercase">Kurtarma Oranı</span>
+            <div className="text-2xl font-display font-bold text-green-700 mt-1">
+              %{recoveryStats?.overall_recovery_rate_percent?.toFixed(2) ?? "0.00"}
+            </div>
+            <span className="text-[10px] text-green-600">
+              Kampanya: %{recoveryStats?.campaign_recovery_rate_percent?.toFixed(2) ?? "0.00"}
+            </span>
+          </div>
+
+          <div className="bg-white p-3.5 rounded-xl border border-corp-border/70">
+            <span className="text-[11px] font-bold text-corp-gray uppercase">Kurtarılan Ciro</span>
+            <div className="text-xl font-display font-bold text-corp-charcoal mt-1">
+              {Number(recoveryStats?.total_recovered_value || 0).toLocaleString("tr-TR")} TL
+            </div>
+            <span className="text-[10px] text-corp-gray">
+              Terk: {Number(recoveryStats?.total_abandoned_value || 0).toLocaleString("tr-TR")} TL
+            </span>
+          </div>
         </div>
       </div>
 
@@ -416,6 +577,25 @@ FROM session_funnel;`;
             </div>
             <pre className="p-4 bg-gray-900 text-gray-100 text-xs font-mono overflow-x-auto">
               {funnelSqlQuery}
+            </pre>
+          </div>
+
+          {/* Sorgu 3: Terk Edilen Sepet Kurtarma Oranı (Faz 6) */}
+          <div className="border border-corp-border rounded-xl overflow-hidden">
+            <div className="bg-corp-surface px-4 py-2.5 flex items-center justify-between border-b border-corp-border">
+              <span className="font-display font-semibold text-xs text-corp-charcoal">
+                3. Terk Edilen Sepet Kurtarma Oranı Sorgusu (Faz 6)
+              </span>
+              <button
+                onClick={() => copyToClipboard(recoverySqlQuery, "recovery")}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-white border border-corp-border text-xs font-semibold hover:bg-corp-surface text-corp-charcoal"
+              >
+                {copiedQuery === "recovery" ? <Check size={12} className="text-green-600" /> : <Copy size={12} />}
+                {copiedQuery === "recovery" ? "Kopyalandı" : "Kopyala"}
+              </button>
+            </div>
+            <pre className="p-4 bg-gray-900 text-gray-100 text-xs font-mono overflow-x-auto">
+              {recoverySqlQuery}
             </pre>
           </div>
         </div>
