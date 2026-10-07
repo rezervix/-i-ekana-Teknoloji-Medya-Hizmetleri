@@ -1,11 +1,13 @@
 import React from "react";
 import Link from "next/link";
 import { CheckCircle2, ArrowRight } from "lucide-react";
+import OrderTrackingSuccess from "@/components/analytics/OrderTrackingSuccess";
 
 export default async function OrderConfirmationPage({ params }: { params: Promise<{ orderNumber: string }> }) {
   const { orderNumber } = await params;
   return (
     <main className="min-h-screen bg-corp-surface pt-32 pb-20 flex flex-col items-center justify-center">
+      <OrderTrackingSuccess orderNumber={orderNumber} />
       <div className="max-w-md w-full bg-white p-10 rounded-3xl border border-corp-border shadow-xl text-center">
         <div className="w-20 h-20 bg-corp-teal/10 text-corp-teal rounded-full flex items-center justify-center mx-auto mb-6">
           <CheckCircle2 size={40} />

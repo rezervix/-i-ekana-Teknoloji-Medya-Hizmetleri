@@ -1,11 +1,14 @@
 import React from 'react';
 import type { Metadata, Viewport } from 'next';
+import Script from 'next/script';
 import '../styles/tailwind.css';
 import MeetingScheduler from '@/components/ui/MeetingScheduler';
 import localFont from "next/font/local";
 import { cn } from "@/lib/utils";
 import NextAuthProvider from "@/components/SessionProvider";
 import CartDrawer from "@/components/CartDrawer";
+import CookieConsent from "@/components/ui/CookieConsent";
+import MicrosoftClarity from "@/components/analytics/MicrosoftClarity";
 
 const inter = localFont({
   src: '../fonts/Inter-Variable.woff2',
@@ -44,6 +47,9 @@ export const metadata: Metadata = {
   },
 };
 
+const GOOGLE_ADS_ID =
+  process.env.NEXT_PUBLIC_GOOGLE_ADS_ID || 'AW-18495983175';
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -55,10 +61,30 @@ export default function RootLayout({
         <meta charSet="UTF-8" />
       </head>
       <body>
+        {/* Google Ads Tag (gtag.js) */}
+        <Script
+          strategy="afterInteractive"
+          src={`https://www.googletagmanager.com/gtag/js?id=${GOOGLE_ADS_ID}`}
+        />
+        <Script
+          id="google-ads-gtag-init"
+          strategy="afterInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.dataLayer = window.dataLayer || [];
+              function gtag(){dataLayer.push(arguments);}
+              gtag('js', new Date());
+              gtag('config', '${GOOGLE_ADS_ID}');
+            `,
+          }}
+        />
+
         <NextAuthProvider>
           {children}
           <MeetingScheduler />
           <CartDrawer />
+          <CookieConsent />
+          <MicrosoftClarity />
         </NextAuthProvider>
 
         <script type="module" async src="https://static.rocket.new/rocket-web.js?_cfg=https%3A%2F%2Fcicekana2069back.builtwithrocket.new&_be=https%3A%2F%2Fappanalytics.rocket.new&_v=0.1.17" />

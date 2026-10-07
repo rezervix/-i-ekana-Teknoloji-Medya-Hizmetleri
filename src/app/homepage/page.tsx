@@ -9,7 +9,6 @@ import MetricsSection from "./components/MetricsSection";
 import TestimonialsSection from "./components/TestimonialsSection";
 import ContactSection from "./components/ContactSection";
 import { Toaster } from "sonner";
-import CookieConsent from "@/components/ui/CookieConsent";
 
 export default function HomepagePage() {
   return (
@@ -24,7 +23,6 @@ export default function HomepagePage() {
       <ContactSection />
       <Footer />
       <Toaster theme="light" position="bottom-right" richColors />
-      <CookieConsent />
     </main>
   );
 }

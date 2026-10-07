@@ -9,6 +9,7 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   BarChart, Bar, Legend, PieChart, Pie, Cell
 } from "recharts";
+import FunnelAnalyticsReport from "./FunnelAnalyticsReport";
 
 interface AnalyticsData {
   totalLeads: number;
@@ -130,6 +131,9 @@ export default function AnalyticsClient() {
           </div>
         ))}
       </div>
+
+      {/* Faz 5: Dönüşüm Hunisi & A/B Test Raporu */}
+      <FunnelAnalyticsReport />
 
       {/* Main Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

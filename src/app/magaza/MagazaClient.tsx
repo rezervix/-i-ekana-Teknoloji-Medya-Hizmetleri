@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { Search, Filter, ChevronDown } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { InteractiveCheckout, Product } from "@/components/ui/interactive-checkout";
+import { trackViewItemList } from "@/lib/analytics";
 
 const CATEGORIES = [
   { id: "Tümü", label: "Tüm Koleksiyon" },
@@ -50,6 +51,20 @@ export default function MagazaClient({ products }: { products: any[], featuredPr
     const subs = new Set(storeProductsList.filter(p => p.category?.toUpperCase() === activeTab.toUpperCase() && p.color).map(p => p.color));
     return Array.from(subs).filter(Boolean) as string[];
   }, [storeProductsList, activeTab]);
+
+  useEffect(() => {
+    if (storeProductsList && storeProductsList.length > 0) {
+      trackViewItemList(
+        storeProductsList.map((p) => ({
+          id: p.id,
+          name: p.name,
+          price: p.price,
+          category: p.category,
+        })),
+        activeTab === "Tümü" ? "Tüm Koleksiyon" : activeTab
+      );
+    }
+  }, [activeTab, storeProductsList]);
 
   return (
     <div className="bg-corp-surface min-h-screen pb-24">

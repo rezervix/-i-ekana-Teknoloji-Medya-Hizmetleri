@@ -32,6 +32,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { SafeImage } from "@/components/ui/SafeImage";
 import { useSession } from "next-auth/react";
 import { STORE_DELIVERY_CONFIG } from "@/config/store.config";
+import { trackViewItem, trackAddToCart, getABVariant } from "@/lib/analytics";
 import type {
   ProductCustomizationOptions,
   NewFormatCustomizationOptions,
@@ -111,6 +112,25 @@ export default function ProductDetailClient({
 
   // Mobile Sticky Bar State
   const [showStickyBar, setShowStickyBar] = useState(false);
+
+  // A/B Testi: CTA Buton Varyantı ("Sepete Ekle" vs "Hemen Al, Yarın Kapında")
+  const [ctaVariant, setCtaVariant] = useState<string>("control");
+
+  useEffect(() => {
+    const variant = getABVariant("cta_button");
+    setCtaVariant(variant);
+    if (product?.id) {
+      trackViewItem(
+        {
+          id: product.id,
+          name: product.name,
+          price: product.price,
+          category: product.category,
+        },
+        variant
+      );
+    }
+  }, [product?.id, product?.name, product?.price, product?.category]);
 
   // Populate guest name if user session is active
   useEffect(() => {
@@ -442,6 +462,19 @@ export default function ProductDetailClient({
     }
 
     toast.success("Ürün sepete eklendi!");
+
+    // Faz 5: Ölçüm - add_to_cart olayı (A/B varyantı ile)
+    trackAddToCart(
+      {
+        id: product.id,
+        name: product.name,
+        price: displayPrice || product.price,
+        quantity: resolved.mode === "none" ? quantity : 1,
+        category: product.category,
+      },
+      ctaVariant
+    );
+
     return true;
   };
 
@@ -880,6 +913,8 @@ export default function ProductDetailClient({
                     ? "Stokta Yok"
                     : resolved.mode === "new" && newFormatTiers.length === 0
                     ? "Bu Kombinasyon Mevcut Değil"
+                    : ctaVariant === "variant_fast"
+                    ? "Hemen Al, Yarın Kapında"
                     : "Sepete Ekle"}
                 </span>
               </button>
@@ -1548,7 +1583,13 @@ export default function ProductDetailClient({
                 className="min-h-[44px] px-3.5 sm:px-4 py-2.5 bg-corp-teal text-white rounded-xl font-display font-bold text-xs sm:text-sm hover:bg-corp-teal-600 transition-all disabled:opacity-50 flex items-center gap-1.5 shadow-sm active:scale-95 touch-manipulation cursor-pointer"
               >
                 <ShoppingBag size={16} />
-                <span>{product.stock === 0 ? "Stokta Yok" : "Sepete Ekle"}</span>
+                <span>
+                  {product.stock === 0
+                    ? "Stokta Yok"
+                    : ctaVariant === "variant_fast"
+                    ? "Hemen Al, Yarın Kapında"
+                    : "Sepete Ekle"}
+                </span>
               </button>
               {product.stock !== 0 && !(resolved.mode === "new" && newFormatTiers.length === 0) && (
                 <button

@@ -21,11 +21,13 @@ export default function CookieConsent() {
 
   const accept = () => {
     localStorage.setItem(STORAGE_KEY, "accepted");
+    window.dispatchEvent(new CustomEvent("cookie-consent-updated", { detail: { consent: "accepted" } }));
     setVisible(false);
   };
 
   const reject = () => {
     localStorage.setItem(STORAGE_KEY, "rejected");
+    window.dispatchEvent(new CustomEvent("cookie-consent-updated", { detail: { consent: "rejected" } }));
     setVisible(false);
   };
 

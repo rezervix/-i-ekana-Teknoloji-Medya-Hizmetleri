@@ -40,7 +40,15 @@ export function amountInKurus(amount: number) {
 }
 
 export function buildUserBasket(items: Array<{ name: string; unitPrice: number; quantity: number }>) {
-  return Buffer.from(JSON.stringify(items.map((item) => [item.name, String(amountInKurus(item.unitPrice)), item.quantity]))).toString("base64");
+  return Buffer.from(
+    JSON.stringify(
+      items.map((item) => [
+        item.name.replace(/["\\]/g, "").slice(0, 100),
+        Number(item.unitPrice).toFixed(2),
+        item.quantity,
+      ])
+    )
+  ).toString("base64");
 }
 
 export function paytrTestMode() {

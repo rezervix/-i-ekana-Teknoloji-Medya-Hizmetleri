@@ -9,6 +9,7 @@ import { useSession } from "next-auth/react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import Script from "next/script";
+import { trackBeginCheckout, trackAddShippingInfo, trackAddPaymentInfo } from "@/lib/analytics";
 
 export default function CheckoutPage() {
   const { data: session, status } = useSession();
@@ -85,6 +86,22 @@ export default function CheckoutPage() {
         .catch(() => {});
     }
   }, [session, mounted]);
+
+  // Faz 5: Ölçüm - begin_checkout olayını tetikle
+  useEffect(() => {
+    if (mounted && items.length > 0) {
+      trackBeginCheckout(
+        items.map((i) => ({
+          id: i.productId,
+          name: i.name,
+          price: i.price,
+          quantity: i.quantity,
+          category: i.category,
+        })),
+        finalAmount
+      );
+    }
+  }, [mounted]);
 
   const subtotal = items.reduce((acc, item) => {
     const servicesTotal = item.extraServices?.reduce((sum, s) => sum + s.price, 0) || 0;
@@ -184,6 +201,18 @@ export default function CheckoutPage() {
           },
         })),
       };
+
+      // Faz 5: Ölçüm - add_shipping_info ve add_payment_info olayları
+      trackAddShippingInfo(
+        items.map((i) => ({ id: i.productId, name: i.name, price: i.price, quantity: i.quantity })),
+        finalAmount,
+        "Standart Kargo"
+      );
+      trackAddPaymentInfo(
+        items.map((i) => ({ id: i.productId, name: i.name, price: i.price, quantity: i.quantity })),
+        finalAmount,
+        paymentMethod === "cc" ? "Kredi Kartı (PayTR)" : "Havale / EFT"
+      );
 
       const res = await fetch("/api/orders/create", {
         method: "POST",

@@ -397,14 +397,31 @@ model DiscountCampaign {
 }
 
 model CartAbandonmentLog {
-  id            String    @id @default(cuid())
-  sessionId     String?
-  userId        String?
-  cartSnapshot  Json
-  emailSentAt   DateTime?
-  reminderCount Int       @default(0)
-  converted     Boolean   @default(false)
-  createdAt     DateTime  @default(now())
+  id                  String    @id @default(cuid())
+  sessionId           String?
+  userId              String?
+  cartSnapshot        Json
+  email               String?
+  phone               String?
+  customerName        String?
+  allowMarketing      Boolean   @default(true)
+  unsubscribed        Boolean   @default(false)
+  recoveryToken       String?   @unique
+  status              String    @default("PENDING")
+  emailSentAt         DateTime?
+  firstReminderSentAt DateTime?
+  secondReminderSentAt DateTime?
+  reminderCount       Int       @default(0)
+  couponCode          String?
+  converted           Boolean   @default(false)
+  recoveredAt         DateTime?
+  metadata            Json?
+  createdAt           DateTime  @default(now())
+
+  @@index([sessionId])
+  @@index([email])
+  @@index([status])
+  @@index([createdAt])
 }
 
 // ─── Services ─────────────────────────────────────────────────────────────────
@@ -797,4 +814,24 @@ model PlanTier {
   updatedAt     DateTime       @updatedAt
 
   @@index([planId])
+}
+
+// ─── Analytics & Funnel Tracking (Faz 5) ──────────────────────────────────────
+
+model FunnelEvent {
+  id        String   @id @default(cuid())
+  sessionId String   @map("session_id")
+  event     String   @map("event")
+  productId String?  @map("product_id")
+  value     Decimal? @map("value") @db.Decimal(10, 2)
+  ts        DateTime @default(now()) @map("ts")
+  device    String   @default("desktop") @map("device")
+  utmSource String?  @map("utm_source")
+  variant   String?  @map("variant")
+  metadata  Json?    @map("metadata")
+
+  @@index([sessionId])
+  @@index([event])
+  @@index([ts])
+  @@map("funnel_events")
 }

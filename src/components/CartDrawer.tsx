@@ -24,6 +24,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useSession } from "next-auth/react";
 import { calculateCartTotals } from "@/lib/cart-calculator";
 import { STORE_DELIVERY_CONFIG } from "@/config/store.config";
+import { trackViewCart, trackRemoveFromCart } from "@/lib/analytics";
 
 export default function CartDrawer() {
   const {
@@ -69,6 +70,33 @@ export default function CartDrawer() {
       setCouponInput(couponCode);
     }
   }, [couponCode]);
+
+  // Faz 5: Ölçüm - Sepet açıldığında view_cart olayını tetikle
+  useEffect(() => {
+    if (isOpen && items.length > 0) {
+      trackViewCart(
+        items.map((i) => ({
+          id: i.productId,
+          name: i.name,
+          price: i.price,
+          quantity: i.quantity,
+          category: i.category,
+        })),
+        totals.total
+      );
+    }
+  }, [isOpen]);
+
+  const handleRemoveItem = (item: any) => {
+    trackRemoveFromCart({
+      id: item.productId,
+      name: item.name,
+      price: item.price,
+      quantity: item.quantity,
+      category: item.category,
+    });
+    removeItem(item.id);
+  };
 
   // Comprehensive, centralized calculation via calculateCartTotals
   const totals = useMemo(() => {
@@ -242,7 +270,7 @@ export default function CartDrawer() {
                               {item.name}
                             </h4>
                             <button
-                              onClick={() => removeItem(item.id)}
+                              onClick={() => handleRemoveItem(item)}
                               className="text-corp-gray hover:text-red-500 transition-colors p-1"
                               title="Sepetten Çıkar"
                             >
