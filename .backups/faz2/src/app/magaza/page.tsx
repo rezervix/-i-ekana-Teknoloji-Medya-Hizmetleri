@@ -1,4 +1,4 @@
-import React, { Suspense } from "react";
+import React from "react";
 import { prisma } from "@/lib/prisma";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -51,9 +51,7 @@ export default async function MagazaPage() {
   return (
     <main className="min-h-screen bg-corp-surface pt-28 pb-20">
       <Header />
-      <Suspense fallback={<div className="min-h-screen bg-corp-surface flex items-center justify-center py-20 text-corp-gray text-sm">Yükleniyor...</div>}>
-        <MagazaClient products={mappedProducts} featuredProducts={featuredProducts} />
-      </Suspense>
+      <MagazaClient products={mappedProducts} featuredProducts={featuredProducts} />
       <Footer />
     </main>
   );
