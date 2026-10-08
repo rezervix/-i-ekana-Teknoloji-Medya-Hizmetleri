@@ -6,10 +6,6 @@ module.exports = {
     env: {
       NODE_ENV: "production",
       PORT: "4028",
-      
-      // UploadThing credentials (replace with actual keys if needed)
-      UPLOADTHING_SECRET: process.env.UPLOADTHING_SECRET || "sk_live_your_secret_here",
-      UPLOADTHING_APP_ID: process.env.UPLOADTHING_APP_ID || "your_app_id_here",
 
       // Database
       DATABASE_URL: "postgres://postgres:postgres@localhost:51214/template1?sslmode=disable&connection_limit=10&connect_timeout=0&max_idle_connection_lifetime=0&pool_timeout=0&socket_timeout=0",

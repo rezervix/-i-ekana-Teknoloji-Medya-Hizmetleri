@@ -36,3 +36,8 @@ jest-test-results.json
 # Optional: if using TurboRepo or monorepo
 turbo/
 /src/generated/prisma
+
+# Uploads directory (user-generated media)
+uploads/
+/uploads
+public/uploads/

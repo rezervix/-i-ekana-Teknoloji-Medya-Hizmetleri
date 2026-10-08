@@ -27,7 +27,6 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { useUploadThing } from "@/lib/uploadthing.client";
 import { motion, AnimatePresence } from "framer-motion";
 import { SafeImage } from "@/components/ui/SafeImage";
 import { useSession } from "next-auth/react";
@@ -194,23 +193,40 @@ export default function ProductDetailClient({
   const [uploadedFiles, setUploadedFiles] = useState<Array<{ name: string; size: number; url: string }>>([]);
   const [convertToPrint, setConvertToPrint] = useState(false);
 
-  const { startUpload: uploadDesignFile, isUploading: isUploadingDesign } =
-    useUploadThing("designFileUploader", {
-      onClientUploadComplete: (res) => {
-        if (res && res.length > 0) {
-          const newFiles = res.map((file: any) => ({
-            name: file.name,
-            size: file.size,
-            url: file.url,
-          }));
-          setUploadedFiles((prev) => [...prev, ...newFiles]);
-          toast.success(`${res.length} dosya yüklendi`);
-        }
-      },
-      onUploadError: (error) => {
-        toast.error("Dosya yükleme hatası: " + error.message);
-      },
-    });
+  const [isUploadingDesign, setIsUploadingDesign] = useState(false);
+
+  const uploadDesignFile = async (files: File[]) => {
+    if (!files || files.length === 0) return;
+    setIsUploadingDesign(true);
+    try {
+      const formData = new FormData();
+      for (const file of files) {
+        formData.append("files", file);
+      }
+      const res = await fetch("/api/upload/customer-design", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Dosyalar yüklenemedi.");
+      }
+      if (data.files && data.files.length > 0) {
+        const newFiles = data.files.map((file: any) => ({
+          name: file.name,
+          size: file.size,
+          url: file.url,
+        }));
+        setUploadedFiles((prev) => [...prev, ...newFiles]);
+        toast.success(`${newFiles.length} dosya başarıyla yüklendi`);
+      }
+    } catch (err: any) {
+      console.error("[uploadDesignFile error]", err);
+      toast.error(err.message || "Dosya yüklenirken hata oluştu.");
+    } finally {
+      setIsUploadingDesign(false);
+    }
+  };
 
   useEffect(() => {
     const fetchTemplates = async () => {

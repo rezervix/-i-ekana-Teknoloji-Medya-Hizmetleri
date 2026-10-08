@@ -3,7 +3,6 @@
 import React, { useState } from "react";
 import { Plus, Edit, Trash2, Loader2, Search, X, Save, Upload, Image as ImageIcon, XCircle, Eye } from "lucide-react";
 import { toast } from "sonner";
-import { useUploadThing } from "@/lib/uploadthing.client";
 
 interface DesignTemplate {
   id: string;
@@ -62,25 +61,40 @@ export default function DesignTemplatesClient({ initialTemplates, products }: De
     new Set(products.map((p) => p.subcategory).filter(Boolean))
   ) as string[];
 
-  const { startUpload, isUploading } = useUploadThing("templateImageUploader", {
-    onClientUploadComplete: (res) => {
-      if (res && res.length > 0) {
-        const url = res[0].url;
-        if (uploadingTarget === "front") {
-          setFormData((f) => ({ ...f, frontImage: url, frontImageUrl: url }));
-          toast.success("Ön görsel yüklendi");
-        } else if (uploadingTarget === "back") {
-          setFormData((f) => ({ ...f, backImage: url, backImageUrl: url }));
-          toast.success("Arka görsel yüklendi");
-        }
-        setUploadingTarget(null);
+  const [isUploading, setIsUploading] = useState(false);
+
+  const uploadTemplateImage = async (file: File, target: "front" | "back") => {
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Dosya boyutu 5 MB sınırını aşıyor.");
+      return;
+    }
+    setUploadingTarget(target);
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/admin/products/upload-image", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Görsel yüklenemedi.");
+      const url = data.url;
+      if (target === "front") {
+        setFormData((f) => ({ ...f, frontImage: url, frontImageUrl: url }));
+        toast.success("Ön görsel başarıyla yüklendi");
+      } else {
+        setFormData((f) => ({ ...f, backImage: url, backImageUrl: url }));
+        toast.success("Arka görsel başarıyla yüklendi");
       }
-    },
-    onUploadError: (error) => {
-      toast.error("Görsel yükleme hatası: " + error.message);
+    } catch (err: any) {
+      toast.error(err.message || "Görsel yükleme hatası.");
+    } finally {
+      setIsUploading(false);
       setUploadingTarget(null);
-    },
-  });
+    }
+  };
 
   const openNewModal = () => {
     setEditTarget(null);
@@ -448,9 +462,9 @@ export default function DesignTemplatesClient({ initialTemplates, products }: De
                     onChange={(e) => {
                       const file = e.target.files?.[0];
                       if (file) {
-                        setUploadingTarget("front");
-                        startUpload([file]);
+                        uploadTemplateImage(file, "front");
                       }
+                      e.target.value = "";
                     }}
                     className="hidden"
                     id="front-image-upload"
@@ -492,9 +506,9 @@ export default function DesignTemplatesClient({ initialTemplates, products }: De
                     onChange={(e) => {
                       const file = e.target.files?.[0];
                       if (file) {
-                        setUploadingTarget("back");
-                        startUpload([file]);
+                        uploadTemplateImage(file, "back");
                       }
+                      e.target.value = "";
                     }}
                     className="hidden"
                     id="back-image-upload"

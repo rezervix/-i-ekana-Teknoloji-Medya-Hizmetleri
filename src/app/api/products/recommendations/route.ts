@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
     // 1. Gerçek Satın Alma Verisi (Market Basket / Birlikte Satın Alınanlar)
     if (productId) {
       try {
-        const coPurchased: any[] = await prisma.$queryRawUnsafe(`
+        const coPurchased = (await prisma.$queryRawUnsafe(`
           SELECT oi2."productId", COUNT(*)::int as freq
           FROM "OrderItem" oi1
           JOIN "OrderItem" oi2 ON oi1."orderId" = oi2."orderId"
@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
           GROUP BY oi2."productId"
           ORDER BY freq DESC
           LIMIT 4;
-        `, productId).catch(() => []);
+        `, productId).catch(() => [])) as any[];
 
         if (coPurchased && coPurchased.length > 0) {
           const ids = coPurchased.map((cp) => cp.productId);

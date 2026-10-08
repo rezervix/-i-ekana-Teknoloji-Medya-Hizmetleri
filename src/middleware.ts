@@ -83,8 +83,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // 1. PayTR Callback Webhook must NEVER be blocked by Geo restrictions
-  if (pathname === "/api/paytr/callback") {
+  // 1. PayTR Callback Webhook and File Upload routes must pass through without header mutation
+  if (pathname === "/api/paytr/callback" || pathname.includes("/upload")) {
     return NextResponse.next();
   }
 

@@ -2,8 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { Plus, Edit, Trash2, Upload, X, GripVertical } from "lucide-react";
-import { UploadButton } from "@/lib/uploadthing.client";
-import type { OurFileRouter } from "@/lib/uploadthing.server";
+import { UploadButton } from "@/components/admin/LocalUploadButton";
 
 interface Service {
   id: string;
