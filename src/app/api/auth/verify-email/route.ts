@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { checkRateLimit, createRateLimitResponse } from "@/lib/rateLimit";
-import { sendVerificationEmail } from "@/lib/email";
+import { sendVerificationEmail, sendVerificationEmailWithDetails } from "@/lib/email";
 import { logger } from "@/lib/logger";
 
 const verifySchema = z.object({
@@ -121,11 +121,31 @@ export async function PUT(req: NextRequest) {
       data: { email, code, expiresAt },
     });
 
-    await sendVerificationEmail(email, code);
+    const emailResult = await sendVerificationEmailWithDetails(email, code);
 
-    logger.info({ event: "RESEND_VERIFICATION_CODE", email, ip });
+    logger.info({
+      event: "RESEND_VERIFICATION_CODE",
+      email,
+      ip,
+      details: {
+        emailProvider: emailResult.provider,
+        emailSent: emailResult.success && !emailResult.inDevMode,
+      },
+    });
 
-    return NextResponse.json({ success: true, message: "Yeni doğrulama kodu e-posta adresinize gönderildi." });
+    const isDev = process.env.NODE_ENV !== "production";
+    const actualSent = emailResult.success && !emailResult.inDevMode;
+
+    return NextResponse.json({
+      success: true,
+      emailSent: actualSent,
+      devCode: isDev ? code : undefined,
+      message: actualSent
+        ? "Yeni doğrulama kodu e-posta adresinize gönderildi."
+        : (emailResult.inDevMode
+          ? "Yeni doğrulama kodu oluşturuldu (Geliştirici / Test modu)."
+          : "Yeni kod oluşturuldu fakat e-posta sunucusuna iletilemedi. Lütfen sistem yöneticisiyle iletişime geçin."),
+    });
   } catch (error) {
     return NextResponse.json(
       { success: false, error: { code: "SERVER_ERROR", message: "Kod gönderilirken hata oluştu." } },

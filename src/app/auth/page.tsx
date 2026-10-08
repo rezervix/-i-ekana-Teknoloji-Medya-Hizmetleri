@@ -54,18 +54,24 @@ function GoogleButton({ loading, onClick }: { loading: boolean; onClick: () => v
 // ── Email Verification Step Component ──────────────────────────────────────────
 function VerificationStep({
   email,
+  initialWarning,
+  initialDevCode,
   onVerified,
   onBack,
 }: {
   email: string;
+  initialWarning?: string | null;
+  initialDevCode?: string | null;
   onVerified: () => void;
   onBack: () => void;
 }) {
-  const [code, setCode] = useState("");
+  const [code, setCode] = useState(initialDevCode || "");
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
   const [error, setError] = useState("");
   const [infoMsg, setInfoMsg] = useState("");
+  const [deliveryWarning, setDeliveryWarning] = useState(initialWarning || "");
+  const [currentDevCode, setCurrentDevCode] = useState(initialDevCode || "");
 
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,6 +121,15 @@ function VerificationStep({
         setError(data.error?.message || "Yeni kod gönderilemedi.");
       } else {
         setInfoMsg(data.message || "Yeni doğrulama kodu e-posta adresinize gönderildi.");
+        if (data.devCode) {
+          setCurrentDevCode(data.devCode);
+          setCode(data.devCode);
+        }
+        if (!data.emailSent && !data.devCode) {
+          setDeliveryWarning("E-posta sunucusu geçici olarak yanıt vermedi. Lütfen birazdan tekrar deneyin veya sistem yöneticisiyle iletişime geçin.");
+        } else {
+          setDeliveryWarning("");
+        }
       }
     } catch {
       setError("Kod yeniden gönderilirken hata oluştu.");
@@ -133,6 +148,31 @@ function VerificationStep({
           <strong className="text-corp-charcoal">{email}</strong> adresine gönderilen 6 haneli kodu giriniz.
         </p>
       </div>
+
+      {deliveryWarning && (
+        <div className="p-3.5 rounded-lg bg-amber-50 border border-amber-200/80 font-body text-[13px] text-amber-800 text-left space-y-1">
+          <p className="font-semibold flex items-center gap-1.5">
+            <span>⚠️</span> E-posta Gönderim Durumu:
+          </p>
+          <p className="text-xs leading-relaxed">{deliveryWarning}</p>
+        </div>
+      )}
+
+      {currentDevCode && (
+        <div className="p-3 rounded-lg bg-blue-50 border border-blue-200 font-body text-[13px] text-blue-800 text-left flex items-center justify-between">
+          <div>
+            <span className="font-semibold text-[11px] uppercase tracking-wider text-blue-600 block">Test Doğrulama Kodu:</span>
+            <span className="font-mono text-base font-bold text-blue-900">{currentDevCode}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setCode(currentDevCode)}
+            className="text-xs font-bold text-blue-700 bg-blue-100 hover:bg-blue-200 px-2.5 py-1.5 rounded transition"
+          >
+            Kodu Doldur
+          </button>
+        </div>
+      )}
 
       {error && (
         <div className="p-3.5 rounded-lg bg-error/10 border border-error/25 font-body text-[13px] text-error text-left">
@@ -395,6 +435,8 @@ function SignUpForm() {
   const [error, setError] = useState("");
 
   const [verifyingEmail, setVerifyingEmail] = useState<string | null>(null);
+  const [emailWarning, setEmailWarning] = useState<string | null>(null);
+  const [devCode, setDevCode] = useState<string | null>(null);
 
   // Live password validation checks
   const checks = {
@@ -436,6 +478,8 @@ function SignUpForm() {
       setLoading(false);
       if (data.requiresVerification) {
         setVerifyingEmail(email);
+        setEmailWarning(data.emailDeliveryWarning || null);
+        setDevCode(data.devCode || null);
       }
     } catch {
       setError("Bağlantı hatası. Lütfen tekrar deneyin.");
@@ -467,6 +511,8 @@ function SignUpForm() {
     return (
       <VerificationStep
         email={verifyingEmail}
+        initialWarning={emailWarning}
+        initialDevCode={devCode}
         onVerified={handleVerified}
         onBack={() => setVerifyingEmail(null)}
       />

@@ -109,9 +109,14 @@ export async function PUT(req: NextRequest) {
         data: { email: newEmail, code, expiresAt },
       });
 
-      await sendVerificationEmail(newEmail, code);
+      const emailSent = await sendVerificationEmail(newEmail, code);
 
-      logger.info({ event: "PROFILE_EMAIL_CHANGED", userId: updatedUser.id, email: newEmail });
+      logger.info({
+        event: "PROFILE_EMAIL_CHANGED",
+        userId: updatedUser.id,
+        email: newEmail,
+        details: { emailSent },
+      });
 
       return NextResponse.json({
         success: true,

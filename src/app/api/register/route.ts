@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { checkRateLimit, createRateLimitResponse } from "@/lib/rateLimit";
-import { sendVerificationEmail } from "@/lib/email";
+import { sendVerificationEmailWithDetails } from "@/lib/email";
 import { logger } from "@/lib/logger";
 
 const registerSchema = z.object({
@@ -87,17 +87,36 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // 6. Send verification email
-    await sendVerificationEmail(email, code);
+    // 6. Send verification email with detailed telemetry
+    const emailResult = await sendVerificationEmailWithDetails(email, code);
 
-    logger.info({ event: "REGISTER_SUCCESS", email, userId: newUser.id, ip });
+    logger.info({
+      event: "REGISTER_SUCCESS",
+      email,
+      userId: newUser.id,
+      ip,
+      details: {
+        emailProvider: emailResult.provider,
+        emailSent: emailResult.success && !emailResult.inDevMode,
+      },
+    });
+
+    const isDev = process.env.NODE_ENV !== "production";
+    const actualSent = emailResult.success && !emailResult.inDevMode;
 
     return NextResponse.json(
       {
         success: true,
         requiresVerification: true,
         email,
-        message: "Kayıt başarıyla tamamlandı. E-posta adresinize gönderilen 6 haneli doğrulama kodunu giriniz.",
+        emailSent: actualSent,
+        emailDeliveryWarning: !actualSent
+          ? "Doğrulama e-postası şu anda sunucu e-posta ayarlarından ötürü doğrudan iletilememiş olabilir. Lütfen 'Kodu Tekrar Gönder' butonunu kullanın veya destek ekibimizle iletişime geçin."
+          : null,
+        devCode: isDev ? code : undefined,
+        message: actualSent
+          ? "Kayıt başarıyla tamamlandı. E-posta adresinize gönderilen 6 haneli doğrulama kodunu giriniz."
+          : "Kayıt tamamlandı. Doğrulama kodunuz oluşturuldu.",
       },
       { status: 201 }
     );

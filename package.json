@@ -48,6 +48,7 @@
     "format": "prettier --write \"src/**/*.{ts,tsx,css,md,json}\"",
     "serve": "next start",
     "test:cart": "tsx scripts/test-cart-totals.ts",
+    "test:email": "node scripts/test-email.js",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {

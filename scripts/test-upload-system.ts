@@ -124,7 +124,7 @@ async function runTests() {
     .toBuffer();
 
   const validForm = new FormData();
-  validForm.append("file", new Blob([testPngBuffer], { type: "image/png" }), "cicekana-test-product.png");
+  validForm.append("file", new Blob([new Uint8Array(testPngBuffer)], { type: "image/png" }), "cicekana-test-product.png");
 
   const res6 = await fetch(uploadEndpoint, {
     method: "POST",
