@@ -17,8 +17,11 @@ interface CartItem {
 interface CartLog {
   id: string;
   userId: string | null;
-  sessionId: string;
-  cartData: any; // Contains products/items array
+  sessionId: string | null;
+  email?: string | null;
+  customerName?: string | null;
+  cartSnapshot?: any; // Prisma alanı: products/items array içerir
+  cartData?: any; // eski ad (geriye dönük)
   reminderCount: number;
   emailSentAt: string | null;
   converted: boolean;
@@ -46,7 +49,7 @@ export default function CartAbandonmentClient() {
       const res = await fetch("/api/admin/cart-abandonment");
       if (!res.ok) throw new Error("Sepet verileri yüklenirken hata oluştu.");
       const data = await res.json();
-      setLogs(data);
+      setLogs(Array.isArray(data) ? data : Array.isArray(data?.logs) ? data.logs : []);
     } catch (err: any) {
       setError(err.message || "Bilinmeyen hata");
     } finally {
@@ -311,9 +314,8 @@ export default function CartAbandonmentClient() {
               <div className="divide-y divide-corp-border max-h-60 overflow-y-auto">
                 {(() => {
                   try {
-                    const data = typeof selectedLog.cartData === "string" 
-                      ? JSON.parse(selectedLog.cartData) 
-                      : selectedLog.cartData;
+                    const raw = selectedLog.cartSnapshot ?? selectedLog.cartData;
+                    const data = typeof raw === "string" ? JSON.parse(raw) : raw;
                     
                     const items: CartItem[] = data?.items || data?.products || [];
                     if (items.length === 0) {
