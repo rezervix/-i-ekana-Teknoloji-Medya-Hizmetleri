@@ -167,7 +167,8 @@ export default function CheckoutPage() {
     if (items.length === 0) return;
     if (isProcessing) return; // Çift tıklama (double-click) engellemesi
 
-    if (!isAuthenticated) {
+    const subscriptionItems = items.filter((item) => item.itemType === 'subscription');
+    if (subscriptionItems.length > 0 && !isAuthenticated) {
       router.push('/auth?callbackUrl=/magaza/odeme');
       return;
     }
@@ -341,17 +342,7 @@ export default function CheckoutPage() {
       const tokenData = await tokenResponse.json();
 
       if (!tokenResponse.ok || !tokenData.success || !tokenData.token) {
-        const errMsg = tokenData.message || 'Ödeme ekranı açılamadı.';
-        // "Sipariş numarası zaten kullanıldı" kontrolü
-        if (
-          errMsg.includes('zaten kullanıldı') ||
-          errMsg.includes('daha önce işlenmiş') ||
-          errMsg.includes('merchant_oid')
-        ) {
-          handleCancelPayment();
-          setErrorMessage('Sepetiniz yenileniyor, lütfen tekrar deneyin.');
-          return;
-        }
+        const errMsg = tokenData.message || 'Ödeme altyapısına bağlanılamadı.';
         throw new Error(errMsg);
       }
 
@@ -368,16 +359,7 @@ export default function CheckoutPage() {
     } catch (error: any) {
       console.error('Checkout error:', error);
       const errMsg = error.message || '';
-      if (
-        errMsg.includes('zaten kullanıldı') ||
-        errMsg.includes('daha önce işlenmiş') ||
-        errMsg.includes('merchant_oid')
-      ) {
-        handleCancelPayment();
-        setErrorMessage('Sepetiniz yenileniyor, lütfen tekrar deneyin.');
-      } else {
-        setErrorMessage(errMsg || 'Sipariş oluşturulurken beklenmeyen bir hata oluştu.');
-      }
+      setErrorMessage(errMsg || 'Sipariş oluşturulurken beklenmeyen bir hata oluştu.');
     } finally {
       setIsProcessing(false);
     }
@@ -400,52 +382,25 @@ export default function CheckoutPage() {
           Siparişi Tamamla & Ödeme
         </h1>
 
-        {/* ── KAPSAM 2: Auth Guard Banner for Unauthenticated / Unverified Users ── */}
-        {!isAuthenticated ? (
-          <div className="mb-8 p-6 md:p-8 bg-white border-2 border-corp-teal/30 rounded-2xl shadow-md flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-xl bg-corp-teal/10 text-corp-teal flex items-center justify-center flex-shrink-0">
-                <Lock size={24} />
+        {/* ── Hızlı Sipariş / Misafir Alışverişi Bilgilendirmesi ── */}
+        {!isAuthenticated && (
+          <div className="mb-6 p-4 rounded-xl bg-white border border-corp-border/80 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-corp-teal/10 text-corp-teal flex items-center justify-center flex-shrink-0">
+                <ShoppingBag size={18} />
               </div>
-              <div>
-                <h3 className="font-display font-bold text-lg text-corp-charcoal">
-                  Sipariş Oluşturmak İçin Giriş Yapmalısınız
-                </h3>
-                <p className="font-body text-sm text-corp-gray mt-1">
-                  Güvenliğiniz için sipariş vermeden önce hesabınıza giriş yapmalı veya
-                  kaydolmalısınız. <strong>Sepetinizdeki ürünler korunacaktır.</strong>
-                </p>
-              </div>
+              <p className="font-body text-xs md:text-sm text-corp-charcoal">
+                <strong>Hızlı Alışveriş:</strong> Üye olmadan veya e-posta doğrulaması beklemeden doğrudan sipariş verebilirsiniz.
+              </p>
             </div>
             <Link
               href="/auth?callbackUrl=/magaza/odeme"
-              className="w-full md:w-auto px-8 py-3.5 rounded-xl bg-corp-teal text-white font-bold text-sm hover:bg-corp-teal-600 transition-all text-center whitespace-nowrap shadow-lg shadow-corp-teal/20"
+              className="text-xs font-semibold text-corp-teal hover:underline whitespace-nowrap"
             >
-              Giriş Yap / Kayıt Ol →
+              Mevcut Hesaba Giriş Yap →
             </Link>
           </div>
-        ) : !isEmailVerified ? (
-          <div className="mb-8 p-6 bg-amber-50 border border-amber-200 rounded-2xl flex items-start gap-4">
-            <div className="w-10 h-10 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center flex-shrink-0">
-              <AlertTriangle size={20} />
-            </div>
-            <div className="flex-1">
-              <h3 className="font-display font-bold text-amber-900 text-base">
-                E-posta Adresiniz Doğrulanmadı
-              </h3>
-              <p className="font-body text-xs text-amber-800 mt-1">
-                Sipariş verebilmek için e-posta adresinizi doğrulamanız gerekmektedir. Doğrulama
-                kodunu almak için profil sayfanızdaki ayarları kontrol edin.
-              </p>
-              <Link
-                href="/auth?tab=signin"
-                className="inline-block mt-2 text-xs font-bold text-corp-teal hover:underline"
-              >
-                E-posta Doğrulama Adımına Git →
-              </Link>
-            </div>
-          </div>
-        ) : null}
+        )}
 
         {errorMessage && (
           <div className="mb-6 p-4 rounded-xl bg-error/10 border border-error/25 text-error text-sm font-medium">
@@ -911,23 +866,27 @@ export default function CheckoutPage() {
                   </span>
                 </div>
 
-                {!isAuthenticated ? (
-                  <Link
-                    href="/auth?callbackUrl=/magaza/odeme"
-                    className="w-full bg-corp-teal text-white py-4 rounded-xl font-display font-bold text-center block hover:bg-corp-teal-600 transition-all shadow-corp-hover"
-                  >
-                    Giriş Yaparak Tamamla →
-                  </Link>
-                ) : (
-                  <button
-                    type="submit"
-                    form="checkout-form"
-                    disabled={isProcessing || items.length === 0}
-                    className="w-full bg-corp-teal text-white py-4 rounded-xl font-display font-bold text-lg hover:bg-corp-teal-600 transition-all shadow-corp-hover disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                  >
-                    {isProcessing ? 'Sipariş İşleniyor...' : 'Siparişi Onayla ve Öde'}
-                    {!isProcessing && <CheckCircle2 size={20} />}
-                  </button>
+                <button
+                  type="submit"
+                  form="checkout-form"
+                  disabled={isProcessing || items.length === 0}
+                  className="w-full bg-corp-teal text-white py-4 rounded-xl font-display font-bold text-lg hover:bg-corp-teal-600 transition-all shadow-corp-hover disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  {isProcessing ? 'Sipariş İşleniyor...' : 'Siparişi Onayla ve Öde'}
+                  {!isProcessing && <CheckCircle2 size={20} />}
+                </button>
+
+                {!isAuthenticated && (
+                  <p className="text-center text-xs text-corp-gray mt-2">
+                    Sipariş takibi için hesabınızla giriş yapmak isterseniz{' '}
+                    <Link
+                      href="/auth?callbackUrl=/magaza/odeme"
+                      className="text-corp-teal font-medium hover:underline"
+                    >
+                      giriş yapabilirsiniz
+                    </Link>
+                    .
+                  </p>
                 )}
               </div>
             </div>

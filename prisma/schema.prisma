@@ -243,9 +243,28 @@ model Product {
   reviews         Review[]
   variants        ProductVariant[]
   designTemplates DesignTemplate[]
+  productImages   ProductImage[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model ProductImage {
+  id           String   @id @default(cuid())
+  productId    String   @map("product_id")
+  product      Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url          String
+  blobPathname String?  @map("blob_pathname")
+  sortOrder    Int      @default(0) @map("sort_order")
+  isCover      Boolean  @default(false) @map("is_cover")
+  altText      String?  @map("alt_text")
+  width        Int?
+  height       Int?
+  sizeBytes    Int?     @map("size_bytes")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([productId, sortOrder])
+  @@map("product_images")
 }
 
 model ProductVariant {

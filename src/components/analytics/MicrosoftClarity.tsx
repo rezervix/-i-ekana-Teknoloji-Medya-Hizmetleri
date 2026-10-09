@@ -4,11 +4,18 @@ import { useEffect, useState } from "react";
 import Script from "next/script";
 
 const STORAGE_KEY = "cicekana-cookie-consent";
-const CLARITY_ID = process.env.NEXT_PUBLIC_CLARITY_PROJECT_ID || "cicekana_clarity";
+const rawClarityId = process.env.NEXT_PUBLIC_CLARITY_PROJECT_ID;
+const isValidClarityId = Boolean(
+  rawClarityId &&
+  rawClarityId.trim() !== "" &&
+  rawClarityId !== "cicekana_clarity" &&
+  /^[a-zA-Z0-9_-]{5,32}$/.test(rawClarityId.trim())
+);
+const CLARITY_ID = isValidClarityId ? rawClarityId!.trim() : "";
 
 /**
  * Microsoft Clarity Oturum Kaydı & Heatmap Entegrasyonu
- * Faz 4 Çerez onayına saygılı çalışır: Yalnızca onay verildikten sonra (accepted) yüklenir.
+ * Faz 4 Çerez onayına saygılı çalışır: Yalnızca onay verildikten sonra (accepted) ve geçerli ID varsa yüklenir.
  */
 export default function MicrosoftClarity() {
   const [hasConsent, setHasConsent] = useState(false);
@@ -38,7 +45,7 @@ export default function MicrosoftClarity() {
     };
   }, []);
 
-  if (!hasConsent) {
+  if (!hasConsent || !CLARITY_ID) {
     return null;
   }
 

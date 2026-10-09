@@ -53,6 +53,34 @@ export async function POST(req: Request) {
       };
     }
 
+    const rawImages = Array.isArray(data.images) ? data.images : [];
+    const normalizedImages = rawImages.map((img: any, idx: number) => {
+      if (typeof img === "string") {
+        return {
+          url: img,
+          blobPathname: img.includes("vercel-storage.com") ? img : null,
+          sortOrder: idx,
+          isCover: idx === 0,
+        };
+      }
+      return {
+        url: img.url,
+        blobPathname: img.blobPathname || null,
+        sortOrder: typeof img.sortOrder === "number" ? img.sortOrder : idx,
+        isCover: typeof img.isCover === "boolean" ? img.isCover : idx === 0,
+        altText: img.altText || null,
+        width: img.width || null,
+        height: img.height || null,
+        sizeBytes: img.sizeBytes || null,
+      };
+    });
+
+    normalizedImages.sort((a: any, b: any) => a.sortOrder - b.sortOrder);
+    if (normalizedImages.length > 0 && !normalizedImages.some((i: any) => i.isCover)) {
+      normalizedImages[0].isCover = true;
+    }
+    const imageUrls = normalizedImages.map((i: any) => i.url);
+
     const productData = {
       name: data.name,
       category,
@@ -60,7 +88,7 @@ export async function POST(req: Request) {
       price: parseFloat(String(data.price || 0)) || 0,
       stock: stockValue,
       description: data.description || null,
-      images: Array.isArray(data.images) ? data.images : [],
+      images: imageUrls,
       customizationOptions,
       freeShipping: Boolean(data.freeShipping),
       photoToDesignFee: data.photoToDesignFee !== undefined && data.photoToDesignFee !== null && data.photoToDesignFee !== ""
@@ -71,8 +99,29 @@ export async function POST(req: Request) {
     
     console.log("[Product Creation] Prisma create data:", JSON.stringify(productData, null, 2));
     
-    const product = await prisma.product.create({
-      data: productData
+    // Single transaction for Product and ProductImage records
+    const product = await prisma.$transaction(async (tx) => {
+      const created = await tx.product.create({
+        data: productData,
+      });
+
+      if (normalizedImages.length > 0) {
+        await tx.productImage.createMany({
+          data: normalizedImages.map((img: any) => ({
+            productId: created.id,
+            url: img.url,
+            blobPathname: img.blobPathname || null,
+            sortOrder: img.sortOrder,
+            isCover: img.isCover,
+            altText: img.altText || null,
+            width: img.width || null,
+            height: img.height || null,
+            sizeBytes: img.sizeBytes || null,
+          })),
+        });
+      }
+
+      return created;
     });
     
     console.log("[Product Creation] Success:", product.id);

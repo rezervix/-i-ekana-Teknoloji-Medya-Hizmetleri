@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: "Şifre sıfırlama bağlantısı e-posta adresinize gönderildi. Lütfen gelen kutunuzu (ve sparn klasörünü) kontrol edin.",
+      message: "Şifre sıfırlama bağlantısı e-posta adresinize gönderildi. Lütfen gelen kutunuzu (ve spam klasörünü) kontrol edin.",
     });
   } catch (error) {
     logger.error({ event: "FORGOT_PASSWORD_ERROR", ip, details: { error: String(error) } });

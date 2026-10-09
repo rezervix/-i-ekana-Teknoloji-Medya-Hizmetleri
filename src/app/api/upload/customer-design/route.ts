@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
-import fs from "fs/promises";
-import path from "path";
+import { NextResponse } from "next/server";
+import { put } from "@vercel/blob";
 import crypto from "crypto";
+import path from "path";
+import { sanitizeFileName, isBlobConfigured, BLOB_NOT_CONFIGURED_MESSAGE } from "@/lib/blob-storage";
 
 export const dynamic = "force-dynamic";
 
@@ -23,14 +24,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Dosya seçilmedi." }, { status: 400 });
     }
 
-    const UPLOAD_BASE_DIR = process.env.UPLOAD_DIR || path.join(process.cwd(), "uploads");
-    const persistentDir = path.join(UPLOAD_BASE_DIR, "designs");
-    const publicDir = path.join(process.cwd(), "public", "uploads", "designs");
-
-    await Promise.all([
-      fs.mkdir(persistentDir, { recursive: true }),
-      fs.mkdir(publicDir, { recursive: true }),
-    ]);
+    if (!isBlobConfigured()) {
+      return NextResponse.json(
+        { error: BLOB_NOT_CONFIGURED_MESSAGE },
+        { status: 500 }
+      );
+    }
 
     const uploaded = [];
 
@@ -52,20 +51,21 @@ export async function POST(req: Request) {
         );
       }
 
-      const fileId = crypto.randomUUID();
-      const safeFileName = `${fileId}${ext || ".bin"}`;
+      const fileUuid = crypto.randomUUID();
+      const safeBase = sanitizeFileName(path.basename(file.name, ext));
+      const blobPathname = `designs/${fileUuid}-${safeBase || "design"}${ext || ".bin"}`;
 
       const bytes = await file.arrayBuffer();
       const buffer = Buffer.from(bytes);
 
-      await Promise.all([
-        fs.writeFile(path.join(persistentDir, safeFileName), buffer),
-        fs.writeFile(path.join(publicDir, safeFileName), buffer),
-      ]);
+      const blob = await put(blobPathname, buffer, {
+        access: "public",
+        addRandomSuffix: true,
+        contentType: file.type || "application/octet-stream",
+      });
 
-      const url = `/uploads/designs/${safeFileName}`;
       uploaded.push({
-        url,
+        url: blob.url,
         name: file.name,
         size: file.size,
       });

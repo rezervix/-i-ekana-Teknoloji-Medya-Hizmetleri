@@ -1,25 +1,29 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { getAdminSession } from "@/lib/admin-session";
-import fs from "fs/promises";
-import path from "path";
+import { put } from "@vercel/blob";
 import crypto from "crypto";
 import sharp from "sharp";
+import {
+  sanitizeFileName,
+  isBlobConfigured,
+  BLOB_NOT_CONFIGURED_MESSAGE,
+} from "@/lib/blob-storage";
 
 export const dynamic = "force-dynamic";
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 const ALLOWED_ADMIN_ROLES = new Set(["SUPER_ADMIN", "ADMIN", "EDITOR"]);
 
 // Magic bytes validation for image security
 function isValidImageSignature(buffer: Buffer): boolean {
   if (buffer.length < 12) return false;
 
-  // JPEG magic bytes: FF D8 FF
+  // JPEG: FF D8 FF
   const isJpeg = buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
   if (isJpeg) return true;
 
-  // PNG magic bytes: 89 50 4E 47 0D 0A 1A 0A
+  // PNG: 89 50 4E 47 0D 0A 1A 0A
   const isPng =
     buffer[0] === 0x89 &&
     buffer[1] === 0x50 &&
@@ -31,7 +35,7 @@ function isValidImageSignature(buffer: Buffer): boolean {
     buffer[7] === 0x0a;
   if (isPng) return true;
 
-  // WebP magic bytes: RIFF....WEBP
+  // WebP: RIFF....WEBP
   const isWebp =
     buffer.subarray(0, 4).toString("ascii") === "RIFF" &&
     buffer.subarray(8, 12).toString("ascii") === "WEBP";
@@ -88,15 +92,12 @@ export async function POST(req: Request) {
       );
     }
 
-    // Storage directories: outside code dir in UPLOAD_DIR (default: ./uploads) and public/uploads
-    const UPLOAD_BASE_DIR = process.env.UPLOAD_DIR || path.join(process.cwd(), "uploads");
-    const persistentDir = path.join(UPLOAD_BASE_DIR, "products");
-    const publicDir = path.join(process.cwd(), "public", "uploads", "products");
-
-    await Promise.all([
-      fs.mkdir(persistentDir, { recursive: true }),
-      fs.mkdir(publicDir, { recursive: true }),
-    ]);
+    if (!isBlobConfigured()) {
+      return NextResponse.json(
+        { error: BLOB_NOT_CONFIGURED_MESSAGE },
+        { status: 500 }
+      );
+    }
 
     const contentType = req.headers.get("content-type") || "";
     const rawFiles: Array<{ buffer: Buffer; name: string }> = [];
@@ -151,17 +152,15 @@ export async function POST(req: Request) {
     const savedThumbUrls: string[] = [];
     const savedFileDetails: Array<{ url: string; thumbUrl: string; size: number }> = [];
 
-    // 3. Process Each File: Size check, Magic bytes check, Sharp metadata & WebP optimization
+    // 3. Process each file via Sharp & Upload directly to Vercel Blob
     for (const raw of rawFiles) {
-      // Size check (max 5 MB)
       if (raw.buffer.length > MAX_FILE_SIZE) {
         return NextResponse.json(
-          { error: `Dosya boyutu 5 MB sınırını aşıyor (${(raw.buffer.length / (1024 * 1024)).toFixed(2)} MB).` },
+          { error: `Dosya boyutu 10 MB sınırını aşıyor (${(raw.buffer.length / (1024 * 1024)).toFixed(2)} MB).` },
           { status: 400 }
         );
       }
 
-      // Dosya imzası (magic bytes) doğrulaması
       if (!isValidImageSignature(raw.buffer)) {
         return NextResponse.json(
           { error: "Geçersiz dosya imzası. Yalnızca gerçek JPG, PNG ve WebP formatları desteklenmektedir (.exe, .svg vb. kabul edilmez)." },
@@ -169,7 +168,6 @@ export async function POST(req: Request) {
         );
       }
 
-      // Sharp metadata & validation
       let metadata;
       try {
         metadata = await sharp(raw.buffer, { failOn: "error" }).metadata();
@@ -180,7 +178,7 @@ export async function POST(req: Request) {
         );
       }
 
-      const validFormats = ["jpeg", "jpg", "png", "webp"];
+      const validFormats = ["jpeg", "jpg", "png", "webp", "avif"];
       if (!metadata.format || !validFormats.includes(metadata.format)) {
         return NextResponse.json(
           { error: `Desteklenmeyen görsel formatı (${metadata.format}). Yalnızca JPG, PNG ve WebP dosyaları yüklenebilir.` },
@@ -188,40 +186,43 @@ export async function POST(req: Request) {
         );
       }
 
-      // Generate random UUID name (never use original filename for safety)
-      const fileId = crypto.randomUUID();
-      const mainFileName = `${fileId}.webp`;
-      const thumbFileName = `${fileId}-thumb.webp`;
+      const fileUuid = crypto.randomUUID();
+      const cleanBase = sanitizeFileName(raw.name.replace(/\.[^/.]+$/, "")) || "image";
 
-      // 4. Sharp WebP conversion
-      // Main image: max 1600px width, WebP quality 85
+      // Optimize main image to WebP
       const mainWebpBuffer = await sharp(raw.buffer)
-        .resize({ width: 1600, withoutEnlargement: true })
+        .resize({ width: 2400, withoutEnlargement: true })
         .webp({ quality: 85 })
         .toBuffer();
 
-      // Thumbnail: max 400px width, WebP quality 80
+      // Optimize thumbnail to WebP
       const thumbWebpBuffer = await sharp(raw.buffer)
         .resize({ width: 400, withoutEnlargement: true })
         .webp({ quality: 80 })
         .toBuffer();
 
-      // 5. Write to both persistent UPLOAD_DIR and public/uploads
-      await Promise.all([
-        fs.writeFile(path.join(persistentDir, mainFileName), mainWebpBuffer),
-        fs.writeFile(path.join(persistentDir, thumbFileName), thumbWebpBuffer),
-        fs.writeFile(path.join(publicDir, mainFileName), mainWebpBuffer),
-        fs.writeFile(path.join(publicDir, thumbFileName), thumbWebpBuffer),
+      // Upload directly to Vercel Blob
+      const mainPathname = `products/temp/${fileUuid}-${cleanBase}.webp`;
+      const thumbPathname = `products/temp/${fileUuid}-${cleanBase}-thumb.webp`;
+
+      const [mainBlob, thumbBlob] = await Promise.all([
+        put(mainPathname, mainWebpBuffer, {
+          access: "public",
+          contentType: "image/webp",
+          addRandomSuffix: true,
+        }),
+        put(thumbPathname, thumbWebpBuffer, {
+          access: "public",
+          contentType: "image/webp",
+          addRandomSuffix: true,
+        }),
       ]);
 
-      const mainUrl = `/uploads/products/${mainFileName}`;
-      const thumbUrl = `/uploads/products/${thumbFileName}`;
-
-      savedUrls.push(mainUrl);
-      savedThumbUrls.push(thumbUrl);
+      savedUrls.push(mainBlob.url);
+      savedThumbUrls.push(thumbBlob.url);
       savedFileDetails.push({
-        url: mainUrl,
-        thumbUrl,
+        url: mainBlob.url,
+        thumbUrl: thumbBlob.url,
         size: mainWebpBuffer.length,
       });
     }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth } from "@/lib/auth-guard";
+import { auth } from "@/lib/auth";
 import { z } from "zod";
 import { logger } from "@/lib/logger";
 import { sendOrderConfirmationEmail } from "@/lib/email";
@@ -87,11 +87,26 @@ function generateOrderNumber(): string {
 }
 
 export async function POST(req: NextRequest) {
-  // ── Centralized Backend Guard Check (Mandatory Auth & Email Verification) ──
-  const authResult = await requireAuth(req);
-  if (!authResult.authorized) {
-    logger.security({ event: "UNAUTHORIZED_ORDER_ATTEMPT" });
-    return authResult.response;
+  // Optional auth: if user is logged in, attach their account; otherwise allow guest checkout
+  let authenticatedUserId: string | null = null;
+  let authenticatedUserEmail: string | null = null;
+  let authenticatedUserName: string | null = null;
+
+  try {
+    const session = await auth();
+    if (session?.user?.email) {
+      const dbUser = await prisma.user.findUnique({
+        where: { email: session.user.email },
+        select: { id: true, email: true, name: true },
+      });
+      if (dbUser) {
+        authenticatedUserId = dbUser.id;
+        authenticatedUserEmail = dbUser.email;
+        authenticatedUserName = dbUser.name;
+      }
+    }
+  } catch (authErr) {
+    console.warn("[order-create] Optional session check error:", authErr);
   }
 
   try {
@@ -174,19 +189,25 @@ export async function POST(req: NextRequest) {
     }
 
     const orderNumber = generateOrderNumber();
-    const userEmail = authResult.user.email;
-    const userName = authResult.user.name || guestName || userEmail;
+    const customerEmail = guestEmail || authenticatedUserEmail;
+    if (!customerEmail) {
+      return NextResponse.json(
+        { success: false, error: { code: "VALIDATION_ERROR", message: "Sipariş için e-posta adresi zorunludur." } },
+        { status: 400 }
+      );
+    }
+    const customerName = guestName || authenticatedUserName || "Müşteri";
 
     const isCorporate = customerType === "CORPORATE";
     const invoiceStatus = isCorporate ? "PENDING" : "NOT_REQUIRED";
 
-    // ── Sipariş Oluşturma (Order & OrderItem with user_id linkage) ───────────
+    // ── Sipariş Oluşturma (Order & OrderItem with optional user_id linkage) ───
     const order = await prisma.order.create({
       data: {
         orderNumber,
-        userId: authResult.user.id, // CRITICAL FIX: Link order directly to authenticated user ID!
-        guestEmail: guestEmail || userEmail,
-        guestName: guestName || userName,
+        userId: authenticatedUserId, // Linked if logged in, null if guest!
+        guestEmail: customerEmail,
+        guestName: customerName,
         customerType,
         companyName: isCorporate ? companyName?.trim() : null,
         taxOffice: isCorporate ? taxOffice?.trim() : null,
@@ -208,9 +229,9 @@ export async function POST(req: NextRequest) {
 
     try {
       await sendOrderConfirmationEmail({
-        to: guestEmail || userEmail,
+        to: customerEmail,
         orderNumber: order.orderNumber,
-        customerName: guestName || userName,
+        customerName: customerName,
         customerType,
         finalAmount,
       });
@@ -220,8 +241,8 @@ export async function POST(req: NextRequest) {
 
     logger.info({
       event: "ORDER_CREATED",
-      userId: authResult.user.id,
-      email: userEmail,
+      userId: authenticatedUserId || undefined,
+      email: customerEmail,
       details: { orderId: order.id, orderNumber: order.orderNumber, finalAmount },
     });
 
@@ -230,8 +251,8 @@ export async function POST(req: NextRequest) {
       await prisma.cartAbandonmentLog.updateMany({
         where: {
           OR: [
-            ...(guestEmail || userEmail ? [{ email: (guestEmail || userEmail).toLowerCase() }] : []),
-            { userId: authResult.user.id },
+            ...(customerEmail ? [{ email: customerEmail.toLowerCase() }] : []),
+            ...(authenticatedUserId ? [{ userId: authenticatedUserId }] : []),
           ],
           converted: false,
         },
@@ -252,7 +273,7 @@ export async function POST(req: NextRequest) {
       message: "Siparişiniz başarıyla oluşturuldu.",
     });
   } catch (error: any) {
-    logger.error({ event: "ORDER_CREATE_ERROR", userId: authResult.user.id, details: { error: error.message } });
+    logger.error({ event: "ORDER_CREATE_ERROR", userId: authenticatedUserId || undefined, details: { error: error.message } });
     return NextResponse.json(
       { success: false, error: { code: "SERVER_ERROR", message: error.message || "Sipariş oluşturulurken bir hata oluştu." } },
       { status: 500 }

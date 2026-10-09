@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import type { VariantDimension } from "@/types/product";
 import { isNewFormat, isLegacyVariantsFormat } from "@/types/product";
+import ProductImageUploader from "@/components/admin/ProductImageUploader";
 
 interface Product {
   id: string;
@@ -133,113 +134,6 @@ export default function ProductList({ initialProducts }: ProductListProps) {
   // Hangi dimension accordion'u açık
   const [expandedDimIdx, setExpandedDimIdx] = useState<number | null>(null);
   const router = useRouter();
-
-  const [isUploading, setIsUploading] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
-
-  // Yerel sunucuya doğrudan çoklu görsel yükleme
-  const handleFilesUpload = async (files: File[]) => {
-    if (!files || files.length === 0) return;
-
-    const validFiles: File[] = [];
-    for (const file of files) {
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error(`"${file.name}" 5 MB sınırını aşıyor.`);
-        continue;
-      }
-      const ext = file.name.split(".").pop()?.toLowerCase() || "";
-      if (!["jpg", "jpeg", "png", "webp"].includes(ext) && !file.type.startsWith("image/")) {
-        toast.error(`"${file.name}" geçersiz format. Yalnızca JPG, PNG ve WebP yüklenebilir.`);
-        continue;
-      }
-      validFiles.push(file);
-    }
-
-    if (validFiles.length === 0) return;
-
-    setIsUploading(true);
-    try {
-      const form = new FormData();
-      for (const f of validFiles) {
-        form.append("files", f);
-      }
-
-      const res = await fetch("/api/admin/products/upload-image", {
-        method: "POST",
-        body: form,
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || "Görseller yüklenemedi.");
-      }
-
-      if (data.urls && data.urls.length > 0) {
-        setFormData((prev) => ({
-          ...prev,
-          images: [...prev.images, ...data.urls],
-        }));
-        toast.success(`${data.urls.length} görsel başarıyla yüklendi`);
-      }
-    } catch (err: any) {
-      console.error("[upload error]", err);
-      toast.error(err.message || "Görsel yükleme sırasında hata oluştu.");
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  const handleRemoveImage = (indexToRemove: number) => {
-    setFormData((prev) => ({
-      ...prev,
-      images: prev.images.filter((_, i) => i !== indexToRemove),
-    }));
-  };
-
-  const handleSetPrimary = (indexToPrimary: number) => {
-    if (indexToPrimary === 0) return;
-    setFormData((prev) => {
-      const nextImages = [...prev.images];
-      const [selected] = nextImages.splice(indexToPrimary, 1);
-      nextImages.unshift(selected);
-      return { ...prev, images: nextImages };
-    });
-    toast.success("Ana görsel vitrin için seçildi");
-  };
-
-  const handleMoveImage = (fromIndex: number, direction: "left" | "right") => {
-    setFormData((prev) => {
-      const nextImages = [...prev.images];
-      const targetIndex = direction === "left" ? fromIndex - 1 : fromIndex + 1;
-      if (targetIndex < 0 || targetIndex >= nextImages.length) return prev;
-      const temp = nextImages[fromIndex];
-      nextImages[fromIndex] = nextImages[targetIndex];
-      nextImages[targetIndex] = temp;
-      return { ...prev, images: nextImages };
-    });
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
-    const files = Array.from(e.dataTransfer.files || []);
-    if (files.length > 0) {
-      handleFilesUpload(files);
-    }
-  };
 
   const openNewModal = () => {
     setEditTarget(null);
@@ -824,142 +718,14 @@ export default function ProductList({ initialProducts }: ProductListProps) {
                 />
               </div>
 
-              {/* Görseller */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="block text-sm font-semibold text-corp-charcoal">
-                    Ürün Görselleri ({formData.images.length})
-                  </label>
-                  <span className="text-xs text-corp-gray">
-                    İlk sıradaki görsel vitrinde ana görsel olarak kullanılır
-                  </span>
-                </div>
-
-                <div
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
-                  onDrop={handleDrop}
-                  className={`border-2 border-dashed rounded-xl p-6 text-center transition-all cursor-pointer mb-4 ${
-                    isDragging
-                      ? "border-corp-teal bg-corp-teal/10 scale-[1.01]"
-                      : "border-corp-border hover:border-corp-teal hover:bg-corp-teal/5"
-                  }`}
-                >
-                  <input
-                    type="file"
-                    multiple
-                    accept="image/jpeg,image/png,image/webp"
-                    onChange={(e) => {
-                      const files = Array.from(e.target.files || []);
-                      if (files.length > 0) {
-                        handleFilesUpload(files);
-                      }
-                      e.target.value = "";
-                    }}
-                    className="hidden"
-                    id="image-upload"
-                  />
-                  {isUploading ? (
-                    <div className="flex flex-col items-center justify-center py-4">
-                      <Loader2 className="h-8 w-8 text-corp-teal animate-spin mb-2" />
-                      <p className="text-sm font-semibold text-corp-teal">
-                        Görseller optimize ediliyor (WebP) ve sunucuya yükleniyor...
-                      </p>
-                      <p className="text-xs text-corp-gray mt-1">Lütfen bekleyin</p>
-                    </div>
-                  ) : (
-                    <label htmlFor="image-upload" className="cursor-pointer block">
-                      <Upload className="mx-auto h-8 w-8 text-corp-gray mb-2" />
-                      <p className="text-sm text-corp-gray">
-                        <span className="font-semibold text-corp-teal">Dosya seçin</span> veya buraya sürükleyip bırakın
-                      </p>
-                      <p className="text-xs text-corp-gray mt-1">
-                        JPG, PNG, WebP — otomatik WebP optimizasyonu ve küçük görsel üretimi (Maks 5MB)
-                      </p>
-                    </label>
-                  )}
-                </div>
-
-                {formData.images.length > 0 && (
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    {formData.images.map((url, index) => (
-                      <div
-                        key={`${url}-${index}`}
-                        className={`relative group aspect-square rounded-xl overflow-hidden border transition-all ${
-                          index === 0
-                            ? "border-corp-teal ring-2 ring-corp-teal/30 shadow-md"
-                            : "border-corp-border hover:border-corp-teal/60"
-                        }`}
-                      >
-                        <img
-                          src={url}
-                          alt={`Görsel ${index + 1}`}
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).src =
-                              "https://placehold.co/100x100?text=Görsel+Yok";
-                          }}
-                        />
-
-                        {/* Ana Görsel Badge */}
-                        {index === 0 ? (
-                          <div className="absolute top-2 left-2 bg-corp-teal text-white text-[11px] font-bold px-2 py-0.5 rounded-full shadow flex items-center gap-1 z-10">
-                            <Star size={11} className="fill-white" />
-                            Ana Görsel
-                          </div>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => handleSetPrimary(index)}
-                            className="absolute top-2 left-2 bg-black/60 hover:bg-corp-teal text-white text-[10px] font-medium px-2 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-10 flex items-center gap-1"
-                            title="Ana görsel yap"
-                          >
-                            <Star size={10} />
-                            Ana Yap
-                          </button>
-                        )}
-
-                        {/* Aksiyon Barı (Hover) */}
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 p-2">
-                          {/* Sola / Öne Taşı */}
-                          {index > 0 && (
-                            <button
-                              type="button"
-                              onClick={() => handleMoveImage(index, "left")}
-                              className="p-1.5 bg-white/90 hover:bg-white text-corp-charcoal rounded-lg shadow transition-colors"
-                              title="Sola / Öne taşı"
-                            >
-                              <ArrowLeft size={14} />
-                            </button>
-                          )}
-
-                          {/* Sağa / Arkaya Taşı */}
-                          {index < formData.images.length - 1 && (
-                            <button
-                              type="button"
-                              onClick={() => handleMoveImage(index, "right")}
-                              className="p-1.5 bg-white/90 hover:bg-white text-corp-charcoal rounded-lg shadow transition-colors"
-                              title="Sağa / Arkaya taşı"
-                            >
-                              <ArrowRight size={14} />
-                            </button>
-                          )}
-
-                          {/* Sil */}
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveImage(index)}
-                            className="p-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg shadow transition-colors"
-                            title="Görseli sil"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+              {/* Çoklu Görsel Yükleyici (Vercel Blob Client Upload & Concurrency Queue) */}
+              <ProductImageUploader
+                images={formData.images}
+                onChange={(newImages) =>
+                  setFormData((prev) => ({ ...prev, images: newImages }))
+                }
+                productId={editTarget?.id || "temp"}
+              />
 
               {/* ── YENİ FORMAT: Varyant Boyutları (CSV'den gelen ürünlerde görünür) ─ */}
               {formData.variantDimensions.length > 0 && (

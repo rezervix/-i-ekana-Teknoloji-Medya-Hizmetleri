@@ -11,11 +11,17 @@ interface ProductGalleryProps {
 }
 
 export default function ProductGallery({ images, productName }: ProductGalleryProps) {
-  const imageList = images && images.length > 0 ? images : ["/placeholder.webp"];
+  const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
+  const rawList = images && images.length > 0 ? images : ["/placeholder.webp"];
+  const imageList = rawList.map((url) =>
+    failedImages[url] || (!url.startsWith("http") && !url.startsWith("/") && !url.includes("blob"))
+      ? "/placeholder.webp"
+      : url
+  );
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [isZoomOpen, setIsZoomOpen] = useState(false);
 
-  const activeImage = imageList[selectedIndex] || imageList[0];
+  const activeImage = imageList[selectedIndex] || "/placeholder.webp";
 
   // Keyboard navigation for zoom modal and gallery
   useEffect(() => {
@@ -43,6 +49,7 @@ export default function ProductGallery({ images, productName }: ProductGalleryPr
           priority
           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 40vw"
           className="object-contain p-4 sm:p-8 transition-transform duration-300 group-hover:scale-105"
+          onError={() => setFailedImages((prev) => ({ ...prev, [activeImage]: true }))}
         />
 
         {/* Zoom Button */}
@@ -102,6 +109,7 @@ export default function ProductGallery({ images, productName }: ProductGalleryPr
                 loading="lazy"
                 sizes="80px"
                 className="object-contain p-1"
+                onError={() => setFailedImages((prev) => ({ ...prev, [img]: true }))}
               />
             </button>
           ))}

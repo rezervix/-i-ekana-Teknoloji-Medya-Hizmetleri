@@ -29,15 +29,17 @@ export default async function ProfilePage({
   // Use try-catch to handle DB being down
   let user = session.user;
   let orders: any[] = [];
+  let subscriptions: any[] = [];
 
   try {
     const dbUser = await prisma.user.findUnique({
       where: { email: session.user.email as string },
       include: {
-        blogPosts: { take: 5, orderBy: { createdAt: "desc" } }
-      }
+        blogPosts: { take: 5, orderBy: { createdAt: "desc" } },
+        accounts: { select: { provider: true } },
+      },
     });
-    
+
     if (dbUser) {
       user = { ...session.user, ...dbUser };
     }
@@ -49,19 +51,34 @@ export default async function ProfilePage({
 
     orders = orderOwnerFilters.length
       ? await prisma.order.findMany({
-      where: { OR: orderOwnerFilters },
-      orderBy: { createdAt: "desc" },
-      include: {
-        items: {
-          include: { product: true }
-        }
-      }
-    })
+          where: { OR: orderOwnerFilters },
+          orderBy: { createdAt: "desc" },
+          include: {
+            items: {
+              include: { product: true },
+            },
+          },
+        })
       : [];
+
+    if (dbUser?.id) {
+      subscriptions = await prisma.subscription.findMany({
+        where: { userId: dbUser.id },
+        include: { plan: true, planTier: true },
+        orderBy: { createdAt: "desc" },
+      });
+    }
   } catch (error) {
     console.error("Profile Data Fetch Error:", error);
     // Continue with session data if DB is down
   }
 
-  return <ProfileClient user={user} orders={orders} initialTab={tab} />;
+  return (
+    <ProfileClient
+      user={user}
+      orders={orders}
+      subscriptions={subscriptions}
+      initialTab={tab}
+    />
+  );
 }

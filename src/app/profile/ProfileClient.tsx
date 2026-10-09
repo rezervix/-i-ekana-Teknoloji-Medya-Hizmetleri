@@ -72,15 +72,22 @@ import TeamInviteModal from "./TeamInviteModal";
 interface Props {
   user: any;
   orders: any[];
+  subscriptions?: any[];
   initialTab?: string;
 }
 
-export default function ProfileClient({ user: initialUser, orders: initialOrders, initialTab }: Props) {
+export default function ProfileClient({
+  user: initialUser,
+  orders: initialOrders,
+  subscriptions: initialSubscriptions = [],
+  initialTab,
+}: Props) {
   const { data: session, update: updateSession } = useSession();
   
   const resolveTab = (tab?: string) => {
     if (!tab) return "overview";
     if (tab === "support" || tab === "destek") return "support";
+    if (tab === "subscriptions" || tab === "abonelikler") return "subscriptions";
     return tab;
   };
 
@@ -91,6 +98,18 @@ export default function ProfileClient({ user: initialUser, orders: initialOrders
 
   // Data states
   const [orders, setOrders] = useState(initialOrders);
+  const [subscriptions, setSubscriptions] = useState<any[]>(initialSubscriptions);
+  const [cancellingSubId, setCancellingSubId] = useState<string | null>(null);
+  const [subError, setSubError] = useState("");
+  const [subSuccess, setSubSuccess] = useState("");
+
+  // E-posta Doğrulama States
+  const [verifyCode, setVerifyCode] = useState("");
+  const [sendingVerifyCode, setSendingVerifyCode] = useState(false);
+  const [verifyingEmail, setVerifyingEmail] = useState(false);
+  const [verifyMsg, setVerifyMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [codeSent, setCodeSent] = useState(false);
+
   const [addresses, setAddresses] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
   const [reports, setReports] = useState<any[]>([]);
@@ -467,6 +486,97 @@ export default function ProfileClient({ user: initialUser, orders: initialOrders
     }
   };
 
+  const handleCancelSubscription = async (id: string) => {
+    if (!window.confirm("Bu aboneliği dönem sonunda sonlandırmak istediğinize emin misiniz?")) return;
+    setCancellingSubId(id);
+    setSubError("");
+    setSubSuccess("");
+    try {
+      const res = await fetch("/api/subscriptions", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subscriptionId: id }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setSubError(data.error || "Abonelik iptal edilemedi.");
+      } else {
+        setSubscriptions((items) =>
+          items.map((item) => (item.id === id ? { ...item, cancelAtPeriodEnd: true } : item))
+        );
+        setSubSuccess("Aboneliğiniz mevcut dönem sonunda sonlandırılacak şekilde ayarlandı.");
+      }
+    } catch {
+      setSubError("Bağlantı hatası oluştu. Lütfen tekrar deneyin.");
+    } finally {
+      setCancellingSubId(null);
+    }
+  };
+
+  const handleSendVerificationCode = async () => {
+    if (!user?.email) return;
+    setSendingVerifyCode(true);
+    setVerifyMsg(null);
+    try {
+      const res = await fetch("/api/auth/verify-email", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: user.email }),
+      });
+      const data = await res.json();
+      setSendingVerifyCode(false);
+      if (data.success) {
+        setCodeSent(true);
+        setVerifyMsg({
+          type: "success",
+          text: data.message || "Doğrulama kodu e-posta adresinize gönderildi. Lütfen gelen kutunuzu kontrol edin.",
+        });
+      } else {
+        setVerifyMsg({
+          type: "error",
+          text: data.error?.message || "Doğrulama kodu gönderilemedi.",
+        });
+      }
+    } catch {
+      setSendingVerifyCode(false);
+      setVerifyMsg({ type: "error", text: "Bağlantı hatası oluştu." });
+    }
+  };
+
+  const handleConfirmVerificationCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user?.email || !verifyCode.trim()) return;
+    setVerifyingEmail(true);
+    setVerifyMsg(null);
+    try {
+      const res = await fetch("/api/auth/verify-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: user.email, code: verifyCode.trim() }),
+      });
+      const data = await res.json();
+      setVerifyingEmail(false);
+      if (data.success) {
+        setUser((prev: any) => ({ ...prev, isEmailVerified: true, emailVerified: new Date() }));
+        await updateSession();
+        setVerifyMsg({
+          type: "success",
+          text: "Tebrikler! E-posta adresiniz başarıyla doğrulandı.",
+        });
+        setCodeSent(false);
+        setVerifyCode("");
+      } else {
+        setVerifyMsg({
+          type: "error",
+          text: data.error?.message || "Geçersiz veya süresi dolmuş kod.",
+        });
+      }
+    } catch {
+      setVerifyingEmail(false);
+      setVerifyMsg({ type: "error", text: "Bağlantı hatası oluştu." });
+    }
+  };
+
   // Grouped Menu Structure
   const menuGroups = [
     {
@@ -484,11 +594,12 @@ export default function ProfileClient({ user: initialUser, orders: initialOrders
       title: "HESAP & AYARLAR",
       items: [
         { id: "orders", label: "Siparişlerim", icon: Package, badge: orders.length },
+        { id: "subscriptions", label: "Aboneliklerim", icon: CreditCard, badge: subscriptions.filter((s) => s.status === "ACTIVE").length || undefined },
         { id: "addresses", label: "Adres Defterim", icon: MapPin, badge: addresses.length },
         { id: "company", label: "Şirket & Marka Bilgileri", icon: Building2 },
         { id: "team", label: "Ekip Üyeleri", icon: Users, badge: teamMembers.length },
-        { id: "integrations", label: "Entegrasyonlarım", icon: Share2 },
-        { id: "settings", label: "Hesap Bilgileri & Bildirimler", icon: Settings },
+        { id: "integrations", label: "Entegrasyonlarım & Bağlı Hesaplar", icon: Share2 },
+        { id: "settings", label: "Hesap Bilgileri & Doğrulama", icon: Settings },
         { id: "security", label: "Şifre & Güvenlik", icon: Lock },
       ],
     },
@@ -598,7 +709,12 @@ export default function ProfileClient({ user: initialUser, orders: initialOrders
                         return (
                           <li key={item.id}>
                             <button
-                              onClick={() => setActiveTab(item.id)}
+                              onClick={() => {
+                                setActiveTab(item.id);
+                                if (typeof window !== "undefined") {
+                                  window.history.replaceState(null, "", `/profile?tab=${item.id}`);
+                                }
+                              }}
                               className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl font-body text-xs font-semibold transition-all ${
                                 isActive
                                   ? "bg-corp-teal text-white shadow-md shadow-corp-teal/20"
@@ -653,6 +769,30 @@ export default function ProfileClient({ user: initialUser, orders: initialOrders
               {/* TAB 1: OVERVIEW */}
               {activeTab === "overview" && (
                 <div className="space-y-6">
+                  {/* Warning Banner if Email Not Verified */}
+                  {!isEmailVerified && (
+                    <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
+                      <div className="flex items-center gap-3">
+                        <AlertTriangle className="text-amber-600 flex-shrink-0" size={20} />
+                        <div>
+                          <p className="text-xs font-bold text-amber-900">E-posta Adresiniz Henüz Doğrulanmadı</p>
+                          <p className="text-[11px] text-amber-700">Hesap güvenliğiniz ve fatura/sipariş bildirimleriniz için e-postanızı doğrulayabilirsiniz.</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setActiveTab("settings");
+                          if (typeof window !== "undefined") {
+                            window.history.replaceState(null, "", "/profile?tab=settings");
+                          }
+                        }}
+                        className="px-3.5 py-1.5 rounded-xl bg-corp-teal hover:bg-corp-teal-600 text-white font-bold text-xs transition-colors whitespace-nowrap cursor-pointer shadow-sm"
+                      >
+                        Hemen Doğrula →
+                      </button>
+                    </div>
+                  )}
+
                   {/* Warning Banner if Unsigned Contract */}
                   {hasUnsignedContract && (
                     <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-between gap-4">
@@ -1421,6 +1561,145 @@ export default function ProfileClient({ user: initialUser, orders: initialOrders
                 </div>
               )}
 
+              {/* TAB: SUBSCRIPTIONS (ABONELİKLERİM) */}
+              {activeTab === "subscriptions" && (
+                <div className="bg-white rounded-3xl border border-corp-border shadow-sm p-6 md:p-8 space-y-6">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-6 border-b border-corp-border">
+                    <div className="flex items-center gap-3.5">
+                      <div className="w-12 h-12 rounded-2xl bg-corp-teal/10 text-corp-teal flex items-center justify-center flex-shrink-0">
+                        <CreditCard size={24} />
+                      </div>
+                      <div>
+                        <h3 className="font-display text-xl font-bold text-corp-charcoal">Aboneliklerim & Dijital Paketler</h3>
+                        <p className="text-xs text-corp-gray mt-0.5">Yapay zeka asistanları, otomasyon sistemleri ve ajans paketlerinizin periyodik abonelik durumu.</p>
+                      </div>
+                    </div>
+                    <Link
+                      href="/services/ai-automation"
+                      className="px-4 py-2.5 rounded-xl bg-corp-teal text-white font-bold text-xs hover:bg-corp-teal-600 transition-colors shadow-sm flex items-center gap-1.5 whitespace-nowrap"
+                    >
+                      <Sparkles size={14} /> Yeni Paket İncele →
+                    </Link>
+                  </div>
+
+                  {subError && (
+                    <div className="p-4 rounded-xl bg-error/10 border border-error/25 text-error text-xs font-semibold">
+                      {subError}
+                    </div>
+                  )}
+
+                  {subSuccess && (
+                    <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold">
+                      {subSuccess}
+                    </div>
+                  )}
+
+                  {subscriptions.length === 0 ? (
+                    <div className="p-16 text-center">
+                      <CreditCard size={48} className="mx-auto text-corp-border mb-4" />
+                      <h4 className="font-display font-bold text-corp-charcoal text-base mb-1">
+                        Henüz Aktif Bir Aboneliğiniz Bulunmuyor
+                      </h4>
+                      <p className="text-corp-gray font-body text-xs mb-6 max-w-md mx-auto">
+                        Çiçekana Yapay Zeka Otomasyon ve Kurumsal Dijital Çözüm paketleriyle iş süreçlerinizi 7/24 kesintisiz otomatikleştirin.
+                      </p>
+                      <Link
+                        href="/services/ai-automation"
+                        className="inline-block px-6 py-3 rounded-xl bg-corp-teal text-white font-bold text-xs hover:bg-corp-teal-600 transition-colors shadow-lg shadow-corp-teal/20"
+                      >
+                        Abonelik Paketlerini Keşfet →
+                      </Link>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {subscriptions.map((sub: any) => {
+                        const statusBadges: Record<string, { label: string; bg: string; text: string; border: string }> = {
+                          ACTIVE: { label: "Aktif", bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200" },
+                          PENDING: { label: "Ödeme Bekliyor", bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-200" },
+                          CANCELLED: { label: "İptal Edildi", bg: "bg-gray-100", text: "text-gray-600", border: "border-gray-200" },
+                          EXPIRED: { label: "Süresi Doldu", bg: "bg-gray-100", text: "text-gray-600", border: "border-gray-200" },
+                          FAILED: { label: "Başarısız", bg: "bg-red-50", text: "text-red-700", border: "border-red-200" },
+                        };
+                        const badge = statusBadges[sub.status] || statusBadges.EXPIRED;
+                        const formattedPrice = (sub.priceAtPurchase / 100).toLocaleString("tr-TR");
+                        const periodEndFormatted = sub.currentPeriodEnd
+                          ? new Date(sub.currentPeriodEnd).toLocaleDateString("tr-TR", { day: "numeric", month: "long", year: "numeric" })
+                          : "Belirtilmedi";
+
+                        return (
+                          <div
+                            key={sub.id}
+                            className="p-6 rounded-2xl border border-corp-border bg-white shadow-sm flex flex-col justify-between hover:border-corp-teal/50 transition-all space-y-4"
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <h4 className="font-display font-bold text-corp-charcoal text-base">
+                                  {sub.plan?.name || "Abonelik Paketi"}
+                                </h4>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <span className="px-2.5 py-0.5 rounded-full bg-corp-surface text-corp-teal text-[11px] font-semibold border border-corp-border/60">
+                                    {sub.planTier?.name || "Standart Paket"}
+                                  </span>
+                                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border ${badge.bg} ${badge.text} ${badge.border}`}>
+                                    {badge.label}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <p className="font-display font-bold text-lg text-corp-charcoal">₺{formattedPrice}</p>
+                                <p className="text-[10px] text-corp-gray">/ dönemlik</p>
+                              </div>
+                            </div>
+
+                            <div className="pt-3 border-t border-corp-border/60 text-xs text-corp-gray space-y-1.5">
+                              <p className="flex items-center gap-2">
+                                <Clock size={14} className="text-corp-teal" />
+                                <span>Dönem Sonu: <strong className="text-corp-charcoal">{periodEndFormatted}</strong></span>
+                              </p>
+                              {sub.cancelAtPeriodEnd && (
+                                <p className="text-amber-700 font-semibold text-[11px] bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200">
+                                  ⚠️ Mevcut fatura dönemi bitiminde otomatik sonlandırılacaktır.
+                                </p>
+                              )}
+                            </div>
+
+                            <div className="pt-3 border-t border-corp-border/60 flex items-center justify-between">
+                              {sub.status === "ACTIVE" && !sub.cancelAtPeriodEnd && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleCancelSubscription(sub.id)}
+                                  disabled={cancellingSubId === sub.id}
+                                  className="text-xs font-semibold text-red-600 hover:text-red-700 hover:underline disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
+                                >
+                                  {cancellingSubId === sub.id && <Loader2 size={12} className="animate-spin" />}
+                                  Dönem Sonunda İptal Et
+                                </button>
+                              )}
+
+                              {sub.status === "PENDING" && (
+                                <Link
+                                  href={`/services/ai-automation/${sub.plan?.slug || ""}`}
+                                  className="text-xs font-bold text-corp-teal hover:underline flex items-center gap-1 ml-auto"
+                                >
+                                  Ödemeyi Tamamla →
+                                </Link>
+                              )}
+
+                              <Link
+                                href={`/services/ai-automation/${sub.plan?.slug || ""}`}
+                                className="text-xs text-corp-gray hover:text-corp-teal ml-auto"
+                              >
+                                Paket Detayları ↗
+                              </Link>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* TAB 8: ADDRESSES */}
               {activeTab === "addresses" && (
                 <div className="bg-white rounded-3xl border border-corp-border shadow-sm p-8">
@@ -1773,24 +2052,75 @@ export default function ProfileClient({ user: initialUser, orders: initialOrders
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {[
-                      { title: "Google Analytics 4", desc: "Sözleşmeli web sitenizin canlı trafik ve dönüşüm analitiği", connected: true, icon: "📊" },
-                      { title: "Meta Ads (Facebook & Instagram)", desc: "Sosyal medya reklam kampanyası yönetimi ve veri aktarımı", connected: true, icon: "📲" },
-                      { title: "Google Ads & Merchant Center", desc: "Arama motoru ve alışveriş reklamları verileri", connected: false, icon: "🔍" },
-                      { title: "Microsoft Call Center AI", desc: "Yapay zeka destekli müşteri temsilcisi ses aboneliği", connected: true, icon: "🤖" },
-                      { title: "WhatsApp Business API", desc: "Otomatik sipariş ve destek bildirim kanalı", connected: false, icon: "💬" },
+                      {
+                        title: "Google ile Giriş & OAuth",
+                        desc: (user?.accounts?.some((a: any) => a.provider === "google") || user?.email?.endsWith("@gmail.com"))
+                          ? `Google hesabınız (${user?.email}) bağlı ve tek tıkla güvenli giriş aktif.`
+                          : "Google hesabınızı bağlayarak şifresiz, tek tıkla güvenli giriş sağlayın.",
+                        connected: Boolean(user?.accounts?.some((a: any) => a.provider === "google") || user?.email?.endsWith("@gmail.com")),
+                        icon: "🌐",
+                        btnText: (user?.accounts?.some((a: any) => a.provider === "google") || user?.email?.endsWith("@gmail.com")) ? "Bağlı / Aktif" : "Google ile Bağla",
+                        action: () => {
+                          if (!user?.accounts?.some((a: any) => a.provider === "google")) {
+                            window.location.href = "/api/auth/signin/google";
+                          }
+                        },
+                      },
+                      {
+                        title: "Google Analytics 4 & Tag Manager",
+                        desc: "Sözleşmeli web sitenizin canlı trafik, e-ticaret dönüşüm ve dönüşüm hunisi analitiği.",
+                        connected: projects.length > 0 && projects.some((p: any) => p.status === "live" || p.status === "completed"),
+                        icon: "📊",
+                        btnText: "Kurulum Talebi Aç",
+                        action: () => {
+                          setSupportModalOpen(true);
+                        },
+                      },
+                      {
+                        title: "Meta Ads (Facebook & Instagram Pixel)",
+                        desc: "Sosyal medya reklam kampanyası yönetimi, katalog senkronizasyonu ve Conversions API.",
+                        connected: false,
+                        icon: "📲",
+                        btnText: "Kurulum Talebi Aç",
+                        action: () => {
+                          setSupportModalOpen(true);
+                        },
+                      },
+                      {
+                        title: "WhatsApp Destek & Bildirim Hattı",
+                        desc: user?.phone
+                          ? `Profil telefon numaranız (${user.phone}) üzerinden sipariş durumları ve ajans bildirimleri.`
+                          : "Sipariş ve destek bildirimlerini anlık WhatsApp üzerinden almak için telefon numaranızı kaydedin.",
+                        connected: Boolean(user?.phone),
+                        icon: "💬",
+                        btnText: user?.phone ? "Numara Tanımlı" : "Telefon Numarası Ekle",
+                        action: () => {
+                          if (!user?.phone) setActiveTab("settings");
+                        },
+                      },
+                      {
+                        title: "Call Center Yapay Zeka Santrali",
+                        desc: "Gelen müşteri çağrılarını yanıtlayan ve sipariş alan yapay zeka sesli müşteri temsilcisi entegrasyonu.",
+                        connected: subscriptions.some((s: any) => s.status === "ACTIVE"),
+                        icon: "🤖",
+                        btnText: subscriptions.some((s: any) => s.status === "ACTIVE") ? "Abonelik Aktif" : "Paketleri İncele",
+                        action: () => {
+                          setActiveTab("subscriptions");
+                        },
+                      },
                     ].map((item, idx) => (
-                      <div key={idx} className="p-6 rounded-2xl border border-corp-border flex flex-col justify-between space-y-4">
+                      <div key={idx} className="p-6 rounded-2xl border border-corp-border flex flex-col justify-between space-y-4 hover:border-corp-teal/40 transition-all">
                         <div className="flex items-start justify-between">
                           <div className="flex items-center gap-3">
                             <span className="text-2xl">{item.icon}</span>
                             <div>
                               <h4 className="font-display font-bold text-corp-charcoal text-base">{item.title}</h4>
-                              <p className="text-xs text-corp-gray mt-0.5">{item.desc}</p>
+                              <p className="text-xs text-corp-gray mt-0.5 leading-relaxed">{item.desc}</p>
                             </div>
                           </div>
                         </div>
 
-                        <div className="flex items-center justify-between pt-4 border-t border-corp-border">
+                        <div className="flex items-center justify-between pt-4 border-t border-corp-border/80">
                           <span
                             className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border ${
                               item.connected
@@ -1798,14 +2128,15 @@ export default function ProfileClient({ user: initialUser, orders: initialOrders
                                 : "bg-gray-100 text-gray-600 border-gray-200"
                             }`}
                           >
-                            {item.connected ? "Bağlı / Aktif" : "Bağlı Değil"}
+                            {item.connected ? "Bağlı / Aktif" : "Yapılandırılmadı"}
                           </span>
 
                           <button
-                            onClick={() => alert("Entegrasyon bağlama talebiniz müşteri temsilcinize iletildi.")}
-                            className="px-4 py-2 rounded-xl bg-corp-surface hover:bg-corp-teal hover:text-white text-corp-charcoal font-bold text-xs transition-colors border border-corp-border"
+                            type="button"
+                            onClick={item.action}
+                            className="px-4 py-2 rounded-xl bg-corp-surface hover:bg-corp-teal hover:text-white text-corp-charcoal font-bold text-xs transition-colors border border-corp-border cursor-pointer"
                           >
-                            {item.connected ? "Ayarları Yönet" : "Bağlan →"}
+                            {item.btnText}
                           </button>
                         </div>
                       </div>
@@ -1817,6 +2148,94 @@ export default function ProfileClient({ user: initialUser, orders: initialOrders
               {/* TAB 12: ACCOUNT SETTINGS & NOTIFICATIONS */}
               {activeTab === "settings" && (
                 <div className="bg-white p-8 rounded-3xl border border-corp-border shadow-sm space-y-8">
+                  {/* Dedicated Email Verification Section */}
+                  <div className={`p-6 md:p-8 rounded-2xl border transition-all ${
+                    isEmailVerified
+                      ? "bg-emerald-50/40 border-emerald-200"
+                      : "bg-amber-50/50 border-amber-200"
+                  }`}>
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                      <div className="flex items-start gap-4">
+                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                          isEmailVerified ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
+                        }`}>
+                          {isEmailVerified ? <ShieldCheck size={26} /> : <AlertTriangle size={26} />}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-display font-bold text-base text-corp-charcoal">
+                              E-posta Doğrulama Durumu
+                            </h4>
+                            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border ${
+                              isEmailVerified
+                                ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+                                : "bg-amber-100 text-amber-800 border-amber-300"
+                            }`}>
+                              {isEmailVerified ? "Doğrulandı" : "Doğrulanmadı"}
+                            </span>
+                          </div>
+                          <p className="text-xs text-corp-gray mt-1 leading-relaxed">
+                            {isEmailVerified
+                              ? `E-posta adresiniz (${user?.email}) güvenle doğrulanmıştır. Tüm hesap ve sipariş bildirimleriniz eksiksiz iletilmektedir.`
+                              : `E-posta adresiniz (${user?.email}) henüz onaylanmamış. Hesap güvenliğiniz ve sipariş bildirimleri için lütfen doğrulayınız.`}
+                          </p>
+                        </div>
+                      </div>
+
+                      {!isEmailVerified && !codeSent && (
+                        <button
+                          type="button"
+                          onClick={handleSendVerificationCode}
+                          disabled={sendingVerifyCode}
+                          className="px-5 py-2.5 rounded-xl bg-corp-teal text-white font-bold text-xs hover:bg-corp-teal-600 transition-colors shadow-sm disabled:opacity-50 flex items-center gap-2 whitespace-nowrap cursor-pointer"
+                        >
+                          {sendingVerifyCode ? <Loader2 size={14} className="animate-spin" /> : <MailCheck size={14} />}
+                          Doğrulama Kodu Gönder
+                        </button>
+                      )}
+                    </div>
+
+                    {verifyMsg && (
+                      <div className={`mt-4 p-3.5 rounded-xl text-xs font-medium border ${
+                        verifyMsg.type === "success"
+                          ? "bg-emerald-100 border-emerald-300 text-emerald-900"
+                          : "bg-error/10 border-error/25 text-error"
+                      }`}>
+                        {verifyMsg.text}
+                      </div>
+                    )}
+
+                    {!isEmailVerified && codeSent && (
+                      <form onSubmit={handleConfirmVerificationCode} className="mt-4 pt-4 border-t border-amber-200/80 flex flex-col sm:flex-row items-center gap-3">
+                        <input
+                          type="text"
+                          maxLength={6}
+                          placeholder="6 haneli kod"
+                          value={verifyCode}
+                          onChange={(e) => setVerifyCode(e.target.value.replace(/\D/g, ""))}
+                          className="w-full sm:w-48 px-4 py-2.5 rounded-xl border border-corp-border bg-white font-mono text-center text-sm font-bold tracking-widest focus:ring-2 focus:ring-corp-teal outline-none"
+                          required
+                        />
+                        <button
+                          type="submit"
+                          disabled={verifyingEmail || verifyCode.length !== 6}
+                          className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-corp-teal text-white font-bold text-xs hover:bg-corp-teal-600 transition-colors shadow-sm disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+                        >
+                          {verifyingEmail && <Loader2 size={14} className="animate-spin" />}
+                          Kodu Onayla
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleSendVerificationCode}
+                          disabled={sendingVerifyCode}
+                          className="text-xs text-corp-gray hover:text-corp-teal underline cursor-pointer ml-auto"
+                        >
+                          Tekrar Kod Gönder
+                        </button>
+                      </form>
+                    )}
+                  </div>
+
                   <div>
                     <h3 className="font-display text-xl font-bold text-corp-charcoal mb-1">Hesap Bilgileri Güncelleme</h3>
                     <p className="text-xs text-corp-gray mb-6">Ad-soyad, telefon ve iletişim e-posta adresinizi buradan değiştirebilirsiniz.</p>

@@ -55,10 +55,17 @@ export default function Header() {
   }, []);
 
   const navItems = React.useMemo(() => {
-    if (!isTrVisitor) return BASE_NAV_ITEMS;
+    const servicesItem = BASE_NAV_ITEMS[0];
+    const projectsItem = BASE_NAV_ITEMS[1];
+    const blogItem = BASE_NAV_ITEMS[2];
+
+    if (!isTrVisitor) return [servicesItem, projectsItem, blogItem];
+
     return [
-      ...BASE_NAV_ITEMS,
+      servicesItem,
       { id: 4, label: "Mağaza", link: "/magaza" },
+      projectsItem,
+      blogItem,
     ];
   }, [isTrVisitor]);
 

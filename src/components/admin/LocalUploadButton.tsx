@@ -25,8 +25,8 @@ export function LocalUploadButton<TEndpoint = string>({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("Dosya boyutu 5 MB sınırını aşıyor.");
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("Dosya boyutu 10 MB sınırını aşıyor.");
       e.target.value = "";
       return;
     }

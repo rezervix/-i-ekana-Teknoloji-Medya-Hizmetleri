@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'node:crypto';
 import { prisma } from '@/lib/prisma';
-import { requireAuth } from '@/lib/auth-guard';
 import { logger } from '@/lib/logger';
 import { callbackUrl, paytrTestMode } from '@/lib/paytr';
+import { auth } from '@/lib/auth';
 
 const PAYTR_ENDPOINT = 'https://www.paytr.com/odeme/api/get-token';
 
@@ -52,9 +52,6 @@ function mapPaytrError(reason?: string): string {
 }
 
 export async function POST(request: NextRequest) {
-  const authResult = await requireAuth(request);
-  if (!authResult.authorized) return authResult.response;
-
   const merchantId = process.env.PAYTR_MERCHANT_ID;
   const merchantKey = process.env.PAYTR_MERCHANT_KEY;
   const merchantSalt = process.env.PAYTR_MERCHANT_SALT;
@@ -63,17 +60,27 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        message: 'Ödeme altyapısı şu anda kullanılamıyor (PayTR yapılandırması eksik).',
+        message: 'Ödeme altyapısı şu anda kullanılamıyor (PayTR ortam değişkenleri eksik).',
       },
       { status: 400 }
     );
   }
 
+  let sessionUser: any = null;
+
   try {
+    const session = await auth().catch(() => null);
+    sessionUser = session?.user as any;
     const { orderNumber, subscriptionId } = await request.json().catch(() => ({}));
 
     // ── 1. ABONELİK ÖDEMESİ ───────────────────────────────────────────────────
     if (subscriptionId !== undefined) {
+      if (!sessionUser?.id) {
+        return NextResponse.json(
+          { success: false, message: 'Abonelik işlemi için lütfen giriş yapın.' },
+          { status: 401 }
+        );
+      }
       if (typeof subscriptionId !== 'string' || !/^[A-Za-z0-9_-]+$/.test(subscriptionId)) {
         return NextResponse.json(
           { success: false, message: 'Geçersiz abonelik.' },
@@ -81,7 +88,7 @@ export async function POST(request: NextRequest) {
         );
       }
       const subscription = await prisma.subscription.findFirst({
-        where: { id: subscriptionId, userId: authResult.user.id, status: 'PENDING' },
+        where: { id: subscriptionId, userId: sessionUser.id, status: 'PENDING' },
         include: { plan: true, planTier: true, user: true },
       });
       if (!subscription) {
@@ -102,7 +109,7 @@ export async function POST(request: NextRequest) {
       if (!/^0?5\d{9}$/.test(userPhone)) {
         logger.warn({
           event: 'PAYTR_PHONE_REQUIRED',
-          userId: authResult.user.id,
+          userId: sessionUser.id,
           details: { subscriptionId: subscription.id },
         });
         return NextResponse.json(
@@ -220,7 +227,7 @@ export async function POST(request: NextRequest) {
       if (result.status !== 'success' || !result.token) {
         logger.error({
           event: 'PAYTR_SUBSCRIPTION_TOKEN_FAILED',
-          userId: authResult.user.id,
+          userId: sessionUser.id,
           details: { merchantOid, status: result.status, reason: result.reason },
         });
         const message = mapPaytrError(result.reason);
@@ -249,9 +256,8 @@ export async function POST(request: NextRequest) {
     const order = await prisma.order.findFirst({
       where: {
         OR: [{ orderNumber }, { id: orderNumber }],
-        userId: authResult.user.id,
       },
-      include: { items: { include: { product: true } } },
+      include: { items: { include: { product: true } }, user: true },
     });
 
     if (!order || order.paymentStatus !== 'PENDING') {
@@ -272,7 +278,8 @@ export async function POST(request: NextRequest) {
     // ── GARANTİLİ UNIQUE merchant_oid Üretimi: ORDER_{timestamp}_{randomString} ──
     const timestamp = Date.now();
     const randomString = crypto.randomBytes(4).toString('hex');
-    const userPart = (authResult.user.id || '').replace(/[^a-zA-Z0-9]/g, '').slice(-6);
+    const userIdentifier = sessionUser?.id || order.userId || 'GUEST';
+    const userPart = userIdentifier.replace(/[^a-zA-Z0-9]/g, '').slice(-6);
     const merchantOid = `ORDER_${userPart || timestamp}_${timestamp}_${randomString}`;
 
     // Veritabanındaki orderNumber alanını bu yeni ve eşsiz merchant_oid ile güncelle
@@ -324,7 +331,8 @@ export async function POST(request: NextRequest) {
     const currency = 'TL';
     const testMode = paytrTestMode();
     const clientIp = getClientIp(request);
-    const customerEmail = order.guestEmail || authResult.user.email || 'musteri@cicekana.com';
+    const customerEmail =
+      order.guestEmail || sessionUser?.email || order.user?.email || 'musteri@cicekanatechmedia.com';
     const siteUrl =
       process.env.NEXT_PUBLIC_SITE_URL ||
       process.env.NEXT_PUBLIC_APP_URL ||
@@ -346,7 +354,7 @@ export async function POST(request: NextRequest) {
 
     const shippingAddr =
       (order.shippingAddress as { address?: string; city?: string; phone?: string }) || {};
-    const rawPhone = shippingAddr.phone || (authResult.user as any).phone || '';
+    const rawPhone = shippingAddr.phone || (order.user as any)?.phone || sessionUser?.phone || '';
     const cleanPhone = normalizePhone(rawPhone) || '05555555555';
     const cleanAddress =
       [shippingAddr.address, shippingAddr.city].filter(Boolean).join(', ') || 'Adres belirtilmedi';
@@ -362,7 +370,7 @@ export async function POST(request: NextRequest) {
       debug_on: process.env.NODE_ENV === 'production' ? '0' : '1',
       no_installment: noInstallment,
       max_installment: maxInstallment,
-      user_name: order.guestName || authResult.user.name || 'Müşteri',
+      user_name: order.guestName || sessionUser?.name || order.user?.name || 'Müşteri',
       user_address: cleanAddress,
       user_phone: cleanPhone,
       merchant_ok_url:
@@ -453,7 +461,7 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     logger.error({
       event: 'PAYTR_TOKEN_ERROR',
-      userId: authResult.user.id,
+      userId: sessionUser?.id || 'GUEST',
       details: { error: error instanceof Error ? error.message : String(error) },
     });
     // Asla 500 veya 502 dönme, frontend'e düzgün hata mesajı dön
