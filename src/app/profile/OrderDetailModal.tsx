@@ -2,6 +2,7 @@
 
 import React from "react";
 import { X, Package, MapPin, CreditCard, Calendar, Truck, ExternalLink, ShieldCheck } from "lucide-react";
+import OrderCustomizationDisplay from "@/components/orders/OrderCustomizationDisplay";
 
 interface OrderDetailModalProps {
   order: any;
@@ -15,6 +16,13 @@ const statusMap: Record<string, { label: string; cls: string }> = {
   SHIPPED: { label: "Kargoya Verildi", cls: "bg-indigo-100 text-indigo-800 border-indigo-200" },
   DELIVERED: { label: "Teslim Edildi", cls: "bg-emerald-100 text-emerald-800 border-emerald-200" },
   CANCELLED: { label: "İptal Edildi", cls: "bg-red-100 text-red-800 border-red-200" },
+};
+
+const paymentStatusMap: Record<string, string> = {
+  PENDING: "Bekliyor",
+  COMPLETED: "Tamamlandı",
+  FAILED: "Başarısız",
+  REFUNDED: "İade Edildi",
 };
 
 export default function OrderDetailModal({ order, onClose }: OrderDetailModalProps) {
@@ -69,9 +77,15 @@ export default function OrderDetailModal({ order, onClose }: OrderDetailModalPro
               <p className="text-[11px] font-bold uppercase tracking-wider text-corp-gray mb-1">Ödeme Yöntemi</p>
               <p className="font-semibold text-sm text-corp-charcoal capitalize flex items-center gap-1.5">
                 <CreditCard size={14} className="text-corp-teal" />
-                {order.paymentMethod === "cc" ? "Kredi / Banka Kartı" : order.paymentMethod || "Kredi Kartı"}
+                {order.paymentMethod === "cc" || order.paymentMethod === "paytr"
+                  ? "Kredi / Banka Kartı (PayTR)"
+                  : order.paymentMethod === "eft" || order.paymentMethod === "bank_transfer"
+                  ? "Havale / EFT"
+                  : order.paymentMethod || "Kredi Kartı"}
               </p>
-              <p className="text-[11px] text-corp-gray mt-0.5 font-medium">Durum: {order.paymentStatus || "Tamamlandı"}</p>
+              <p className="text-[11px] text-corp-gray mt-0.5 font-medium">
+                Durum: {paymentStatusMap[order.paymentStatus] || order.paymentStatus || "Tamamlandı"}
+              </p>
             </div>
 
             <div className="p-4 rounded-xl bg-corp-surface border border-corp-border">
@@ -114,17 +128,27 @@ export default function OrderDetailModal({ order, onClose }: OrderDetailModalPro
                   const product = item.product || {};
                   const image = product.images?.[0] || "https://placehold.co/64x64?text=Ürün";
                   return (
-                    <div key={item.id} className="p-4 flex items-center gap-4 bg-white hover:bg-gray-50 transition-colors">
-                      <img src={image} alt={product.name || "Ürün"} className="w-14 h-14 object-cover rounded-lg border border-corp-border flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <h5 className="font-semibold text-sm text-corp-charcoal truncate">{product.name || "Özel Ürün"}</h5>
-                        <p className="text-xs text-corp-gray mt-0.5">Birim Fiyat: ₺{item.unitPrice.toLocaleString("tr-TR")} | Adet: {item.quantity}</p>
+                    <div key={item.id} className="p-4 bg-white hover:bg-gray-50/60 transition-colors space-y-3">
+                      <div className="flex items-center gap-4">
+                        <img src={image} alt={product.name || "Ürün"} className="w-14 h-14 object-cover rounded-lg border border-corp-border flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <h5 className="font-semibold text-sm text-corp-charcoal truncate">{product.name || "Özel Ürün"}</h5>
+                          <p className="text-xs text-corp-gray mt-0.5">Birim Fiyat: ₺{item.unitPrice.toLocaleString("tr-TR")} | Adet: {item.quantity}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold text-sm text-corp-charcoal">
+                            ₺{(item.unitPrice * item.quantity).toLocaleString("tr-TR")}
+                          </p>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <p className="font-bold text-sm text-corp-charcoal">
-                          ₺{(item.unitPrice * item.quantity).toLocaleString("tr-TR")}
-                        </p>
-                      </div>
+
+                      {/* Customization & Uploaded Design Files */}
+                      {item.customizationData && (
+                        <OrderCustomizationDisplay
+                          customizationData={item.customizationData}
+                          isAdmin={false}
+                        />
+                      )}
                     </div>
                   );
                 })

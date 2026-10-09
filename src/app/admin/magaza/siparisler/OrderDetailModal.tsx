@@ -4,6 +4,7 @@ import React from "react";
 import { X, FileText, ImageIcon, Package } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { OrderWithItems } from "./types";
+import OrderCustomizationDisplay from "@/components/orders/OrderCustomizationDisplay";
 
 interface OrderDetailModalProps {
   order: OrderWithItems;
@@ -247,29 +248,11 @@ export default function OrderDetailModal({ order, onClose }: OrderDetailModalPro
                                 </div>
                               )}
 
-                              {/* ── Customization Data ───────────────────── */}
-                              {item.customizationData &&
-                                typeof item.customizationData === "object" &&
-                                Object.keys(item.customizationData as object).length > 0 && (
-                                  <div className="mt-3 p-3 bg-gray-50 rounded-lg">
-                                    <div className="flex items-center gap-2 mb-2">
-                                      <FileText size={14} className="text-corp-gray" />
-                                      <span className="text-xs font-semibold text-corp-gray">Özelleştirme</span>
-                                    </div>
-                                    <div className="text-xs text-corp-gray space-y-1">
-                                      {Object.entries(
-                                        item.customizationData as Record<string, unknown>
-                                      ).map(([key, value]) => (
-                                        <div key={key}>
-                                          <span className="font-medium">{key}:</span>{" "}
-                                          {typeof value === "object"
-                                            ? JSON.stringify(value)
-                                            : String(value ?? "-")}
-                                        </div>
-                                      ))}
-                                    </div>
-                                  </div>
-                                )}
+                              {/* ── Customization & Uploaded Design Files ── */}
+                              <OrderCustomizationDisplay
+                                customizationData={item.customizationData}
+                                isAdmin={true}
+                              />
                             </div>
                           </div>
                         </div>

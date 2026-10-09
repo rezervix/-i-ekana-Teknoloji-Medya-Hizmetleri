@@ -121,7 +121,7 @@ export default function ProjectDetailModal({ project, onClose }: Props) {
                 </div>
 
                 <a
-                  href={`https://wa.me/${(project.accountManagerContact || "").replace(/[^0-9]/g, "") || "905000000000"}?text=Merhaba,%20${encodeURIComponent(project.title)}%20projem%20hakkında%20bilgi%20almak%20istiyorum.`}
+                  href={`https://wa.me/${(project.accountManagerContact || "").replace(/[^0-9]/g, "") || "905303412156"}?text=Merhaba,%20${encodeURIComponent(project.title)}%20projem%20hakkında%20bilgi%20almak%20istiyorum.`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-colors flex items-center gap-2 shadow-sm"
@@ -144,7 +144,7 @@ export default function ProjectDetailModal({ project, onClose }: Props) {
                   </p>
                 </div>
                 <a
-                  href="https://wa.me/905000000000?text=Abonelik%20paketimi%20yükseltmek%20istiyorum."
+                  href="https://wa.me/905303412156?text=Abonelik%20paketimi%20yükseltmek%20istiyorum."
                   target="_blank"
                   rel="noopener noreferrer"
                   className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs transition-colors shadow-sm"

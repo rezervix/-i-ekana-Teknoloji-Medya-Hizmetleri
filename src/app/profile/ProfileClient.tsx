@@ -10,6 +10,9 @@ import {
   Settings,
   LogOut,
   ChevronRight,
+  Menu,
+  LayoutGrid,
+  X,
   MapPin,
   Phone,
   Mail,
@@ -151,6 +154,7 @@ export default function ProfileClient({
   const [editingAddress, setEditingAddress] = useState<any | null>(null);
   const [supportModalOpen, setSupportModalOpen] = useState(false);
   const [teamModalOpen, setTeamModalOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Forms
   const [accountForm, setAccountForm] = useState({
@@ -637,14 +641,142 @@ export default function ProfileClient({
     completed: { label: "Tamamlandı", bg: "bg-purple-50", text: "text-purple-700" },
   };
 
+  const ORDER_STATUS_MAP: Record<
+    string,
+    { label: string; bg: string; text: string; border: string }
+  > = {
+    PENDING: { label: "Ödeme Bekliyor", bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-200" },
+    CONFIRMED: { label: "Onaylandı", bg: "bg-blue-50", text: "text-blue-700", border: "border-blue-200" },
+    PROCESSING: { label: "Hazırlanıyor", bg: "bg-purple-50", text: "text-purple-700", border: "border-purple-200" },
+    SHIPPED: { label: "Kargoya Verildi", bg: "bg-indigo-50", text: "text-indigo-700", border: "border-indigo-200" },
+    DELIVERED: { label: "Teslim Edildi", bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200" },
+    CANCELLED: { label: "İptal Edildi", bg: "bg-rose-50", text: "text-rose-700", border: "border-rose-200" },
+  };
+
+  const ticketStatusLabels: Record<string, string> = {
+    open: "Açık",
+    in_progress: "İşlemde",
+    resolved: "Çözüldü",
+    closed: "Kapatıldı",
+  };
+
+  const ticketPriorityLabels: Record<string, string> = {
+    low: "Düşük",
+    normal: "Normal",
+    high: "Yüksek",
+    urgent: "Acil",
+  };
+
   return (
     <main className="min-h-screen bg-corp-surface">
       <Header />
 
-      <div className="pt-32 pb-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-12">
+      <div className="pt-28 sm:pt-32 pb-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-12">
+        {/* Mobile Header & Horizontal Navigation Bar (lg:hidden) */}
+        <div className="lg:hidden w-full space-y-3 mb-6">
+          {/* User Brief Bar */}
+          <div className="bg-white rounded-2xl border border-corp-border p-3.5 shadow-xs">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-11 h-11 rounded-xl bg-corp-teal/10 text-corp-teal flex items-center justify-center font-bold text-sm border border-corp-teal/20 shrink-0 relative shadow-inner">
+                  {user?.image ? (
+                    <img
+                      src={user.image}
+                      alt={user.name}
+                      className="w-full h-full rounded-xl object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = "https://placehold.co/80x80?text=Profil";
+                      }}
+                    />
+                  ) : (
+                    userInitials
+                  )}
+                  {isEmailVerified && (
+                    <span
+                      className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 text-white rounded-full flex items-center justify-center border border-white"
+                      title="Doğrulanmış Hesap"
+                    >
+                      <CheckCircle2 size={10} />
+                    </span>
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h2 className="font-display font-bold text-sm text-corp-charcoal truncate">
+                    {user?.companyTitle || user?.name || "Kullanıcı"}
+                  </h2>
+                  <p className="text-[11px] text-corp-gray truncate">{user?.email}</p>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <span
+                      className={`inline-flex items-center gap-0.5 px-2 py-0.2 rounded-full text-[9px] font-bold uppercase tracking-wider border ${
+                        isEmailVerified
+                          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                          : "bg-amber-50 text-amber-700 border-amber-200"
+                      }`}
+                    >
+                      {isEmailVerified ? "Doğrulandı" : "Doğrulanmadı"}
+                    </span>
+                    {user?.accountType === "corporate" && (
+                      <span className="px-2 py-0.2 rounded-full bg-blue-50 text-blue-700 text-[9px] font-bold uppercase border border-blue-200">
+                        Kurumsal
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* All Menu Trigger */}
+              <button
+                onClick={() => setMobileMenuOpen(true)}
+                className="min-h-[44px] px-3 py-2 rounded-xl bg-corp-surface border border-corp-border hover:border-corp-teal hover:text-corp-teal text-corp-charcoal font-bold text-xs flex items-center gap-1.5 shrink-0 transition-colors shadow-xs"
+                aria-label="Tüm menüyü aç"
+              >
+                <LayoutGrid size={15} className="text-corp-teal" />
+                <span>Menü</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Touch-Friendly Horizontal Scrollable Tab Bar */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0">
+            {menuGroups.flatMap((g) => g.items).map((item) => {
+              const Icon = item.icon;
+              const isActive = activeTab === item.id;
+
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    setActiveTab(item.id);
+                    if (typeof window !== "undefined") {
+                      window.history.replaceState(null, "", `/profile?tab=${item.id}`);
+                    }
+                  }}
+                  className={`min-h-[44px] whitespace-nowrap flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold shrink-0 transition-all ${
+                    isActive
+                      ? "bg-corp-teal text-white shadow-md shadow-corp-teal/20 font-bold"
+                      : "bg-white text-corp-charcoal border border-corp-border hover:bg-gray-50 hover:text-corp-teal"
+                  }`}
+                >
+                  <Icon size={15} />
+                  <span>{item.label}</span>
+                  {item.badge !== undefined && item.badge > 0 && (
+                    <span
+                      className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                        isActive ? "bg-white text-corp-teal" : "bg-corp-teal/10 text-corp-teal"
+                      }`}
+                    >
+                      {item.badge}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         <div className="flex flex-col lg:flex-row gap-8">
-          {/* Sidebar */}
-          <aside className="w-full lg:w-80 flex-shrink-0">
+          {/* Desktop Sticky Sidebar (hidden on mobile) */}
+          <aside className="hidden lg:block lg:w-80 flex-shrink-0">
             <div className="bg-white rounded-3xl border border-corp-border shadow-sm overflow-hidden sticky top-32">
               <div className="p-6 text-center border-b border-corp-border bg-gradient-to-b from-corp-teal/5 to-white">
                 <div className="w-20 h-20 rounded-2xl bg-corp-teal/10 text-corp-teal flex items-center justify-center text-2xl font-bold mx-auto mb-3 border-2 border-corp-teal/20 relative shadow-inner">
@@ -887,7 +1019,7 @@ export default function ProfileClient({
                         <LifeBuoy size={16} /> Destek Talebi Aç
                       </button>
                       <a
-                        href="https://wa.me/905000000000?text=Merhaba,%20danışmanlık%20hizmetleri%20hakkında%20bilgi%20almak%20istiyorum."
+                        href="https://wa.me/905303412156?text=Merhaba,%20danışmanlık%20hizmetleri%20hakkında%20bilgi%20almak%20istiyorum."
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex-1 md:flex-none px-5 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs transition-colors border border-white/10 flex items-center justify-center gap-2"
@@ -917,7 +1049,7 @@ export default function ProfileClient({
                         <div className="text-center py-8">
                           <p className="text-xs text-corp-gray mb-3">Henüz tanımlanmış aktif bir projeniz bulunmuyor.</p>
                           <a
-                            href="https://wa.me/905000000000?text=Merhaba,%20yeni%20proje%20hakkında%20görüşmek%20istiyorum."
+                            href="https://wa.me/905303412156?text=Merhaba,%20yeni%20proje%20hakkında%20görüşmek%20istiyorum."
                             target="_blank"
                             rel="noopener noreferrer"
                             className="inline-block px-4 py-2 rounded-xl bg-corp-teal text-white font-bold text-xs shadow-md shadow-corp-teal/20"
@@ -1007,7 +1139,7 @@ export default function ProfileClient({
                       <p className="text-xs text-corp-gray mt-0.5">Aktif web, reklam, sosyal medya ve AI abonelik projelerinizin durumunu takip edin.</p>
                     </div>
                     <a
-                      href="https://wa.me/905000000000?text=Merhaba,%20yeni%20bir%20hizmet%20almak%20istiyorum."
+                      href="https://wa.me/905303412156?text=Merhaba,%20yeni%20bir%20hizmet%20almak%20istiyorum."
                       target="_blank"
                       rel="noopener noreferrer"
                       className="px-4 py-2.5 rounded-xl bg-corp-teal text-white font-bold text-xs hover:bg-corp-teal-600 transition-colors shadow-lg shadow-corp-teal/20 flex items-center gap-1.5"
@@ -1029,7 +1161,7 @@ export default function ProfileClient({
                         Web geliştirme, e-ticaret altyapısı, reklam yönetimi veya Microsoft Call Center AI çözümlerimizden yararlanmak için ekibimizle iletişime geçin.
                       </p>
                       <a
-                        href="https://wa.me/905000000000?text=Merhaba,%20hizmetleriniz%20hakkında%20bilgi%20almak%20istiyorum."
+                        href="https://wa.me/905303412156?text=Merhaba,%20hizmetleriniz%20hakkında%20bilgi%20almak%20istiyorum."
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-block px-6 py-3 rounded-xl bg-corp-teal text-white font-bold text-xs hover:bg-corp-teal-600 transition-colors shadow-lg shadow-corp-teal/20"
@@ -1233,7 +1365,7 @@ export default function ProfileClient({
                             >
                               <div className="flex justify-between items-center mb-1">
                                 <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border ${statusColors[t.status] || "bg-gray-100"}`}>
-                                  {t.status}
+                                  {ticketStatusLabels[t.status] || t.status}
                                 </span>
                                 <span className="text-[10px] text-corp-gray font-mono">
                                   #{t.id.slice(-6)}
@@ -1262,7 +1394,7 @@ export default function ProfileClient({
                                 <div>
                                   <h4 className="font-display font-bold text-corp-charcoal text-base">{selectedTicket.subject}</h4>
                                   <p className="text-[11px] text-corp-gray">
-                                    Öncelik: <span className="uppercase font-bold text-corp-teal">{selectedTicket.priority}</span>
+                                    Öncelik: <span className="font-bold text-corp-teal">{ticketPriorityLabels[selectedTicket.priority] || selectedTicket.priority}</span>
                                   </p>
                                 </div>
                               </div>
@@ -1513,51 +1645,80 @@ export default function ProfileClient({
                     </div>
                   ) : (
                     <div className="divide-y divide-corp-border">
-                      {orders.map((order) => (
-                        <div
-                          key={order.id}
-                          className="p-6 hover:bg-gray-50/80 transition-colors flex flex-col md:flex-row md:items-center justify-between gap-4"
-                        >
-                          <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-xl bg-corp-teal/10 border border-corp-teal/20 flex items-center justify-center text-corp-teal flex-shrink-0">
-                              <Package size={22} />
-                            </div>
-                            <div>
-                              <p className="font-body font-bold text-corp-charcoal text-sm">Sipariş #{order.orderNumber}</p>
-                              <p className="text-xs text-corp-gray mt-0.5">
-                                {new Date(order.createdAt).toLocaleDateString("tr-TR", { day: "numeric", month: "long", year: "numeric" })}
-                              </p>
-                              {order.items && order.items.length > 0 && (
-                                <p className="text-[11px] text-corp-gray font-medium mt-1">
-                                  {order.items.length} Kalem Ürün ({order.items[0]?.product?.name || "Ürün"}{" "}
-                                  {order.items.length > 1 ? `ve ${order.items.length - 1} diğer` : ""})
-                                </p>
-                              )}
-                            </div>
-                          </div>
+                      {orders.map((order) => {
+                        const st = ORDER_STATUS_MAP[order.status] || {
+                          label: order.status,
+                          bg: "bg-gray-100",
+                          text: "text-gray-700",
+                          border: "border-gray-200",
+                        };
 
-                          <div className="flex items-center gap-6">
-                            <div className="text-right">
-                              <p className="text-[11px] text-corp-gray font-bold uppercase tracking-wider mb-1">Durum</p>
-                              <span className="px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 text-[10px] font-bold uppercase border border-blue-100">
-                                {order.status}
-                              </span>
+                        return (
+                          <div
+                            key={order.id}
+                            className="p-4 sm:p-6 hover:bg-gray-50/80 transition-colors flex flex-col md:flex-row md:items-center justify-between gap-4"
+                          >
+                            <div className="flex items-start sm:items-center gap-3.5">
+                              <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-corp-teal/10 border border-corp-teal/20 flex items-center justify-center text-corp-teal flex-shrink-0 mt-0.5 sm:mt-0">
+                                <Package size={22} />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <p className="font-body font-bold text-corp-charcoal text-sm">
+                                    Sipariş #{order.orderNumber}
+                                  </p>
+                                  {/* Mobile Status Badge inline */}
+                                  <span
+                                    className={`md:hidden px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border ${st.bg} ${st.text} ${st.border}`}
+                                  >
+                                    {st.label}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-corp-gray mt-0.5">
+                                  {new Date(order.createdAt).toLocaleDateString("tr-TR", {
+                                    day: "numeric",
+                                    month: "long",
+                                    year: "numeric",
+                                  })}
+                                </p>
+                                {order.items && order.items.length > 0 && (
+                                  <p className="text-[11px] text-corp-gray font-medium mt-1 truncate">
+                                    {order.items.length} Kalem Ürün ({order.items[0]?.product?.name || "Ürün"}
+                                    {order.items.length > 1 ? ` ve ${order.items.length - 1} diğer` : ""})
+                                  </p>
+                                )}
+                              </div>
                             </div>
-                            <div className="text-right">
-                              <p className="text-[11px] text-corp-gray font-bold uppercase tracking-wider mb-1">Toplam</p>
-                              <p className="font-body font-bold text-corp-charcoal text-base">
-                                ₺{order.finalAmount?.toLocaleString("tr-TR")}
-                              </p>
+
+                            <div className="flex items-center justify-between md:justify-end gap-3 sm:gap-6 pt-3 md:pt-0 border-t border-gray-100 md:border-none">
+                              {/* Desktop Status Badge */}
+                              <div className="hidden md:block text-right">
+                                <p className="text-[10px] text-corp-gray font-bold uppercase tracking-wider mb-1">Durum</p>
+                                <span
+                                  className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase border ${st.bg} ${st.text} ${st.border}`}
+                                >
+                                  {st.label}
+                                </span>
+                              </div>
+
+                              <div className="text-left md:text-right">
+                                <p className="text-[10px] text-corp-gray font-bold uppercase tracking-wider mb-0.5">Toplam</p>
+                                <p className="font-body font-bold text-corp-charcoal text-base sm:text-lg">
+                                  ₺{order.finalAmount?.toLocaleString("tr-TR")}
+                                </p>
+                              </div>
+
+                              <button
+                                onClick={() => setSelectedOrder(order)}
+                                className="min-h-[44px] px-4 py-2.5 rounded-xl border border-corp-border bg-white text-corp-charcoal hover:border-corp-teal hover:text-corp-teal hover:bg-corp-teal-50 font-bold text-xs transition-all shadow-xs flex items-center gap-1.5 shrink-0"
+                              >
+                                <span>Detay Gör</span>
+                                <ChevronRight size={14} />
+                              </button>
                             </div>
-                            <button
-                              onClick={() => setSelectedOrder(order)}
-                              className="px-4 py-2 rounded-xl border border-corp-border bg-white text-corp-charcoal hover:border-corp-teal hover:text-corp-teal font-bold text-xs transition-all shadow-sm flex items-center gap-1.5"
-                            >
-                              Detay Gör <ChevronRight size={14} />
-                            </button>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -2488,6 +2649,84 @@ export default function ProfileClient({
           onClose={() => setTeamModalOpen(false)}
           onMemberInvited={() => fetchTeam()}
         />
+      )}
+
+      {/* Mobile All Menu Drawer / Modal */}
+      {mobileMenuOpen && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl border border-corp-border shadow-2xl w-full max-w-lg max-h-[85vh] overflow-hidden flex flex-col">
+            <div className="p-5 border-b border-corp-border flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <LayoutGrid size={18} className="text-corp-teal" />
+                <h3 className="font-display font-bold text-base text-corp-charcoal">Profil Menüsü</h3>
+              </div>
+              <button
+                onClick={() => setMobileMenuOpen(false)}
+                className="p-2 rounded-lg text-corp-gray hover:text-corp-charcoal transition-colors"
+                aria-label="Kapat"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="p-4 overflow-y-auto space-y-6">
+              {menuGroups.map((group, groupIdx) => (
+                <div key={groupIdx}>
+                  <p className="px-3 text-[10px] font-bold text-corp-gray uppercase tracking-widest mb-2">
+                    {group.title}
+                  </p>
+                  <div className="grid grid-cols-1 gap-1">
+                    {group.items.map((item) => {
+                      const Icon = item.icon;
+                      const isActive = activeTab === item.id;
+
+                      return (
+                        <button
+                          key={item.id}
+                          onClick={() => {
+                            setActiveTab(item.id);
+                            setMobileMenuOpen(false);
+                            if (typeof window !== "undefined") {
+                              window.history.replaceState(null, "", `/profile?tab=${item.id}`);
+                            }
+                          }}
+                          className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-xs font-semibold transition-all ${
+                            isActive
+                              ? "bg-corp-teal text-white shadow-md shadow-corp-teal/20"
+                              : "text-corp-charcoal hover:bg-gray-100"
+                          }`}
+                        >
+                          <Icon size={16} />
+                          <span className="truncate">{item.label}</span>
+                          {item.badge !== undefined && item.badge > 0 && (
+                            <span
+                              className={`ml-auto px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                isActive ? "bg-white text-corp-teal" : "bg-corp-teal/10 text-corp-teal"
+                              }`}
+                            >
+                              {item.badge}
+                            </span>
+                          )}
+                          <ChevronRight size={14} className={`ml-auto ${isActive ? "opacity-100" : "opacity-0"}`} />
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+
+              <div className="pt-2 border-t border-corp-border">
+                <button
+                  onClick={() => signOut({ callbackUrl: "/" })}
+                  className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-xs font-semibold text-error hover:bg-error/5 transition-all"
+                >
+                  <LogOut size={16} />
+                  Çıkış Yap
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       <Footer />
