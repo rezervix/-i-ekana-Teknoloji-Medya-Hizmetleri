@@ -10,6 +10,7 @@ export default async function AdminUrunlerPage() {
   let products: any[] = [];
   try {
     products = await prisma.product.findMany({
+      where: { deletedAt: null },
       orderBy: { createdAt: "desc" }
     });
   } catch (error) {

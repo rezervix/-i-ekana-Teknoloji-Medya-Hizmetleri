@@ -229,6 +229,7 @@ model Product {
   images               String[]
   stock                Int? // null = unlimited
   isActive             Boolean         @default(true)
+  deletedAt            DateTime? // soft-delete: dolu ise admin listesinde ve vitrinde görünmez
   isFeatured           Boolean         @default(false)
   freeShipping         Boolean         @default(false)
   customizationOptions Json?

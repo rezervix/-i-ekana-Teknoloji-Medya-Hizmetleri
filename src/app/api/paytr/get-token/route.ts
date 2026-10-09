@@ -29,15 +29,23 @@ function normalizePhone(value: string | null | undefined) {
   return digits;
 }
 
+/**
+ * PayTR merchant_oid KURALI: yalnızca alfanumerik (a-z, A-Z, 0-9), en fazla 64 karakter.
+ * Alt çizgi / tire / boşluk PayTR tarafından reddedilir.
+ * Biçim: <PREFIX><temizlenmiş kimlik><13 haneli ms zaman damgası><3 haneli rastgele>
+ * Callback tarafında son 16 karakter atılarak kimlik geri elde edilir.
+ */
+function buildMerchantOid(prefix: 'ORD' | 'SUB', id: string) {
+  const cleanId = id.replace(/[^A-Za-z0-9]/g, '');
+  const rand = crypto.randomInt(0, 1000).toString().padStart(3, '0');
+  return `${prefix}${cleanId}${Date.now()}${rand}`;
+}
+
 function mapPaytrError(reason?: string): string {
   if (!reason) return 'Ödeme başlatılamadı. Lütfen tekrar deneyin.';
   const lower = reason.toLowerCase();
-  if (
-    lower.includes('merchant_oid') ||
-    lower.includes('daha once') ||
-    lower.includes('daha önce')
-  ) {
-    return 'Sipariş numarası zaten kullanıldı, lütfen tekrar deneyin';
+  if (lower.includes('daha once') || lower.includes('daha önce')) {
+    return 'Bu sipariş için ödeme oturumu zaten açılmış. Lütfen sayfayı yenileyip tekrar deneyin.';
   }
   if (lower.includes('user_phone') || lower.includes('telefon')) {
     return 'PayTR telefon numarasını kabul etmedi. Lütfen profil veya teslimat bilgilerinizde geçerli bir cep telefonu (05XXXXXXXXX) kullanın.';
@@ -45,7 +53,7 @@ function mapPaytrError(reason?: string): string {
   if (lower.includes('user_basket') || lower.includes('sepet') || lower.includes('amount')) {
     return 'Sepet tutarı ile ödeme tutarı uyuşmazlığı tespit edildi. Lütfen sepetinizi kontrol edin.';
   }
-  if (lower.includes('merchant_id') || lower.includes('ip') || lower.includes('yetki')) {
+  if (lower.includes('merchant_id') || /\bip\b/.test(lower) || lower.includes('yetki')) {
     return 'Ödeme altyapısı sağlayıcı doğrulaması başarısız oldu (IP veya Mağaza No doğrulaması).';
   }
   return `Ödeme sağlayıcı hatası: ${reason}`;
@@ -128,8 +136,8 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Benzersiz merchant_oid üretimi: SUB_${subscriptionId}_${Date.now()}
-      const merchantOid = `SUB_${subscription.id}_${Date.now()}`;
+      // Benzersiz ve YALNIZCA alfanumerik merchant_oid
+      const merchantOid = buildMerchantOid('SUB', subscription.id);
 
       // Subscription tablosunda paytrCustomerCode alanına merchant_oid kaydı (callback için)
       await prisma.subscription.update({
@@ -274,10 +282,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ── GARANTİLİ UNIQUE merchant_oid Üretimi: ORD_${orderId}_${Date.now()} ──
-    // PayTR'a gönderilen merchant_oid her istek için benzersiz üretilir.
-    // Orijinal orderId callback tarafında split('_') ile kolayca ayrıştırılır.
-    const merchantOid = `ORD_${order.id}_${Date.now()}`;
+    // ── Benzersiz ve YALNIZCA alfanumerik merchant_oid (PayTR kuralı) ──
+    // Her istek için yeni üretilir; callback tarafında son 16 karakter atılarak orderId elde edilir.
+    const merchantOid = buildMerchantOid('ORD', order.id);
 
     logger.info({
       event: 'PAYTR_TOKEN_REQUESTED',
@@ -419,22 +426,6 @@ export async function POST(request: NextRequest) {
         event: 'PAYTR_TOKEN_FAILED',
         details: { merchantOid, reason: result.reason, raw: result },
       });
-
-      // PayTR merchant_oid daha önce kullanılmış hatası
-      if (
-        result.reason &&
-        (result.reason.toLowerCase().includes('merchant_oid') ||
-          result.reason.toLowerCase().includes('daha once'))
-      ) {
-        return NextResponse.json(
-          {
-            success: false,
-            message: 'Sipariş numarası zaten kullanıldı, lütfen tekrar deneyin',
-            reason: result.reason,
-          },
-          { status: 400 }
-        );
-      }
 
       const clientMessage = mapPaytrError(result.reason);
       return NextResponse.json(

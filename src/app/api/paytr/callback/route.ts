@@ -33,27 +33,28 @@ export async function POST(request: NextRequest) {
     }
 
     // 1. merchant_oid string'inden orijinal orderId / subscriptionId değerini ayrıştır
-    // Format: ORD_${orderId}_${timestamp} veya SUB_${subscriptionId}_${timestamp}
-    let originalOrderId = merchantOid;
-    if (merchantOid.startsWith('ORD_')) {
-      const parts = merchantOid.split('_');
-      if (parts.length >= 3) {
-        // İlk parça 'ORD', son parça timestamp; aradaki kısım orijinal orderId
-        originalOrderId = parts.slice(1, -1).join('_');
-      } else if (parts.length === 2) {
-        originalOrderId = parts[1];
+    // Yeni biçim (alfanumerik): ORD<orderId><13 hane ms><3 hane rastgele> / SUB<subId>...
+    // Eski biçim (geriye dönük):  ORD_<orderId>_<timestamp> / SUB_<subId>_<timestamp>
+    const SUFFIX_LEN = 16;
+    const parseOid = (prefix: 'ORD' | 'SUB'): string => {
+      if (merchantOid.startsWith(`${prefix}_`)) {
+        const parts = merchantOid.split('_');
+        if (parts.length >= 3) return parts.slice(1, -1).join('_');
+        if (parts.length === 2) return parts[1];
+        return merchantOid;
       }
-    }
-
-    let originalSubId = merchantOid;
-    if (merchantOid.startsWith('SUB_')) {
-      const parts = merchantOid.split('_');
-      if (parts.length >= 3) {
-        originalSubId = parts.slice(1, -1).join('_');
-      } else if (parts.length === 2) {
-        originalSubId = parts[1];
+      if (
+        merchantOid.startsWith(prefix) &&
+        /^[A-Za-z0-9]+$/.test(merchantOid) &&
+        merchantOid.length > prefix.length + SUFFIX_LEN &&
+        /^\d{16}$/.test(merchantOid.slice(-SUFFIX_LEN))
+      ) {
+        return merchantOid.slice(prefix.length, -SUFFIX_LEN);
       }
-    }
+      return merchantOid;
+    };
+    const originalOrderId = parseOid('ORD');
+    const originalSubId = parseOid('SUB');
 
     // Abonelik kontrolü (doğrudan ID, ayrıştırılan ID veya paytrCustomerCode üzerinden)
     let subscription = await prisma.subscription.findFirst({

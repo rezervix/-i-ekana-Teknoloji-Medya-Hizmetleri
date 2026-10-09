@@ -140,6 +140,11 @@ export async function POST(req: NextRequest) {
     // ── Ürün Eşleştirme ve Doğrulama (Product Resolution) ────────────────────
     const resolvedItems = [];
 
+    // Mağaza ürünlerinin kimliği cuid biçimindedir. Bu biçimdeki bir kimlik DB'de yoksa
+    // ürün silinmiştir; hayalet ürün olarak yeniden OLUŞTURULMAMALIDIR.
+    const isStoreProductId = (id: string) => /^c[a-z0-9]{20,30}$/.test(id);
+    const unavailableProductIds: string[] = [];
+
     for (const item of items) {
       const rawProductId = item.productId || "";
 
@@ -158,7 +163,8 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      if (!product && typeof rawProductId === "string") {
+      if (!product && typeof rawProductId === "string" && !isStoreProductId(rawProductId)) {
+        // Yalnızca hizmet/çözüm paketleri (slug kimlikli) otomatik oluşturulur
         const productName = (item as any).name || rawProductId;
         product = await prisma.product.create({
           data: {
@@ -172,11 +178,9 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      if (!product) {
-        return NextResponse.json(
-          { success: false, error: { code: "INVALID_PRODUCT", message: `Ürün veritabanında doğrulanamadı: ${rawProductId}` } },
-          { status: 400 }
-        );
+      if (!product || !product.isActive || product.deletedAt) {
+        unavailableProductIds.push(rawProductId);
+        continue;
       }
 
       resolvedItems.push({
@@ -186,6 +190,21 @@ export async function POST(req: NextRequest) {
         customizationData: item.customizationData || null,
         selectedTemplateId: item.customizationData?.selectedTemplate || null,
       });
+    }
+
+    if (unavailableProductIds.length > 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "PRODUCT_UNAVAILABLE",
+            message:
+              "Sepetinizdeki bazı ürünler artık satışta değil. Bu ürünler sepetinizden çıkarıldı, lütfen kontrol edip tekrar deneyin.",
+            productIds: unavailableProductIds,
+          },
+        },
+        { status: 409 }
+      );
     }
 
     const orderNumber = generateOrderNumber();

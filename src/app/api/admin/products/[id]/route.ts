@@ -178,7 +178,7 @@ export async function DELETE(
         // Pasife al
         await tx.product.update({
           where: { id },
-          data: { isActive: false },
+          data: { isActive: false, deletedAt: new Date() },
         });
       });
       console.log(

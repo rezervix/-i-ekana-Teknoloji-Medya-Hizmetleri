@@ -147,6 +147,7 @@ export async function GET() {
 
   try {
     const products = await prisma.product.findMany({
+      where: { deletedAt: null },
       orderBy: { createdAt: "desc" }
     });
     return NextResponse.json(products);
@@ -187,6 +188,7 @@ export async function DELETE(req: Request) {
 
     if (isAll) {
       const allProducts = await prisma.product.findMany({
+        where: { deletedAt: null },
         select: { id: true },
       });
       targetIds = allProducts.map((p) => p.id);
@@ -260,7 +262,7 @@ export async function DELETE(req: Request) {
         // Ürünü pasife al (soft delete: isActive = false)
         await tx.product.updateMany({
           where: { id: { in: withOrderIds } },
-          data: { isActive: false },
+          data: { isActive: false, deletedAt: new Date() },
         });
       });
       softDeletedIds.push(...withOrderIds);

@@ -98,7 +98,7 @@ export default async function ProductDetailPage({
     console.error("Error fetching product:", error);
   }
 
-  if (!product) {
+  if (!product || !product.isActive || product.deletedAt) {
     notFound();
   }
 

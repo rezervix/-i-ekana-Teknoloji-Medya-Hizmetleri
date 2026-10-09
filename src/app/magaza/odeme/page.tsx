@@ -25,7 +25,7 @@ import { trackBeginCheckout, trackAddShippingInfo, trackAddPaymentInfo } from '@
 
 export default function CheckoutPage() {
   const { data: session, status } = useSession();
-  const { items, clearCart } = useCartStore();
+  const { items, clearCart, removeItem } = useCartStore();
   const [mounted, setMounted] = useState(false);
   const router = useRouter();
 
@@ -215,11 +215,6 @@ export default function CheckoutPage() {
         const tokenData = await tokenResponse.json().catch(() => ({}));
         if (!tokenResponse.ok || !tokenData.token) {
           const errMsg = tokenData.message || `Ödeme ekranı açılamadı (${tokenResponse.status}).`;
-          if (errMsg.includes('zaten kullanıldı') || errMsg.includes('daha önce işlenmiş')) {
-            handleCancelPayment();
-            setErrorMessage('Sepetiniz yenileniyor, lütfen tekrar deneyin.');
-            return;
-          }
           throw new Error(errMsg);
         }
         const activeSubOid = tokenData.merchant_oid || subscriptionData.subscriptionId;
@@ -323,6 +318,17 @@ export default function CheckoutPage() {
       if (!res.ok || !data.success) {
         if (data.error?.code === 'UNAUTHORIZED' || res.status === 401) {
           router.push('/auth?callbackUrl=/magaza/odeme');
+          return;
+        }
+        if (data.error?.code === 'PRODUCT_UNAVAILABLE') {
+          const goneIds: string[] = Array.isArray(data.error?.productIds) ? data.error.productIds : [];
+          items
+            .filter((i) => goneIds.includes(i.productId))
+            .forEach((i) => removeItem(i.id));
+          setErrorMessage(
+            data.error?.message ||
+              'Sepetinizdeki bazı ürünler artık satışta değil ve sepetinizden çıkarıldı.'
+          );
           return;
         }
         if (data.error?.code === 'EMAIL_VERIFICATION_REQUIRED' || res.status === 403) {
