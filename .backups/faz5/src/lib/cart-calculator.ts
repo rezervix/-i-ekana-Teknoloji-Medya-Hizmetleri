@@ -51,8 +51,6 @@ export interface CartCalculationParams {
 
 export interface CartCalculationResult {
   subtotal: number;
-  itemsSubtotal: number;
-  designFeesTotal: number;
   freeShippingThreshold: number;
   shippingFee: number;
   isFreeShipping: number | boolean;
@@ -63,7 +61,6 @@ export interface CartCalculationResult {
   couponError: string | null;
   grandTotal: number;
   totalItemCount: number;
-  vatNote: string;
 }
 
 export function calculateCartTotals({
@@ -84,8 +81,6 @@ export function calculateCartTotals({
 
   // 1. Calculate subtotal & total items
   let subtotal = 0;
-  let itemsSubtotal = 0;
-  let designFeesTotal = 0;
   let totalItemCount = 0;
   let hasFreeShippingItem = false;
 
@@ -93,24 +88,18 @@ export function calculateCartTotals({
     const qty = Math.max(1, item.quantity || 1);
     totalItemCount += qty;
 
-    const itemProductsTotal = item.price * qty;
-    itemsSubtotal += itemProductsTotal;
-
     const servicesTotal =
       item.extraServices?.reduce((sum, s) => sum + (s.price || 0), 0) || 0;
-    designFeesTotal += servicesTotal;
 
-    subtotal += itemProductsTotal + servicesTotal;
+    subtotal += item.price * qty + servicesTotal;
 
     if (item.freeShipping) {
       hasFreeShippingItem = true;
     }
   }
 
-  // Round values to 2 decimals
+  // Round subtotal to 2 decimals
   subtotal = Math.round(subtotal * 100) / 100;
-  itemsSubtotal = Math.round(itemsSubtotal * 100) / 100;
-  designFeesTotal = Math.round(designFeesTotal * 100) / 100;
 
   // 2. Shipping calculation
   const isEligibleForFreeShipping =
@@ -160,8 +149,6 @@ export function calculateCartTotals({
 
   return {
     subtotal,
-    itemsSubtotal,
-    designFeesTotal,
     freeShippingThreshold: threshold,
     shippingFee,
     isFreeShipping: isEligibleForFreeShipping,
@@ -172,6 +159,5 @@ export function calculateCartTotals({
     couponError,
     grandTotal,
     totalItemCount,
-    vatNote: "KDV Dahil",
   };
 }

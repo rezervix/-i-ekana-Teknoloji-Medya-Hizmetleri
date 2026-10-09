@@ -4,7 +4,6 @@ import { persist } from 'zustand/middleware';
 export interface CartItemType {
   id: string; // generate a random ID for guest cart
   productId: string;
-  slug?: string;
   itemType?: "product" | "subscription";
   subscriptionPlanId?: string;
   subscriptionTierId?: string;
@@ -22,7 +21,6 @@ export interface CartItemType {
   }[];
   selectedDesignTemplateId?: string;
   selectedDesignTemplateName?: string;
-  availableTiers?: number[];
 }
 
 interface CartStore {
@@ -30,11 +28,8 @@ interface CartStore {
   savedForLater: CartItemType[];
   couponCode: string | null;
   isOpen: boolean;
-  lastDeletedItem: { item: CartItemType; index: number } | null;
   addItem: (item: Omit<CartItemType, 'id'>) => void;
   removeItem: (id: string) => void;
-  undoRemove: () => void;
-  clearLastDeletedItem: () => void;
   updateQuantity: (id: string, quantity: number) => void;
   saveForLater: (id: string) => void;
   moveToCart: (id: string) => void;
@@ -54,7 +49,6 @@ export const useCartStore = create<CartStore>()(
       savedForLater: [],
       couponCode: null,
       isOpen: false,
-      lastDeletedItem: null,
       addItem: (item) => {
         set((state) => {
           // Check if same item with same customizations exists
@@ -81,32 +75,7 @@ export const useCartStore = create<CartStore>()(
         });
       },
       removeItem: (id) =>
-        set((state) => {
-          const index = state.items.findIndex((i) => i.id === id);
-          if (index === -1) return state;
-          const deleted = state.items[index];
-          return {
-            items: state.items.filter((i) => i.id !== id),
-            lastDeletedItem: { item: deleted, index },
-          };
-        }),
-      undoRemove: () =>
-        set((state) => {
-          if (!state.lastDeletedItem) return state;
-          const { item, index } = state.lastDeletedItem;
-          const newItems = [...state.items];
-          // Insert back at original index or push
-          if (index >= 0 && index <= newItems.length) {
-            newItems.splice(index, 0, item);
-          } else {
-            newItems.push(item);
-          }
-          return {
-            items: newItems,
-            lastDeletedItem: null,
-          };
-        }),
-      clearLastDeletedItem: () => set({ lastDeletedItem: null }),
+        set((state) => ({ items: state.items.filter((i) => i.id !== id) })),
       updateQuantity: (id, quantity) => {
         if (quantity <= 0) {
           set((state) => ({ items: state.items.filter((i) => i.id !== id) }));

@@ -18,8 +18,6 @@ import {
   Lock,
   ChevronDown,
   ChevronUp,
-  FileText,
-  Edit3,
 } from "lucide-react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
@@ -27,7 +25,6 @@ import { useSession } from "next-auth/react";
 import { calculateCartTotals } from "@/lib/cart-calculator";
 import { STORE_DELIVERY_CONFIG } from "@/config/store.config";
 import { trackViewCart, trackRemoveFromCart } from "@/lib/analytics";
-import { toast } from "sonner";
 
 export default function CartDrawer() {
   const {
@@ -37,7 +34,6 @@ export default function CartDrawer() {
     isOpen,
     closeDrawer,
     removeItem,
-    undoRemove,
     updateQuantity,
     saveForLater,
     moveToCart,
@@ -100,13 +96,6 @@ export default function CartDrawer() {
       category: item.category,
     });
     removeItem(item.id);
-    toast("Ürün sepetten çıkarıldı", {
-      action: {
-        label: "Geri Al",
-        onClick: () => undoRemove(),
-      },
-      duration: 5000,
-    });
   };
 
   // Comprehensive, centralized calculation via calculateCartTotals
@@ -309,7 +298,7 @@ export default function CartDrawer() {
 
                           {/* Dimension summaries */}
                           {item.customizationData?.dimensionValues && (
-                            <p className="text-[11px] text-corp-gray mt-1 leading-snug">
+                            <p className="text-[11px] text-corp-gray mt-1 line-clamp-1">
                               {Object.entries(
                                 item.customizationData.dimensionValues
                               )
@@ -317,51 +306,6 @@ export default function CartDrawer() {
                                 .join(" • ")}
                             </p>
                           )}
-
-                          {/* Adet Kademesi */}
-                          {item.customizationData?.selectedQuantity && (
-                            <span className="inline-block bg-corp-surface border border-corp-border text-corp-charcoal text-[10px] font-semibold px-2 py-0.5 rounded mt-1 mr-1">
-                              {item.customizationData.selectedQuantity.toLocaleString("tr-TR")} Adet
-                            </span>
-                          )}
-
-                          {/* Uploaded Design Files */}
-                          {item.customizationData?.uploadedFiles?.length > 0 && (
-                            <div className="flex items-center gap-1.5 mt-1.5 text-[11px] text-corp-charcoal bg-corp-surface/70 border border-corp-border/60 p-1.5 rounded-lg">
-                              <FileText size={13} className="text-corp-teal shrink-0" />
-                              <span className="truncate max-w-[170px]" title={item.customizationData.uploadedFiles[0].name}>
-                                {item.customizationData.uploadedFiles[0].name}
-                              </span>
-                              {item.customizationData.uploadedFiles.length > 1 && (
-                                <span className="text-[10px] text-corp-gray font-semibold">
-                                  (+{item.customizationData.uploadedFiles.length - 1})
-                                </span>
-                              )}
-                            </div>
-                          )}
-
-                          {/* Fotoğraftan Tasarım Ücreti Ayrı Satır */}
-                          {item.extraServices?.map((srv: any, sIdx: number) => (
-                            <div
-                              key={sIdx}
-                              className="flex items-center justify-between text-[10px] text-amber-800 bg-amber-50/80 border border-amber-200/60 px-2 py-0.5 rounded mt-1 font-medium"
-                            >
-                              <span>{srv.label}</span>
-                              <span className="font-bold">+{srv.price.toLocaleString("tr-TR")} TL</span>
-                            </div>
-                          ))}
-
-                          {/* Seçenekleri Düzenle Linki */}
-                          <div className="mt-1.5">
-                            <Link
-                              href={`/magaza/urun/${item.slug || item.productId}`}
-                              onClick={closeDrawer}
-                              className="inline-flex items-center gap-1 text-[11px] text-corp-teal hover:text-corp-teal-600 font-medium hover:underline"
-                            >
-                              <Edit3 size={11} />
-                              <span>Seçenekleri Düzenle</span>
-                            </Link>
-                          </div>
                         </div>
 
                         {/* Quantity & Price Row */}
@@ -571,22 +515,15 @@ export default function CartDrawer() {
                 {/* 4. Şeffaf Sepet Özeti (Sürpriz maliyetsiz) */}
                 <div className="space-y-2 text-xs font-medium text-corp-gray pt-1">
                   <div className="flex justify-between items-center">
-                    <span>Ürünler Ara Toplam</span>
+                    <span>Ara Toplam</span>
                     <span className="text-corp-charcoal font-semibold text-sm">
-                      {totals.itemsSubtotal.toLocaleString("tr-TR")} TL
+                      {totals.subtotal.toLocaleString("tr-TR")} TL
                     </span>
                   </div>
 
-                  {totals.designFeesTotal > 0 && (
-                    <div className="flex justify-between items-center text-amber-800 font-semibold">
-                      <span>Tasarım Hizmetleri</span>
-                      <span>+{totals.designFeesTotal.toLocaleString("tr-TR")} TL</span>
-                    </div>
-                  )}
-
                   {totals.discountAmount > 0 && (
                     <div className="flex justify-between items-center text-emerald-700 font-semibold">
-                      <span>Kupon İndirimi ({totals.appliedCoupon?.code})</span>
+                      <span>Kupon İndirimi</span>
                       <span>
                         -{totals.discountAmount.toLocaleString("tr-TR")} TL
                       </span>
@@ -614,29 +551,20 @@ export default function CartDrawer() {
                       <span className="font-display text-xl font-bold text-corp-teal">
                         {totals.grandTotal.toLocaleString("tr-TR")} TL
                       </span>
-                      <p className="text-[10px] text-corp-gray">{totals.vatNote}</p>
+                      <p className="text-[10px] text-corp-gray">KDV dahildir</p>
                     </div>
                   </div>
                 </div>
 
-                {/* 2. Mini Sepet Çift Buton: Sepete Git & Ödemeye Geç */}
-                <div className="grid grid-cols-2 gap-2.5 pt-1">
-                  <Link
-                    href="/magaza/sepet"
-                    onClick={closeDrawer}
-                    className="w-full bg-corp-surface hover:bg-corp-border/60 text-corp-charcoal border border-corp-border flex items-center justify-center gap-1.5 py-3.5 rounded-xl font-display font-semibold text-sm transition-all"
-                  >
-                    <span>Sepete Git</span>
-                  </Link>
-                  <Link
-                    href="/magaza/odeme"
-                    onClick={closeDrawer}
-                    className="w-full bg-corp-teal hover:bg-corp-teal-600 active:scale-[0.99] text-white flex items-center justify-center gap-1.5 py-3.5 rounded-xl font-display font-bold text-sm transition-all duration-200 shadow-md shadow-corp-teal/20"
-                  >
-                    <span>Ödemeye Geç</span>
-                    <ArrowRight size={16} />
-                  </Link>
-                </div>
+                {/* Checkout Button */}
+                <Link
+                  href="/magaza/odeme"
+                  onClick={closeDrawer}
+                  className="w-full bg-corp-teal hover:bg-corp-teal-600 active:scale-[0.99] text-white flex items-center justify-center gap-2.5 py-4 rounded-xl font-display font-bold text-base transition-all duration-200 shadow-[0_4px_16px_rgba(10,77,104,0.3)] hover:shadow-[0_6px_22px_rgba(10,77,104,0.4)]"
+                >
+                  <span>Ödemeye Geç</span>
+                  <ArrowRight size={18} />
+                </Link>
 
                 {/* 7. Güven Rozetleri */}
                 <div className="pt-2 flex items-center justify-between text-[11px] text-corp-gray border-t border-corp-border/60">

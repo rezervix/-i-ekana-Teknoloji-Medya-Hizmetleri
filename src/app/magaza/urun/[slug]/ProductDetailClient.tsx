@@ -371,6 +371,7 @@ export default function ProductDetailClient({
     if (resolved.mode === "new") {
       addItem({
         productId: product.id,
+        slug: product.slug,
         name: product.name,
         price: displayPrice,
         quantity: 1,
@@ -378,6 +379,7 @@ export default function ProductDetailClient({
         category: product.category,
         freeShipping: Boolean(product.freeShipping),
         extraServices,
+        availableTiers: newFormatTiers?.map((t) => t.quantity) || [],
         customizationData: {
           ...dataWithFiles,
           dimensionValues: selectedDimensions,
@@ -391,6 +393,7 @@ export default function ProductDetailClient({
     } else if (resolved.mode === "legacy_variants") {
       addItem({
         productId: product.id,
+        slug: product.slug,
         name: product.name,
         price: displayPrice,
         quantity: 1,
@@ -398,6 +401,7 @@ export default function ProductDetailClient({
         category: product.category,
         freeShipping: Boolean(product.freeShipping),
         extraServices,
+        availableTiers: availableLegacyQuantities?.map((q: any) => q.quantity || q) || [],
         customizationData: {
           ...dataWithFiles,
           quantity: legacyQuantity,
@@ -408,6 +412,7 @@ export default function ProductDetailClient({
     } else {
       addItem({
         productId: product.id,
+        slug: product.slug,
         name: product.name,
         price: displayPrice,
         quantity,

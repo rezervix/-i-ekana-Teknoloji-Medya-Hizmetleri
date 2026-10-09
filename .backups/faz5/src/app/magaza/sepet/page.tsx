@@ -19,15 +19,12 @@ import {
   Minus,
   Plus,
   Info,
-  FileText,
-  Edit3,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCartStore } from "@/store/useCartStore";
 import { calculateCartTotals } from "@/lib/cart-calculator";
 import { STORE_DELIVERY_CONFIG } from "@/config/store.config";
 import { useSession } from "next-auth/react";
-import { toast } from "sonner";
 
 export default function CartPage() {
   const {
@@ -35,7 +32,6 @@ export default function CartPage() {
     savedForLater,
     couponCode,
     removeItem,
-    undoRemove,
     updateQuantity,
     saveForLater,
     moveToCart,
@@ -106,17 +102,6 @@ export default function CartPage() {
     setCouponCode(null);
     setCouponInput("");
     setCouponFeedback({ type: null, message: "" });
-  };
-
-  const handleRemove = (item: any) => {
-    removeItem(item.id);
-    toast("Ürün sepetten çıkarıldı", {
-      action: {
-        label: "Geri Al",
-        onClick: () => undoRemove(),
-      },
-      duration: 5000,
-    });
   };
 
   if (!mounted) {
@@ -302,7 +287,7 @@ export default function CartPage() {
                             {item.name}
                           </h3>
                           <button
-                            onClick={() => handleRemove(item)}
+                            onClick={() => removeItem(item.id)}
                             className="text-corp-gray hover:text-red-500 transition-colors p-1"
                             title="Ürünü sil"
                             aria-label="Ürünü sil"
@@ -330,56 +315,12 @@ export default function CartPage() {
                         )}
 
                         {item.customizationData?.dimensionValues && (
-                          <p className="text-xs text-corp-gray mt-1 leading-relaxed">
+                          <p className="text-xs text-corp-gray mt-1">
                             {Object.entries(item.customizationData.dimensionValues)
                               .map(([k, v]) => `${v}`)
                               .join(" • ")}
                           </p>
                         )}
-
-                        {/* Adet Kademesi */}
-                        {item.customizationData?.selectedQuantity && (
-                          <span className="inline-block bg-corp-surface border border-corp-border text-corp-charcoal text-xs font-semibold px-2.5 py-0.5 rounded-md mt-1.5 mr-2">
-                            {item.customizationData.selectedQuantity.toLocaleString("tr-TR")} Adet
-                          </span>
-                        )}
-
-                        {/* Uploaded Design Files */}
-                        {item.customizationData?.uploadedFiles?.length > 0 && (
-                          <div className="flex items-center gap-2 mt-2 text-xs text-corp-charcoal bg-corp-surface/70 border border-corp-border/80 px-2.5 py-1.5 rounded-lg max-w-fit">
-                            <FileText size={14} className="text-corp-teal shrink-0" />
-                            <span className="truncate max-w-[220px]" title={item.customizationData.uploadedFiles[0].name}>
-                              {item.customizationData.uploadedFiles[0].name}
-                            </span>
-                            {item.customizationData.uploadedFiles.length > 1 && (
-                              <span className="text-[11px] text-corp-gray font-semibold">
-                                (+{item.customizationData.uploadedFiles.length - 1} dosya)
-                              </span>
-                            )}
-                          </div>
-                        )}
-
-                        {/* Fotoğraftan Tasarım Ücreti Ayrı Satır */}
-                        {item.extraServices?.map((srv: any, sIdx: number) => (
-                          <div
-                            key={sIdx}
-                            className="flex items-center justify-between text-xs text-amber-800 bg-amber-50/90 border border-amber-200 px-2.5 py-1 rounded-md mt-1.5 font-medium max-w-sm"
-                          >
-                            <span>{srv.label}</span>
-                            <span className="font-bold">+{srv.price.toLocaleString("tr-TR")} TL</span>
-                          </div>
-                        ))}
-
-                        {/* Seçenekleri Düzenle Linki */}
-                        <div className="mt-2">
-                          <Link
-                            href={`/magaza/urun/${item.slug || item.productId}`}
-                            className="inline-flex items-center gap-1.5 text-xs text-corp-teal hover:text-corp-teal-600 font-semibold hover:underline"
-                          >
-                            <Edit3 size={13} />
-                            <span>Seçenekleri Düzenle</span>
-                          </Link>
-                        </div>
                       </div>
 
                       {/* Row: Quantity Controls & Price */}
@@ -586,18 +527,11 @@ export default function CartPage() {
                 {/* 4. Şeffaf Sepet Özeti (Sürpriz Maliyetsiz) */}
                 <div className="space-y-3 text-sm font-medium text-corp-gray pt-1">
                   <div className="flex justify-between items-center">
-                    <span>Ürünler Ara Toplam</span>
+                    <span>Ara Toplam</span>
                     <span className="text-corp-charcoal font-semibold">
-                      {totals.itemsSubtotal.toLocaleString("tr-TR")} TL
+                      {totals.subtotal.toLocaleString("tr-TR")} TL
                     </span>
                   </div>
-
-                  {totals.designFeesTotal > 0 && (
-                    <div className="flex justify-between items-center text-amber-800 font-semibold">
-                      <span>Tasarım Hizmetleri</span>
-                      <span>+{totals.designFeesTotal.toLocaleString("tr-TR")} TL</span>
-                    </div>
-                  )}
 
                   {totals.discountAmount > 0 && (
                     <div className="flex justify-between items-center text-emerald-700 font-semibold">
@@ -624,7 +558,7 @@ export default function CartPage() {
                       <span className="font-display text-lg font-bold text-corp-charcoal block">
                         Ödenecek Tutar
                       </span>
-                      <span className="text-[11px] text-corp-gray">{totals.vatNote}</span>
+                      <span className="text-[11px] text-corp-gray">Tüm vergiler dahildir</span>
                     </div>
                     <span className="font-display text-2xl font-extrabold text-corp-teal">
                       {totals.grandTotal.toLocaleString("tr-TR")} TL
