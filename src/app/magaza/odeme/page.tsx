@@ -13,6 +13,7 @@ import {
   MailCheck,
   Building2,
   User,
+  Loader2,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -337,7 +338,7 @@ export default function CheckoutPage() {
       const tokenResponse = await fetch('/api/paytr/get-token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderNumber: data.orderNumber }),
+        body: JSON.stringify({ orderNumber: data.orderNumber, orderId: data.id }),
       });
       const tokenData = await tokenResponse.json();
 
@@ -870,10 +871,19 @@ export default function CheckoutPage() {
                   type="submit"
                   form="checkout-form"
                   disabled={isProcessing || items.length === 0}
-                  className="w-full bg-corp-teal text-white py-4 rounded-xl font-display font-bold text-lg hover:bg-corp-teal-600 transition-all shadow-corp-hover disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full bg-corp-teal text-white py-4 rounded-xl font-display font-bold text-lg hover:bg-corp-teal-600 transition-all shadow-corp-hover disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  {isProcessing ? 'Sipariş İşleniyor...' : 'Siparişi Onayla ve Öde'}
-                  {!isProcessing && <CheckCircle2 size={20} />}
+                  {isProcessing ? (
+                    <>
+                      <Loader2 size={20} className="animate-spin" />
+                      <span>Ödeme Hazırlanıyor...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Siparişi Onayla ve Öde</span>
+                      <CheckCircle2 size={20} />
+                    </>
+                  )}
                 </button>
 
                 {!isAuthenticated && (

@@ -155,130 +155,185 @@ export async function GET() {
   }
 }
 
-// Bulk delete products
+// Delete products (Single / Bulk / Query param / Body)
 export async function DELETE(req: Request) {
   const session = await auth();
   if (!session || (session.user as any)?.role !== "SUPER_ADMIN") {
+    console.log("[DELETE /api/admin/products] Yetkisiz erişim denemesi.");
     return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
   }
 
   try {
-    const body = await req.json();
-    const { ids, all } = body || {};
+    // 1. URL Search Params kontrolü (örn. /api/admin/products?id=xxx veya ?ids=xxx,yyy)
+    const url = new URL(req.url);
+    const queryId = url.searchParams.get("id");
+    const queryIds = url.searchParams.get("ids");
+    const queryAll = url.searchParams.get("all") === "true";
 
+    // 2. Request body kontrolü (opsiyonel JSON)
+    let body: any = null;
+    try {
+      body = await req.json();
+    } catch {
+      body = null;
+    }
+
+    const bodyId = body?.id;
+    const bodyIds = body?.ids;
+    const bodyAll = body?.all === true;
+
+    const isAll = queryAll || bodyAll;
     let targetIds: string[] = [];
 
-    if (all === true) {
+    if (isAll) {
       const allProducts = await prisma.product.findMany({
         select: { id: true },
       });
       targetIds = allProducts.map((p) => p.id);
-    } else if (Array.isArray(ids) && ids.length > 0) {
-      targetIds = ids.filter((id) => typeof id === "string" && id.trim().length > 0);
+    } else {
+      if (queryId && typeof queryId === "string") {
+        targetIds.push(queryId.trim());
+      }
+      if (bodyId && typeof bodyId === "string") {
+        targetIds.push(bodyId.trim());
+      }
+      if (queryIds && typeof queryIds === "string") {
+        targetIds.push(...queryIds.split(",").map((s) => s.trim()).filter(Boolean));
+      }
+      if (Array.isArray(bodyIds)) {
+        targetIds.push(
+          ...bodyIds
+            .filter((id) => typeof id === "string" && id.trim().length > 0)
+            .map((id) => id.trim())
+        );
+      }
+      // Benzersiz hale getir
+      targetIds = Array.from(new Set(targetIds)).filter((id) => id.length > 0);
     }
+
+    console.log("[DELETE /api/admin/products] Gelen hedef ürün ID'leri:", targetIds);
 
     if (targetIds.length === 0) {
-      return NextResponse.json({ error: "Silinecek ürün belirtilmedi." }, { status: 400 });
-    }
-
-    // 1. Ürünleri ve ilişkili görselleri / sipariş kontrolünü çek
-    const productsToDelete = await prisma.product.findMany({
-      where: { id: { in: targetIds } },
-      include: {
-        productImages: true,
-        orderItems: { select: { id: true } },
-      } as any,
-    });
-
-    if (productsToDelete.length === 0) {
-      return NextResponse.json({ error: "Silinecek ürün bulunamadı." }, { status: 404 });
-    }
-
-    // Siparişlerde yer alan ürünler silinemez (veri bütünlüğü)
-    const safeToDelete = productsToDelete.filter(
-      (p: any) => !p.orderItems || p.orderItems.length === 0
-    );
-    const blockedByOrders = productsToDelete.filter(
-      (p: any) => p.orderItems && p.orderItems.length > 0
-    );
-
-    if (safeToDelete.length === 0 && blockedByOrders.length > 0) {
+      console.log(
+        "[DELETE /api/admin/products] 400 Bad Request: Silinecek ürün id parametresi bulunamadı! (query id/ids veya body id/ids gerekli)"
+      );
       return NextResponse.json(
-        {
-          error: `Seçilen ${blockedByOrders.length} ürün geçmiş sipariş kayıtlarında bulunduğu için silinemez. Dilerseniz bu ürünleri pasife alabilirsiniz.`,
-          blockedCount: blockedByOrders.length,
-        },
+        { error: "Silinecek ürün ID parametresi (id veya ids) belirtilmedi." },
         { status: 400 }
       );
     }
 
-    const safeIds = safeToDelete.map((p) => p.id);
-
-    // Blob url'lerini topla
-    const blobUrlsToDelete: string[] = [];
-    for (const p of safeToDelete as any[]) {
-      if (Array.isArray(p.images)) {
-        blobUrlsToDelete.push(...p.images);
-      }
-      if (Array.isArray(p.productImages)) {
-        for (const pi of p.productImages) {
-          if (pi?.url) blobUrlsToDelete.push(pi.url);
-        }
-      }
-    }
-
-    // Transaction ile sil
-    await prisma.$transaction(async (tx) => {
-      // Cart items sil
-      await tx.cartItem.deleteMany({
-        where: { productId: { in: safeIds } },
-      });
-
-      // Reviews sil
-      await tx.review.deleteMany({
-        where: { productId: { in: safeIds } },
-      });
-
-      // Design templates sil
-      await tx.designTemplate.deleteMany({
-        where: { productId: { in: safeIds } },
-      });
-
-      // Product variants sil
-      await tx.productVariant.deleteMany({
-        where: { productId: { in: safeIds } },
-      });
-
-      // Product images sil
-      await (tx as any).productImage.deleteMany({
-        where: { productId: { in: safeIds } },
-      });
-
-      // Son olarak ürünleri sil
-      await tx.product.deleteMany({
-        where: { id: { in: safeIds } },
-      });
+    // 3. Ürünleri ve ilişkili alt kayıtları çek
+    const productsToDelete = await prisma.product.findMany({
+      where: { id: { in: targetIds } },
+      include: {
+        productImages: true,
+        orderItems: { select: { id: true, orderId: true } },
+      } as any,
     });
 
-    // DB'den silindikten sonra blob görselleri temizle (arka planda)
-    const uniqueBlobUrls = Array.from(new Set(blobUrlsToDelete));
-    for (const url of uniqueBlobUrls) {
-      deleteBlob(url).catch((err) =>
-        console.warn("[BULK DELETE] Blob silinemedi:", url, err)
+    if (productsToDelete.length === 0) {
+      console.log("[DELETE /api/admin/products] 404 Not Found: Eşleşen ürün bulunamadı:", targetIds);
+      return NextResponse.json({ error: "Silinecek ürün bulunamadı." }, { status: 404 });
+    }
+
+    // Siparişi olanlar ve olmayanlar
+    const withOrders = productsToDelete.filter(
+      (p: any) => p.orderItems && p.orderItems.length > 0
+    );
+    const withoutOrders = productsToDelete.filter(
+      (p: any) => !p.orderItems || p.orderItems.length === 0
+    );
+
+    const softDeletedIds: string[] = [];
+    const hardDeletedIds: string[] = [];
+    const blobUrlsToDelete: string[] = [];
+
+    // 4. Sipariş kaydı olan ürünler: Veri bütünlüğü için Yumuşak Silme (Soft Delete / isActive: false)
+    if (withOrders.length > 0) {
+      const withOrderIds = withOrders.map((p) => p.id);
+      await prisma.$transaction(async (tx) => {
+        // Sepet kayıtlarından kaldır (aktif alışverişi engelle)
+        await tx.cartItem.deleteMany({
+          where: { productId: { in: withOrderIds } },
+        });
+        // Ürünü pasife al (soft delete: isActive = false)
+        await tx.product.updateMany({
+          where: { id: { in: withOrderIds } },
+          data: { isActive: false },
+        });
+      });
+      softDeletedIds.push(...withOrderIds);
+      console.log(
+        `[DELETE /api/admin/products] ${withOrders.length} adet ürün geçmiş sipariş kayıtlarında bulunduğu için yumuşak silindi (isActive: false):`,
+        withOrderIds
       );
     }
 
+    // 5. Sipariş kaydı olmayan ürünler: Cascade delete ile tüm alt ilişkileri temizleyip tamamen sil
+    if (withoutOrders.length > 0) {
+      const safeIds = withoutOrders.map((p) => p.id);
+
+      for (const p of withoutOrders as any[]) {
+        if (Array.isArray(p.images)) blobUrlsToDelete.push(...p.images);
+        if (Array.isArray(p.productImages)) {
+          for (const pi of p.productImages) {
+            if (pi?.url) blobUrlsToDelete.push(pi.url);
+          }
+        }
+      }
+
+      await prisma.$transaction(async (tx) => {
+        // İlintili alt kayıtları cascade sil
+        await tx.cartItem.deleteMany({ where: { productId: { in: safeIds } } });
+        await tx.review.deleteMany({ where: { productId: { in: safeIds } } });
+        await tx.designTemplate.deleteMany({ where: { productId: { in: safeIds } } });
+        await tx.productVariant.deleteMany({ where: { productId: { in: safeIds } } });
+        await (tx as any).productImage.deleteMany({ where: { productId: { in: safeIds } } });
+        // Ürün kaydını sil
+        await tx.product.deleteMany({ where: { id: { in: safeIds } } });
+      });
+
+      hardDeletedIds.push(...safeIds);
+      console.log(
+        `[DELETE /api/admin/products] ${withoutOrders.length} adet ürün ve tüm alt kayıtları cascade silindi:`,
+        safeIds
+      );
+    }
+
+    // 6. DB işlemi başarılı olduktan sonra blob görselleri temizle
+    const uniqueBlobUrls = Array.from(new Set(blobUrlsToDelete));
+    for (const url of uniqueBlobUrls) {
+      deleteBlob(url).catch((err) =>
+        console.warn("[DELETE /api/admin/products] Blob silinemedi:", url, err)
+      );
+    }
+
+    const totalProcessed = hardDeletedIds.length + softDeletedIds.length;
+    const message =
+      softDeletedIds.length > 0 && hardDeletedIds.length === 0
+        ? "Ürün geçmiş sipariş kayıtlarında yer aldığı için pasife alındı (yumuşak silme)."
+        : softDeletedIds.length > 0
+        ? `${hardDeletedIds.length} ürün tamamen silindi, ${softDeletedIds.length} ürün sipariş kaydı bulunduğu için pasife alındı.`
+        : "Ürün(ler) başarıyla silindi.";
+
     return NextResponse.json({
       success: true,
-      deletedCount: safeIds.length,
-      deletedIds: safeIds,
-      blockedCount: blockedByOrders.length,
-      blockedNames: blockedByOrders.map((p) => p.name),
+      message,
+      deletedCount: totalProcessed,
+      hardDeletedCount: hardDeletedIds.length,
+      softDeletedCount: softDeletedIds.length,
+      deletedIds: [...hardDeletedIds, ...softDeletedIds],
     });
   } catch (error: any) {
-    console.error("[BULK DELETE error]", error);
+    console.error("[DELETE /api/admin/products HATA DETAYI]:", {
+      message: error?.message,
+      code: error?.code,
+      meta: error?.meta,
+      stack: error?.stack,
+    });
     return NextResponse.json(
-      { error: error.message || "Toplu silme başarısız." },
+      { error: error?.message || "Silme işlemi sırasında sunucu hatası oluştu." },
       { status: 500 }
     );
   }

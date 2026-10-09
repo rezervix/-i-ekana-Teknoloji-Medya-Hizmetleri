@@ -143,44 +143,89 @@ export async function DELETE(
 ) {
   const session = await auth();
   if (!session || (session.user as any)?.role !== "SUPER_ADMIN") {
+    console.log("[DELETE /api/admin/products/[id]] Yetkisiz erişim denemesi.");
     return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
   }
 
   const { id } = await params;
+  if (!id || typeof id !== "string" || id.trim().length === 0) {
+    console.log("[DELETE /api/admin/products/[id]] 400 Bad Request: id parametresi eksik!");
+    return NextResponse.json({ error: "Geçersiz veya eksik ürün ID." }, { status: 400 });
+  }
 
   try {
     const existing = await prisma.product.findUnique({
       where: { id },
-      include: { productImages: true } as any,
+      include: {
+        productImages: true,
+        orderItems: { select: { id: true, orderId: true } },
+      } as any,
     });
 
     if (!existing) {
+      console.log(`[DELETE /api/admin/products/[id]] 404 Not Found: Ürün bulunamadı: ${id}`);
       return NextResponse.json({ error: "Ürün bulunamadı" }, { status: 404 });
     }
 
     const existingProduct = existing as any;
+    const hasOrders = existingProduct.orderItems && existingProduct.orderItems.length > 0;
+
+    // 1. Ürünün geçmiş sipariş kaydı varsa: Veri bütünlüğü için Yumuşak Silme (Soft Delete / isActive: false)
+    if (hasOrders) {
+      await prisma.$transaction(async (tx) => {
+        // Sepetlerden temizle
+        await tx.cartItem.deleteMany({ where: { productId: id } });
+        // Pasife al
+        await tx.product.update({
+          where: { id },
+          data: { isActive: false },
+        });
+      });
+      console.log(
+        `[DELETE /api/admin/products/[id]] Ürün geçmiş siparişlerde yer aldığı için yumuşak silindi (isActive: false): ${id}`
+      );
+      return NextResponse.json({
+        success: true,
+        isSoftDeleted: true,
+        message: "Ürün geçmiş sipariş kayıtlarında bulunduğu için pasife alındı (yumuşak silme).",
+      });
+    }
+
+    // 2. Sipariş kaydı yoksa: Tüm ilişkili alt kayıtları cascade sil ve ürünü tamamen kaldır
     const blobUrlsToDelete = [
       ...existing.images,
       ...((existingProduct.productImages || []) as any[]).map((pi: any) => pi?.url).filter(Boolean),
     ];
 
-    // Single transaction: deletes product and cascades to product_images
     await prisma.$transaction(async (tx) => {
-      await tx.product.delete({
-        where: { id },
-      });
+      await tx.cartItem.deleteMany({ where: { productId: id } });
+      await tx.review.deleteMany({ where: { productId: id } });
+      await tx.designTemplate.deleteMany({ where: { productId: id } });
+      await tx.productVariant.deleteMany({ where: { productId: id } });
+      await (tx as any).productImage.deleteMany({ where: { productId: id } });
+      await tx.product.delete({ where: { id } });
     });
 
-    // ONLY after DB deletion succeeds, delete blobs
+    console.log(`[DELETE /api/admin/products/[id]] Ürün ve tüm ilişkili alt kayıtları başarıyla silindi: ${id}`);
+
+    // DB silme işleminden sonra blob görselleri temizle
     for (const url of blobUrlsToDelete) {
       deleteBlob(url).catch((err) =>
-        console.warn("[DELETE product] Blob silinemedi:", url, err)
+        console.warn("[DELETE /api/admin/products/[id]] Blob silinemedi:", url, err)
       );
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, message: "Ürün başarıyla silindi." });
   } catch (error: any) {
-    console.error("[DELETE product error]", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error(`[DELETE /api/admin/products/[id] HATA DETAYI] (id: ${id}):`, {
+      message: error?.message,
+      code: error?.code,
+      meta: error?.meta,
+      stack: error?.stack,
+    });
+    return NextResponse.json(
+      { error: error?.message || "Silme işlemi sırasında sunucu hatası oluştu." },
+      { status: 500 }
+    );
   }
 }

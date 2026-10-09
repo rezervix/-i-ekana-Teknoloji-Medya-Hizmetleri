@@ -281,18 +281,28 @@ export default function ProductList({ initialProducts }: ProductListProps) {
   };
 
   const handleDelete = async (id: string, name: string) => {
+    if (!id || typeof id !== "string") {
+      toast.error("Geçersiz ürün kimliği.");
+      return;
+    }
     if (!confirm(`'${name}' ürününü silmek istediğinize emin misiniz?`)) return;
     setLoading(id);
     try {
-      const res = await fetch(`/api/admin/products/${id}`, { method: "DELETE" });
+      // id parametresi hem URL dynamic route hem de Request Body olarak eksiksiz iletilir
+      const res = await fetch(`/api/admin/products/${encodeURIComponent(id)}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      const data = await res.json().catch(() => ({}));
       if (res.ok) {
         setProducts((prev) => prev.filter((p) => p.id !== id));
-        toast.success("Ürün silindi.");
+        toast.success(data.message || "Ürün silindi.");
       } else {
-        const data = await res.json();
         throw new Error(data.error || "Silme işlemi başarısız.");
       }
     } catch (error: any) {
+      console.error("[ProductList handleDelete error]:", error);
       toast.error(error.message);
     } finally {
       setLoading(null);

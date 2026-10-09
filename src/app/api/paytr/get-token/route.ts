@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
   try {
     const session = await auth().catch(() => null);
     sessionUser = session?.user as any;
-    const { orderNumber, subscriptionId } = await request.json().catch(() => ({}));
+    const { orderNumber, orderId, subscriptionId } = await request.json().catch(() => ({}));
 
     // ── 1. ABONELİK ÖDEMESİ ───────────────────────────────────────────────────
     if (subscriptionId !== undefined) {
@@ -128,10 +128,8 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Benzersiz merchant_oid üretimi: ORDER_{timestamp}_{randomString}
-      const subTimestamp = Date.now();
-      const subRandom = crypto.randomBytes(4).toString('hex');
-      const merchantOid = `ORDER_SUB_${subTimestamp}_${subRandom}`;
+      // Benzersiz merchant_oid üretimi: SUB_${subscriptionId}_${Date.now()}
+      const merchantOid = `SUB_${subscription.id}_${Date.now()}`;
 
       // Subscription tablosunda paytrCustomerCode alanına merchant_oid kaydı (callback için)
       await prisma.subscription.update({
@@ -246,16 +244,17 @@ export async function POST(request: NextRequest) {
     }
 
     // ── 2. STANDART SİPARİŞ ÖDEMESİ ──────────────────────────────────────────
-    if (typeof orderNumber !== 'string' || !/^[A-Za-z0-9_-]+$/.test(orderNumber)) {
+    const targetOrderIdentifier = orderId || orderNumber;
+    if (typeof targetOrderIdentifier !== 'string' || !/^[A-Za-z0-9_-]+$/.test(targetOrderIdentifier)) {
       return NextResponse.json(
-        { success: false, message: 'Geçersiz sipariş numarası.' },
+        { success: false, message: 'Geçersiz sipariş numarası veya kimliği.' },
         { status: 400 }
       );
     }
 
     const order = await prisma.order.findFirst({
       where: {
-        OR: [{ orderNumber }, { id: orderNumber }],
+        OR: [{ id: targetOrderIdentifier }, { orderNumber: targetOrderIdentifier }],
       },
       include: { items: { include: { product: true } }, user: true },
     });
@@ -275,23 +274,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ── GARANTİLİ UNIQUE merchant_oid Üretimi: ORDER_{timestamp}_{randomString} ──
-    const timestamp = Date.now();
-    const randomString = crypto.randomBytes(4).toString('hex');
-    const userIdentifier = sessionUser?.id || order.userId || 'GUEST';
-    const userPart = userIdentifier.replace(/[^a-zA-Z0-9]/g, '').slice(-6);
-    const merchantOid = `ORDER_${userPart || timestamp}_${timestamp}_${randomString}`;
+    // ── GARANTİLİ UNIQUE merchant_oid Üretimi: ORD_${orderId}_${Date.now()} ──
+    // PayTR'a gönderilen merchant_oid her istek için benzersiz üretilir.
+    // Orijinal orderId callback tarafında split('_') ile kolayca ayrıştırılır.
+    const merchantOid = `ORD_${order.id}_${Date.now()}`;
 
-    // Veritabanındaki orderNumber alanını bu yeni ve eşsiz merchant_oid ile güncelle
-    // Böylece PayTR callback geldiğinde bu siparişi garantili olarak bulur
-    await prisma.order.update({
-      where: { id: order.id },
-      data: { orderNumber: merchantOid },
+    logger.info({
+      event: 'PAYTR_TOKEN_REQUESTED',
+      details: {
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        merchantOid,
+      },
     });
-
-    console.log(
-      `[PayTR get-token] Eski Sipariş No: ${order.orderNumber} -> Yeni Unique merchant_oid: ${merchantOid}`
-    );
 
     const finalAmountTL = order.finalAmount;
 
@@ -375,10 +370,10 @@ export async function POST(request: NextRequest) {
       user_phone: cleanPhone,
       merchant_ok_url:
         process.env.PAYTR_MERCHANT_OK_URL ||
-        `${siteUrl}/magaza/odeme/basarili?order=${encodeURIComponent(merchantOid)}`,
+        `${siteUrl}/magaza/odeme/basarili?order=${encodeURIComponent(order.orderNumber)}`,
       merchant_fail_url:
         process.env.PAYTR_FAIL_URL ||
-        `${siteUrl}/magaza/odeme/basarisiz?order=${encodeURIComponent(merchantOid)}`,
+        `${siteUrl}/magaza/odeme/basarisiz?order=${encodeURIComponent(order.orderNumber)}`,
       timeout_limit: '30',
       currency,
       test_mode: testMode,
@@ -455,7 +450,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       token: result.token,
-      orderNumber: merchantOid,
+      orderNumber: order.orderNumber,
+      orderId: order.id,
       merchant_oid: merchantOid,
     });
   } catch (error: any) {
