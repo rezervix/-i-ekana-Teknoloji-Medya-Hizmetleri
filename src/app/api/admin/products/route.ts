@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { detectSubcategory } from "@/lib/services/subcategoryDetector";
+import { deleteBlob } from "@/lib/blob-storage";
 
 // Create a new product
 export async function POST(req: Request) {
@@ -151,5 +152,134 @@ export async function GET() {
     return NextResponse.json(products);
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+// Bulk delete products
+export async function DELETE(req: Request) {
+  const session = await auth();
+  if (!session || (session.user as any)?.role !== "SUPER_ADMIN") {
+    return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
+  }
+
+  try {
+    const body = await req.json();
+    const { ids, all } = body || {};
+
+    let targetIds: string[] = [];
+
+    if (all === true) {
+      const allProducts = await prisma.product.findMany({
+        select: { id: true },
+      });
+      targetIds = allProducts.map((p) => p.id);
+    } else if (Array.isArray(ids) && ids.length > 0) {
+      targetIds = ids.filter((id) => typeof id === "string" && id.trim().length > 0);
+    }
+
+    if (targetIds.length === 0) {
+      return NextResponse.json({ error: "Silinecek ürün belirtilmedi." }, { status: 400 });
+    }
+
+    // 1. Ürünleri ve ilişkili görselleri / sipariş kontrolünü çek
+    const productsToDelete = await prisma.product.findMany({
+      where: { id: { in: targetIds } },
+      include: {
+        productImages: true,
+        orderItems: { select: { id: true } },
+      } as any,
+    });
+
+    if (productsToDelete.length === 0) {
+      return NextResponse.json({ error: "Silinecek ürün bulunamadı." }, { status: 404 });
+    }
+
+    // Siparişlerde yer alan ürünler silinemez (veri bütünlüğü)
+    const safeToDelete = productsToDelete.filter(
+      (p: any) => !p.orderItems || p.orderItems.length === 0
+    );
+    const blockedByOrders = productsToDelete.filter(
+      (p: any) => p.orderItems && p.orderItems.length > 0
+    );
+
+    if (safeToDelete.length === 0 && blockedByOrders.length > 0) {
+      return NextResponse.json(
+        {
+          error: `Seçilen ${blockedByOrders.length} ürün geçmiş sipariş kayıtlarında bulunduğu için silinemez. Dilerseniz bu ürünleri pasife alabilirsiniz.`,
+          blockedCount: blockedByOrders.length,
+        },
+        { status: 400 }
+      );
+    }
+
+    const safeIds = safeToDelete.map((p) => p.id);
+
+    // Blob url'lerini topla
+    const blobUrlsToDelete: string[] = [];
+    for (const p of safeToDelete as any[]) {
+      if (Array.isArray(p.images)) {
+        blobUrlsToDelete.push(...p.images);
+      }
+      if (Array.isArray(p.productImages)) {
+        for (const pi of p.productImages) {
+          if (pi?.url) blobUrlsToDelete.push(pi.url);
+        }
+      }
+    }
+
+    // Transaction ile sil
+    await prisma.$transaction(async (tx) => {
+      // Cart items sil
+      await tx.cartItem.deleteMany({
+        where: { productId: { in: safeIds } },
+      });
+
+      // Reviews sil
+      await tx.review.deleteMany({
+        where: { productId: { in: safeIds } },
+      });
+
+      // Design templates sil
+      await tx.designTemplate.deleteMany({
+        where: { productId: { in: safeIds } },
+      });
+
+      // Product variants sil
+      await tx.productVariant.deleteMany({
+        where: { productId: { in: safeIds } },
+      });
+
+      // Product images sil
+      await (tx as any).productImage.deleteMany({
+        where: { productId: { in: safeIds } },
+      });
+
+      // Son olarak ürünleri sil
+      await tx.product.deleteMany({
+        where: { id: { in: safeIds } },
+      });
+    });
+
+    // DB'den silindikten sonra blob görselleri temizle (arka planda)
+    const uniqueBlobUrls = Array.from(new Set(blobUrlsToDelete));
+    for (const url of uniqueBlobUrls) {
+      deleteBlob(url).catch((err) =>
+        console.warn("[BULK DELETE] Blob silinemedi:", url, err)
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      deletedCount: safeIds.length,
+      deletedIds: safeIds,
+      blockedCount: blockedByOrders.length,
+      blockedNames: blockedByOrders.map((p) => p.name),
+    });
+  } catch (error: any) {
+    console.error("[BULK DELETE error]", error);
+    return NextResponse.json(
+      { error: error.message || "Toplu silme başarısız." },
+      { status: 500 }
+    );
   }
 }

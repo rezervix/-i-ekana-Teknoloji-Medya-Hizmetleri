@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useRef } from "react";
-import { Plus, Edit, Trash2, Loader2, Search, X, Save, Upload, Image as ImageIcon, XCircle, ChevronDown, ChevronUp, Tag, Truck, Star, ArrowLeft, ArrowRight } from "lucide-react";
+import React, { useState, useRef, useEffect } from "react";
+import { Plus, Edit, Trash2, Loader2, Search, X, Save, Upload, Image as ImageIcon, XCircle, ChevronDown, ChevronUp, Tag, Truck, Star, ArrowLeft, ArrowRight, CheckSquare, Square, AlertTriangle, Check } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import type { VariantDimension } from "@/types/product";
@@ -134,6 +134,12 @@ export default function ProductList({ initialProducts }: ProductListProps) {
   // Hangi dimension accordion'u açık
   const [expandedDimIdx, setExpandedDimIdx] = useState<number | null>(null);
   const router = useRouter();
+
+  // Toplu seçim ve silme state'leri
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkDeleteModalOpen, setBulkDeleteModalOpen] = useState(false);
+  const [bulkDeleteMode, setBulkDeleteMode] = useState<"selected" | "all">("selected");
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   const openNewModal = () => {
     setEditTarget(null);
@@ -317,6 +323,88 @@ export default function ProductList({ initialProducts }: ProductListProps) {
       p.category.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const isAllFilteredSelected =
+    filteredProducts.length > 0 &&
+    filteredProducts.every((p) => selectedIds.includes(p.id));
+
+  const isSomeFilteredSelected =
+    filteredProducts.some((p) => selectedIds.includes(p.id)) && !isAllFilteredSelected;
+
+  const toggleSelectAll = () => {
+    if (isAllFilteredSelected) {
+      const filteredIdSet = new Set(filteredProducts.map((p) => p.id));
+      setSelectedIds((prev) => prev.filter((id) => !filteredIdSet.has(id)));
+    } else {
+      const combined = new Set([...selectedIds, ...filteredProducts.map((p) => p.id)]);
+      setSelectedIds(Array.from(combined));
+    }
+  };
+
+  const toggleSelectOne = (id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const clearSelection = () => {
+    setSelectedIds([]);
+  };
+
+  const openBulkDeleteConfirm = (mode: "selected" | "all") => {
+    if (mode === "selected" && selectedIds.length === 0) {
+      toast.error("Lütfen silmek için en az bir ürün seçin.");
+      return;
+    }
+    if (mode === "all" && products.length === 0) {
+      toast.error("Silinecek ürün bulunmuyor.");
+      return;
+    }
+    setBulkDeleteMode(mode);
+    setBulkDeleteModalOpen(true);
+  };
+
+  const executeBulkDelete = async () => {
+    setBulkDeleting(true);
+    try {
+      const payload =
+        bulkDeleteMode === "all"
+          ? { all: true }
+          : { ids: selectedIds };
+
+      const res = await fetch("/api/admin/products", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Toplu silme işlemi başarısız.");
+      }
+
+      if (data.deletedIds && data.deletedIds.length > 0) {
+        const deletedSet = new Set(data.deletedIds as string[]);
+        setProducts((prev) => prev.filter((p) => !deletedSet.has(p.id)));
+        setSelectedIds((prev) => prev.filter((id) => !deletedSet.has(id)));
+        toast.success(`${data.deletedCount} ürün başarıyla silindi.`);
+      }
+
+      if (data.blockedCount > 0) {
+        toast.warning(
+          `${data.blockedCount} ürün geçmiş sipariş kayıtlarında bulunduğu için silinemedi. Dilerseniz bu ürünleri pasife alabilirsiniz.`,
+          { duration: 6000 }
+        );
+      }
+
+      setBulkDeleteModalOpen(false);
+      router.refresh();
+    } catch (error: any) {
+      toast.error(error.message || "Silme işlemi sırasında hata oluştu.");
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
   return (
     <>
       <div className="space-y-4">
@@ -332,19 +420,83 @@ export default function ProductList({ initialProducts }: ProductListProps) {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <button
-            onClick={openNewModal}
-            className="bg-corp-teal text-white px-6 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-corp-teal-600 transition-all shadow-md active:scale-95"
-          >
-            <Plus size={18} /> Yeni Ürün Ekle
-          </button>
+          <div className="flex items-center gap-2.5 w-full md:w-auto justify-end flex-wrap">
+            {products.length > 0 && (
+              <button
+                type="button"
+                onClick={() => openBulkDeleteConfirm("all")}
+                className="px-3.5 py-2 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                title="Tüm kayıtlı ürünleri sil"
+              >
+                <Trash2 size={14} />
+                Tüm Ürünleri Sil
+              </button>
+            )}
+            <button
+              onClick={openNewModal}
+              className="bg-corp-teal text-white px-5 py-2 rounded-lg font-semibold text-xs md:text-sm flex items-center gap-2 hover:bg-corp-teal-600 transition-all shadow-md active:scale-95"
+            >
+              <Plus size={16} /> Yeni Ürün Ekle
+            </button>
+          </div>
         </div>
+
+        {/* Bulk Action Bar - Seçim olduğunda görünür */}
+        {selectedIds.length > 0 && (
+          <div className="bg-corp-teal-50 border border-corp-teal/30 rounded-xl p-3 md:p-4 flex flex-wrap items-center justify-between gap-3 shadow-sm animate-in fade-in duration-200">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-corp-teal animate-pulse" />
+              <span className="font-bold text-corp-charcoal text-sm">
+                {selectedIds.length} ürün seçildi
+              </span>
+              <span className="text-corp-gray text-xs hidden sm:inline">
+                ({filteredProducts.length} filtrelenen üründen)
+              </span>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={clearSelection}
+                className="px-3 py-1.5 rounded-lg border border-corp-border bg-white text-xs font-semibold text-corp-charcoal hover:bg-gray-50 transition-colors"
+              >
+                Seçimi Temizle
+              </button>
+              <button
+                type="button"
+                onClick={toggleSelectAll}
+                className="px-3 py-1.5 rounded-lg border border-corp-teal/30 bg-corp-teal/10 text-xs font-semibold text-corp-teal hover:bg-corp-teal/20 transition-colors"
+              >
+                {isAllFilteredSelected ? "Seçimi Kaldır" : "Filtrelenenlerin Tümünü Seç"}
+              </button>
+              <button
+                type="button"
+                onClick={() => openBulkDeleteConfirm("selected")}
+                className="px-4 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all active:scale-95"
+              >
+                <Trash2 size={14} />
+                Seçilenleri Sil ({selectedIds.length})
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Desktop Table View */}
         <div className="hidden md:block overflow-x-auto rounded-xl border border-corp-border">
           <table className="w-full text-left">
             <thead className="bg-corp-surface border-b border-corp-border text-corp-gray text-xs uppercase tracking-wider font-bold">
               <tr>
+                <th className="p-4 w-12 text-center">
+                  <input
+                    type="checkbox"
+                    aria-label="Tüm filtrelenmiş ürünleri seç"
+                    checked={isAllFilteredSelected}
+                    ref={(el) => {
+                      if (el) el.indeterminate = isSomeFilteredSelected;
+                    }}
+                    onChange={toggleSelectAll}
+                    className="w-4 h-4 rounded border-corp-border text-corp-teal focus:ring-corp-teal/30 cursor-pointer accent-corp-teal"
+                  />
+                </th>
                 <th className="p-4">Ürün</th>
                 <th className="p-4">Kategori</th>
                 <th className="p-4">Fiyat</th>
@@ -357,27 +509,43 @@ export default function ProductList({ initialProducts }: ProductListProps) {
             <tbody className="divide-y divide-corp-border bg-white text-sm">
               {filteredProducts.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="p-12 text-center text-corp-gray italic">
+                  <td colSpan={8} className="p-12 text-center text-corp-gray italic">
                     Ürün bulunamadı.
                   </td>
                 </tr>
               ) : (
-                filteredProducts.map((product) => (
-                  <tr key={product.id} className="hover:bg-corp-teal/5 transition-colors group">
-                    <td className="p-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-lg border border-corp-border overflow-hidden bg-gray-50 flex-shrink-0">
-                          <img
-                            src={product.images[0] || "https://placehold.co/100x100"}
-                            alt={product.name}
-                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).src =
-                                "https://placehold.co/100x100?text=Görsel+Yok";
-                            }}
-                          />
-                        </div>
-                        <div className="flex flex-col">
+                filteredProducts.map((product) => {
+                  const isSelected = selectedIds.includes(product.id);
+                  return (
+                    <tr
+                      key={product.id}
+                      className={`transition-colors group ${
+                        isSelected ? "bg-corp-teal/10 hover:bg-corp-teal/15" : "hover:bg-corp-teal/5"
+                      }`}
+                    >
+                      <td className="p-4 w-12 text-center" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          aria-label={`${product.name} seç`}
+                          checked={isSelected}
+                          onChange={() => toggleSelectOne(product.id)}
+                          className="w-4 h-4 rounded border-corp-border text-corp-teal focus:ring-corp-teal/30 cursor-pointer accent-corp-teal"
+                        />
+                      </td>
+                      <td className="p-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 rounded-lg border border-corp-border overflow-hidden bg-gray-50 flex-shrink-0">
+                            <img
+                              src={product.images[0] || "https://placehold.co/100x100"}
+                              alt={product.name}
+                              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src =
+                                  "https://placehold.co/100x100?text=Görsel+Yok";
+                              }}
+                            />
+                          </div>
+                          <div className="flex flex-col">
                           <span className="font-bold text-corp-charcoal">{product.name}</span>
                           <span className="text-[11px] text-corp-gray font-mono">
                             {product.slug}
@@ -454,7 +622,8 @@ export default function ProductList({ initialProducts }: ProductListProps) {
                       </div>
                     </td>
                   </tr>
-                ))
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -467,17 +636,32 @@ export default function ProductList({ initialProducts }: ProductListProps) {
               Ürün bulunamadı.
             </div>
           ) : (
-            filteredProducts.map((product) => (
-              <div
-                key={product.id}
-                className="bg-white p-4 rounded-2xl border border-corp-border shadow-xs space-y-3"
-              >
-                <div className="flex items-start gap-3">
-                  <div className="w-14 h-14 rounded-xl border border-corp-border overflow-hidden bg-gray-50 flex-shrink-0">
-                    <img
-                      src={product.images[0] || "https://placehold.co/100x100"}
-                      alt={product.name}
-                      className="w-full h-full object-cover"
+            filteredProducts.map((product) => {
+              const isSelected = selectedIds.includes(product.id);
+              return (
+                <div
+                  key={product.id}
+                  className={`bg-white p-4 rounded-2xl border transition-all shadow-xs space-y-3 ${
+                    isSelected
+                      ? "border-corp-teal ring-2 ring-corp-teal/20 bg-corp-teal/[0.02]"
+                      : "border-corp-border"
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="pt-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        aria-label={`${product.name} seç`}
+                        checked={isSelected}
+                        onChange={() => toggleSelectOne(product.id)}
+                        className="w-5 h-5 rounded border-corp-border text-corp-teal focus:ring-corp-teal/30 cursor-pointer accent-corp-teal"
+                      />
+                    </div>
+                    <div className="w-14 h-14 rounded-xl border border-corp-border overflow-hidden bg-gray-50 flex-shrink-0">
+                      <img
+                        src={product.images[0] || "https://placehold.co/100x100"}
+                        alt={product.name}
+                        className="w-full h-full object-cover"
                       onError={(e) => {
                         (e.target as HTMLImageElement).src =
                           "https://placehold.co/100x100?text=Görsel+Yok";
@@ -555,7 +739,8 @@ export default function ProductList({ initialProducts }: ProductListProps) {
                   </div>
                 </div>
               </div>
-            ))
+                );
+              })
           )}
         </div>
       </div>
@@ -932,6 +1117,70 @@ export default function ProductList({ initialProducts }: ProductListProps) {
               >
                 {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
                 {saving ? "Kaydediliyor..." : editTarget ? "Güncelle" : "Ekle"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Delete Confirmation Modal */}
+      {bulkDeleteModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-corp-border space-y-4 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center gap-3 text-red-600">
+              <div className="p-3 bg-red-100 rounded-full flex-shrink-0">
+                <AlertTriangle size={24} />
+              </div>
+              <div>
+                <h3 className="font-bold text-lg text-corp-charcoal">
+                  {bulkDeleteMode === "all" ? "Tüm Ürünleri Sil" : "Seçilen Ürünleri Sil"}
+                </h3>
+                <p className="text-xs text-corp-gray">Bu işlem geri alınamaz</p>
+              </div>
+            </div>
+
+            <div className="bg-red-50 border border-red-100 rounded-xl p-3 text-xs text-red-800 leading-relaxed">
+              {bulkDeleteMode === "all" ? (
+                <>
+                  Toplam <strong>{products.length}</strong> ürünü kalıcı olarak silmek üzeresiniz.
+                  Ürünlere ait görseller ve varyantlar sistemden temizlenecektir.
+                </>
+              ) : (
+                <>
+                  Seçtiğiniz <strong>{selectedIds.length}</strong> ürünü kalıcı olarak silmek
+                  üzeresiniz. Ürünlere ait görseller ve varyantlar sistemden temizlenecektir.
+                </>
+              )}
+              <span className="text-[11px] text-red-600 font-medium mt-2 block">
+                * Geçmiş sipariş kayıtlarında yer alan ürünler veri bütünlüğü için silinemez, korunacaktır.
+              </span>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setBulkDeleteModalOpen(false)}
+                disabled={bulkDeleting}
+                className="px-4 py-2 rounded-lg border border-corp-border text-xs font-semibold text-corp-charcoal hover:bg-gray-100 transition-colors disabled:opacity-50"
+              >
+                Vazgeç
+              </button>
+              <button
+                type="button"
+                onClick={executeBulkDelete}
+                disabled={bulkDeleting}
+                className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-bold flex items-center gap-2 shadow-sm transition-all disabled:opacity-50"
+              >
+                {bulkDeleting ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin" /> Siliniyor...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 size={14} /> Evet, Sil (
+                    {bulkDeleteMode === "all" ? products.length : selectedIds.length})
+                  </>
+                )}
               </button>
             </div>
           </div>
