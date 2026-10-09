@@ -153,10 +153,10 @@ export default function OrderList({ initialOrders }: OrderListProps) {
           />
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar scrollbar-none pb-1 flex-nowrap sm:flex-wrap">
           <button
             onClick={() => setFilterType("all")}
-            className={`min-h-[44px] px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center justify-center ${
+            className={`min-h-[44px] px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center justify-center shrink-0 ${
               filterType === "all"
                 ? "bg-corp-teal text-white shadow-sm"
                 : "bg-gray-100 text-corp-gray hover:bg-gray-200"
@@ -166,7 +166,7 @@ export default function OrderList({ initialOrders }: OrderListProps) {
           </button>
           <button
             onClick={() => setFilterType("corporate_pending")}
-            className={`min-h-[44px] px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${
+            className={`min-h-[44px] px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center justify-center gap-1.5 shrink-0 ${
               filterType === "corporate_pending"
                 ? "bg-amber-600 text-white shadow-sm"
                 : "bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100"

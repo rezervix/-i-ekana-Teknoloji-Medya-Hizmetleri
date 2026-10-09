@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { Plus, Edit, Trash2, Loader2, Search, X, Save, Upload, Image as ImageIcon, XCircle, ChevronDown, ChevronUp, Tag, Truck, Star, ArrowLeft, ArrowRight, CheckSquare, Square, AlertTriangle, Check } from "lucide-react";
+import { Plus, Edit, Trash2, Loader2, Search, X, Save, Upload, Image as ImageIcon, XCircle, ChevronDown, ChevronUp, Tag, Truck, Star, ArrowLeft, ArrowRight, CheckSquare, Square, AlertTriangle, Check, Sparkles, Layers, Sliders, Info, Copy, CheckCircle2, RefreshCw, Package } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import type { VariantDimension } from "@/types/product";
+import type { VariantDimension, PriceMatrixEntry, PriceTier } from "@/types/product";
 import { isNewFormat, isLegacyVariantsFormat } from "@/types/product";
 import ProductImageUploader from "@/components/admin/ProductImageUploader";
 
@@ -17,6 +17,7 @@ interface Product {
   price: number;
   stock?: number | null;
   isActive: boolean;
+  isFeatured?: boolean;
   freeShipping?: boolean;
   images: string[];
   description?: string;
@@ -30,19 +31,39 @@ interface ProductListProps {
 
 const EMPTY_FORM = {
   name: "",
+  slug: "",
   category: "Medya",
   subcategory: "",
   price: "",
   stock: "",
   photoToDesignFee: "",
   freeShipping: false,
+  isFeatured: false,
+  isActive: true,
   description: "",
   images: [] as string[],
-  // Yeni format: variantDimensions düzenlenebilir
+  variantMode: "matrix" as "matrix" | "legacy" | "none",
   variantDimensions: [] as VariantDimension[],
-  // Eski format: basit varyant listesi
+  priceMatrix: [] as PriceMatrixEntry[],
   variants: [] as Array<{ quantity: number; material: string; salePrice: number }>,
 };
+
+function generateCartesianCombinations(dimensions: VariantDimension[]): Record<string, string>[] {
+  if (dimensions.length === 0) return [];
+  return dimensions.reduce<Record<string, string>[]>(
+    (acc, dim) => {
+      const opts = dim.options && dim.options.length > 0 ? dim.options : ["Standart"];
+      const next: Record<string, string>[] = [];
+      for (const item of acc) {
+        for (const opt of opts) {
+          next.push({ ...item, [dim.key]: opt });
+        }
+      }
+      return next;
+    },
+    [{}]
+  );
+}
 
 // ─── Chip/Tag Input — tek bir dimension'ın options listesini düzenler ─────────
 
@@ -128,11 +149,16 @@ export default function ProductList({ initialProducts }: ProductListProps) {
   const [loading, setLoading] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
+  const [activeModalTab, setActiveModalTab] = useState<"general" | "variants">("general");
   const [editTarget, setEditTarget] = useState<Product | null>(null);
   const [formData, setFormData] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   // Hangi dimension accordion'u açık
   const [expandedDimIdx, setExpandedDimIdx] = useState<number | null>(null);
+  // Yeni boyut ekleme state'leri
+  const [showAddDimForm, setShowAddDimForm] = useState(false);
+  const [newDimName, setNewDimName] = useState("");
+  const [newDimOptions, setNewDimOptions] = useState("");
   const router = useRouter();
 
   // Toplu seçim ve silme state'leri
@@ -145,6 +171,8 @@ export default function ProductList({ initialProducts }: ProductListProps) {
     setEditTarget(null);
     setFormData(EMPTY_FORM);
     setExpandedDimIdx(null);
+    setShowAddDimForm(false);
+    setActiveModalTab("general");
     setModalOpen(true);
   };
 
@@ -153,32 +181,51 @@ export default function ProductList({ initialProducts }: ProductListProps) {
     const opts = product.customizationOptions;
 
     let variantDimensions: VariantDimension[] = [];
+    let priceMatrix: PriceMatrixEntry[] = [];
     let variants: Array<{ quantity: number; material: string; salePrice: number }> = [];
+    let variantMode: "matrix" | "legacy" | "none" = "none";
 
     if (isNewFormat(opts)) {
-      variantDimensions = opts.variantDimensions.map((d: VariantDimension) => ({ ...d }));
+      variantDimensions = opts.variantDimensions.map((d: VariantDimension) => ({
+        ...d,
+        options: [...(d.options || [])],
+      }));
+      priceMatrix = (opts.priceMatrix || []).map((m: PriceMatrixEntry) => ({
+        packageId: m.packageId,
+        dimensionValues: { ...m.dimensionValues },
+        tiers: (m.tiers || []).map((t: PriceTier) => ({ ...t })),
+      }));
+      variantMode = "matrix";
     } else if (isLegacyVariantsFormat(opts)) {
       variants = opts.variants.map((v: any) => ({
         quantity: v.quantity ?? 0,
         material: v.material ?? "",
         salePrice: v.salePrice ?? 0,
       }));
+      variantMode = "legacy";
     }
 
     setFormData({
       name: product.name,
+      slug: product.slug || "",
       category: product.category,
       subcategory: product.subcategory || "",
       price: String(product.price),
       stock: product.stock != null ? String(product.stock) : "",
       photoToDesignFee: product.photoToDesignFee != null ? String(product.photoToDesignFee) : "",
       freeShipping: Boolean(product.freeShipping),
+      isFeatured: Boolean(product.isFeatured),
+      isActive: product.isActive !== undefined ? Boolean(product.isActive) : true,
       description: product.description || "",
       images: product.images || [],
+      variantMode,
       variantDimensions,
+      priceMatrix,
       variants,
     });
     setExpandedDimIdx(null);
+    setShowAddDimForm(false);
+    setActiveModalTab("general");
     setModalOpen(true);
   };
 
@@ -187,9 +234,62 @@ export default function ProductList({ initialProducts }: ProductListProps) {
     setEditTarget(null);
     setFormData(EMPTY_FORM);
     setExpandedDimIdx(null);
+    setShowAddDimForm(false);
   };
 
-  // Dimension label değişimi → autoDetected = false
+  // Dimension ekleme
+  const handleAddDimension = () => {
+    const trimmed = newDimName.trim();
+    if (!trimmed) {
+      toast.error("Lütfen boyut adını girin (Örn: Kağıt Cinsi, Kesim Türü).");
+      return;
+    }
+    const safeKey = `ozellik_${Date.now()}`;
+    const opts = newDimOptions
+      .split(/[,;\n]/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    const newDim: VariantDimension = {
+      key: safeKey,
+      label: trimmed,
+      autoDetected: false,
+      options: opts.length > 0 ? opts : ["Standart"],
+    };
+
+    setFormData((f) => ({
+      ...f,
+      variantDimensions: [...f.variantDimensions, newDim],
+    }));
+    setNewDimName("");
+    setNewDimOptions("");
+    setShowAddDimForm(false);
+    toast.success(`"${trimmed}" boyutu başarıyla eklendi.`);
+  };
+
+  // Dimension silme
+  const handleRemoveDimension = (idx: number) => {
+    const dim = formData.variantDimensions[idx];
+    if (!dim) return;
+    if (!confirm(`"${dim.label}" boyutunu silmek istediğinize emin misiniz?`)) return;
+    setFormData((f) => {
+      const remainingDims = f.variantDimensions.filter((_, i) => i !== idx);
+      // Ayrıca matrix içinden bu key'i temizle
+      const updatedMatrix = f.priceMatrix.map((combo) => {
+        const newDimVals = { ...combo.dimensionValues };
+        delete newDimVals[dim.key];
+        return { ...combo, dimensionValues: newDimVals };
+      });
+      return {
+        ...f,
+        variantDimensions: remainingDims,
+        priceMatrix: updatedMatrix,
+      };
+    });
+    toast.success(`"${dim.label}" boyutu silindi.`);
+  };
+
+  // Dimension label değişimi
   const updateDimensionLabel = (idx: number, label: string) => {
     setFormData((f) => {
       const dims = [...f.variantDimensions];
@@ -207,6 +307,171 @@ export default function ProductList({ initialProducts }: ProductListProps) {
     });
   };
 
+  // Fiyat matrisini boyutlardan otomatik oluştur / güncelle
+  const syncMatrixFromDimensions = () => {
+    if (formData.variantDimensions.length === 0) {
+      toast.error("Önce en az bir varyant boyutu ve seçenek ekleyin.");
+      return;
+    }
+    const allCombos = generateCartesianCombinations(formData.variantDimensions);
+    const defaultPrice = parseFloat(formData.price) || 500;
+
+    const newMatrix: PriceMatrixEntry[] = allCombos.map((combo, idx) => {
+      // Mevcut kombinasyon eşleşiyorsa koru
+      const existing = formData.priceMatrix.find((m) => {
+        return Object.entries(combo).every(([k, v]) => m.dimensionValues[k] === v);
+      });
+
+      if (existing) {
+        return existing;
+      }
+
+      return {
+        packageId: String(idx + 1),
+        dimensionValues: combo,
+        tiers: [
+          {
+            quantity: 1000,
+            salePrice: defaultPrice,
+            unitSalePrice: defaultPrice > 0 ? parseFloat((defaultPrice / 1000).toFixed(2)) : 0.5,
+            totalCost: 0,
+            unitCost: 0,
+          },
+        ],
+      };
+    });
+
+    setFormData((f) => ({
+      ...f,
+      priceMatrix: newMatrix,
+    }));
+    toast.success(`Fiyat matrisi güncellendi: ${newMatrix.length} varyant kombinasyonu hazır.`);
+  };
+
+  // Yeni kombinasyon ekle
+  const addCustomCombination = () => {
+    if (formData.variantDimensions.length === 0) {
+      toast.error("Önce en az bir varyant boyutu ekleyin.");
+      return;
+    }
+    const defaultCombo: Record<string, string> = {};
+    formData.variantDimensions.forEach((dim) => {
+      defaultCombo[dim.key] = dim.options[0] || "Standart";
+    });
+
+    const newEntry: PriceMatrixEntry = {
+      packageId: String(Date.now()),
+      dimensionValues: defaultCombo,
+      tiers: [
+        {
+          quantity: 1000,
+          salePrice: parseFloat(formData.price) || 500,
+          unitSalePrice: 0.5,
+          totalCost: 0,
+          unitCost: 0,
+        },
+      ],
+    };
+
+    setFormData((f) => ({
+      ...f,
+      priceMatrix: [newEntry, ...f.priceMatrix],
+    }));
+    toast.success("Yeni varyant kombinasyonu eklendi.");
+  };
+
+  // Kombinasyon sil
+  const removeCombination = (idx: number) => {
+    setFormData((f) => ({
+      ...f,
+      priceMatrix: f.priceMatrix.filter((_, i) => i !== idx),
+    }));
+    toast.success("Varyant kombinasyonu kaldırıldı.");
+  };
+
+  // Kombinasyona adet kademesi ekle
+  const addTierToCombination = (comboIdx: number) => {
+    setFormData((f) => {
+      const matrix = [...f.priceMatrix];
+      const combo = { ...matrix[comboIdx] };
+      const tiers = [...combo.tiers];
+      const lastTier = tiers[tiers.length - 1];
+      const nextQuantity = lastTier ? (lastTier.quantity >= 1000 ? lastTier.quantity + 1000 : lastTier.quantity * 2) : 1000;
+      const nextPrice = lastTier ? Math.round(lastTier.salePrice * 1.5) : (parseFloat(f.price) || 500);
+      combo.tiers = [
+        ...tiers,
+        {
+          quantity: nextQuantity,
+          salePrice: nextPrice,
+          unitSalePrice: nextQuantity > 0 ? parseFloat((nextPrice / nextQuantity).toFixed(2)) : 0,
+          totalCost: 0,
+          unitCost: 0,
+        },
+      ];
+      matrix[comboIdx] = combo;
+      return { ...f, priceMatrix: matrix };
+    });
+  };
+
+  // Adet kademesini güncelle
+  const updateTier = (
+    comboIdx: number,
+    tierIdx: number,
+    field: "quantity" | "salePrice",
+    val: number
+  ) => {
+    setFormData((f) => {
+      const matrix = [...f.priceMatrix];
+      const combo = { ...matrix[comboIdx] };
+      const tiers = [...combo.tiers];
+      const current = { ...tiers[tierIdx], [field]: val };
+      if (current.quantity > 0 && current.salePrice > 0) {
+        current.unitSalePrice = parseFloat((current.salePrice / current.quantity).toFixed(2));
+      }
+      tiers[tierIdx] = current;
+      combo.tiers = tiers;
+      matrix[comboIdx] = combo;
+      return { ...f, priceMatrix: matrix };
+    });
+  };
+
+  // Adet kademesini sil
+  const removeTier = (comboIdx: number, tierIdx: number) => {
+    setFormData((f) => {
+      const matrix = [...f.priceMatrix];
+      const combo = { ...matrix[comboIdx] };
+      if (combo.tiers.length <= 1) {
+        toast.error("Bir kombinasyonun en az bir adet ve fiyat kademesi olmalıdır.");
+        return f;
+      }
+      combo.tiers = combo.tiers.filter((_, i) => i !== tierIdx);
+      matrix[comboIdx] = combo;
+      return { ...f, priceMatrix: matrix };
+    });
+  };
+
+  // Otomatik URL Slug üret
+  const handleAutoSlug = () => {
+    if (!formData.name.trim()) {
+      toast.error("Önce ürün adını girin.");
+      return;
+    }
+    const generated = formData.name
+      .toLowerCase()
+      .trim()
+      .replace(/ğ/g, "g")
+      .replace(/ü/g, "u")
+      .replace(/ş/g, "s")
+      .replace(/ı/g, "i")
+      .replace(/ö/g, "o")
+      .replace(/ç/g, "c")
+      .replace(/[^a-z0-9-_]/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "");
+    setFormData((f) => ({ ...f, slug: generated }));
+    toast.success("URL bağlantısı üretildi.");
+  };
+
   const handleSave = async () => {
     if (!formData.name.trim()) {
       toast.error("Ürün adı zorunludur.");
@@ -215,29 +480,34 @@ export default function ProductList({ initialProducts }: ProductListProps) {
     setSaving(true);
     try {
       // customizationOptions yeniden oluştur
-      let customizationOptions: any;
-      if (formData.variantDimensions.length > 0 && editTarget) {
-        // Mevcut priceMatrix'i koru, sadece variantDimensions'ı güncelle
-        const existingOpts = editTarget.customizationOptions;
-        const existingMatrix = isNewFormat(existingOpts) ? existingOpts.priceMatrix : [];
-        customizationOptions = {
-          variantDimensions: formData.variantDimensions,
-          priceMatrix: existingMatrix,
-        };
-      } else if (formData.variants.length > 0) {
-        customizationOptions = { variants: formData.variants };
-      } else {
-        customizationOptions = undefined;
+      let customizationOptions: any = null;
+      if (formData.variantMode === "matrix") {
+        if (formData.variantDimensions.length > 0) {
+          customizationOptions = {
+            variantDimensions: formData.variantDimensions,
+            priceMatrix: formData.priceMatrix,
+          };
+        }
+      } else if (formData.variantMode === "legacy") {
+        if (formData.variants.length > 0) {
+          customizationOptions = {
+            variants: formData.variants,
+          };
+        }
       }
 
       const payload = {
         name: formData.name.trim(),
+        slug: formData.slug.trim() || undefined,
         category: formData.category,
         subcategory: formData.subcategory.trim() || undefined,
         price: parseFloat(formData.price) || 0,
         stock: formData.stock !== "" ? parseInt(formData.stock) : null,
-        photoToDesignFee: formData.photoToDesignFee !== "" ? parseFloat(formData.photoToDesignFee) : null,
+        photoToDesignFee:
+          formData.photoToDesignFee !== "" ? parseFloat(formData.photoToDesignFee) : null,
         freeShipping: Boolean(formData.freeShipping),
+        isFeatured: Boolean(formData.isFeatured),
+        isActive: Boolean(formData.isActive),
         description: formData.description.trim() || undefined,
         images: formData.images,
         customizationOptions,
@@ -257,7 +527,7 @@ export default function ProductList({ initialProducts }: ProductListProps) {
         setProducts((prev) =>
           prev.map((p) => (p.id === editTarget.id ? { ...p, ...updated } : p))
         );
-        toast.success("Ürün güncellendi.");
+        toast.success("Ürün başarıyla güncellendi.");
       } else {
         const res = await fetch("/api/admin/products", {
           method: "POST",
@@ -270,7 +540,7 @@ export default function ProductList({ initialProducts }: ProductListProps) {
         }
         const created = await res.json();
         setProducts((prev) => [created, ...prev]);
-        toast.success("Ürün eklendi.");
+        toast.success("Ürün başarıyla eklendi.");
       }
       closeModal();
     } catch (error: any) {
@@ -749,385 +1019,847 @@ export default function ProductList({ initialProducts }: ProductListProps) {
                   </div>
                 </div>
               </div>
-                );
-              })
-          )}
-        </div>
+            );
+          })
+        )}
       </div>
+    </div>
 
       {/* Modal */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm p-0 sm:p-4">
-          <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-2xl max-h-[92vh] overflow-y-auto flex flex-col">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-corp-border sticky top-0 bg-white z-10 rounded-t-3xl">
-              <h2 className="font-display text-xl font-bold text-corp-charcoal">
-                {editTarget ? "Ürünü Düzenle" : "Yeni Ürün Ekle"}
-              </h2>
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-xs p-0 sm:p-4">
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-4xl max-h-[92vh] overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-corp-border sticky top-0 bg-white z-20">
+              <div className="min-w-0 pr-4">
+                <h2 className="font-display text-lg sm:text-xl font-bold text-corp-charcoal truncate">
+                  {editTarget ? `Ürünü Düzenle: ${editTarget.name}` : "Yeni Ürün Ekle"}
+                </h2>
+                <p className="text-xs text-corp-gray hidden sm:block">
+                  Ürünün tüm temel bilgilerini, fotoğraflarını ve varyant fiyatlandırmasını yönetin.
+                </p>
+              </div>
               <button
                 onClick={closeModal}
-                className="min-h-[44px] min-w-[44px] p-2 text-corp-gray hover:text-corp-charcoal hover:bg-gray-100 rounded-xl transition-all flex items-center justify-center"
+                className="min-h-[44px] min-w-[44px] p-2 text-corp-gray hover:text-corp-charcoal hover:bg-gray-100 rounded-xl transition-all flex items-center justify-center shrink-0 cursor-pointer"
                 aria-label="Kapat"
               >
                 <X size={20} />
               </button>
             </div>
 
-            <div className="p-4 sm:p-6 space-y-4">
-              {/* Ürün Adı */}
-              <div>
-                <label className="block text-sm font-semibold text-corp-charcoal mb-1">
-                  Ürün Adı <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData((f) => ({ ...f, name: e.target.value }))}
-                  placeholder="Örn: Kurumsal Broşür Tasarımı"
-                  className="w-full px-4 py-3 rounded-xl border border-corp-border focus:outline-none focus:ring-2 focus:ring-corp-teal/30 text-base sm:text-sm"
-                />
-              </div>
+            {/* Modal Tabs Bar */}
+            <div className="flex border-b border-corp-border bg-corp-surface/50 px-4 sm:px-6 gap-2 sticky top-[69px] z-10 overflow-x-auto no-scrollbar">
+              <button
+                type="button"
+                onClick={() => setActiveModalTab("general")}
+                className={`py-3 px-4 font-semibold text-xs sm:text-sm flex items-center gap-2 border-b-2 transition-all whitespace-nowrap cursor-pointer ${
+                  activeModalTab === "general"
+                    ? "border-corp-teal text-corp-teal bg-white rounded-t-xl shadow-xs"
+                    : "border-transparent text-corp-gray hover:text-corp-charcoal"
+                }`}
+              >
+                <Sliders size={16} />
+                <span>Genel Bilgiler</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveModalTab("variants")}
+                className={`py-3 px-4 font-semibold text-xs sm:text-sm flex items-center gap-2 border-b-2 transition-all whitespace-nowrap cursor-pointer ${
+                  activeModalTab === "variants"
+                    ? "border-corp-teal text-corp-teal bg-white rounded-t-xl shadow-xs"
+                    : "border-transparent text-corp-gray hover:text-corp-charcoal"
+                }`}
+              >
+                <Layers size={16} />
+                <span>Varyant &amp; Fiyat Yönetimi</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-corp-teal/10 text-corp-teal">
+                  {formData.variantMode === "matrix"
+                    ? `${formData.variantDimensions.length} Boyut • ${formData.priceMatrix.length} Fiyat`
+                    : formData.variantMode === "legacy"
+                    ? `${formData.variants.length} Varyant`
+                    : "Varyantsız"}
+                </span>
+              </button>
+            </div>
 
-              {/* Kategori & Alt Kategori */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold text-corp-charcoal mb-1">
-                    Kategori
-                  </label>
-                  <select
-                    value={formData.category}
-                    onChange={(e) => setFormData((f) => ({ ...f, category: e.target.value }))}
-                    className="w-full px-4 py-3 rounded-xl border border-corp-border focus:outline-none focus:ring-2 focus:ring-corp-teal/30 text-base sm:text-sm bg-white min-h-[44px]"
-                  >
-                    <option value="Medya">Medya</option>
-                    <option value="Teknoloji">Teknoloji</option>
-                    <option value="Baski">Kurumsal Kimlik &amp; Baskı</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-corp-charcoal mb-1">
-                    Alt Kategori
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.subcategory}
-                    onChange={(e) =>
-                      setFormData((f) => ({ ...f, subcategory: e.target.value }))
-                    }
-                    placeholder="Örn: Sosyal Medya"
-                    className="w-full px-4 py-3 rounded-xl border border-corp-border focus:outline-none focus:ring-2 focus:ring-corp-teal/30 text-base sm:text-sm min-h-[44px]"
-                  />
-                </div>
-              </div>
-
-              {/* Fiyat & Stok & Fotoğraftan Tasarım Ücreti */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold text-corp-charcoal mb-1">
-                    Fiyat (TL)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={formData.price}
-                    onChange={(e) => setFormData((f) => ({ ...f, price: e.target.value }))}
-                    placeholder="0.00"
-                    className="w-full px-4 py-3 rounded-xl border border-corp-border focus:outline-none focus:ring-2 focus:ring-corp-teal/30 text-base sm:text-sm min-h-[44px]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-corp-charcoal mb-1">
-                    Stok <span className="text-corp-gray text-xs">(boş = sınırsız)</span>
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={formData.stock}
-                    onChange={(e) => setFormData((f) => ({ ...f, stock: e.target.value }))}
-                    placeholder="Sınırsız"
-                    className="w-full px-4 py-3 rounded-xl border border-corp-border focus:outline-none focus:ring-2 focus:ring-corp-teal/30 text-base sm:text-sm min-h-[44px]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-corp-charcoal mb-1">
-                    Fotoğraftan Tasarım (TL)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={formData.photoToDesignFee}
-                    onChange={(e) => setFormData((f) => ({ ...f, photoToDesignFee: e.target.value }))}
-                    placeholder="Varsayılan: 500"
-                    className="w-full px-4 py-3 rounded-xl border border-corp-border focus:outline-none focus:ring-2 focus:ring-corp-teal/30 text-base sm:text-sm min-h-[44px]"
-                  />
-                </div>
-              </div>
-
-              {/* Ücretsiz Kargo Toggle */}
-              <div className="flex items-center justify-between p-4 rounded-2xl border border-corp-border bg-corp-surface/50">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center flex-shrink-0 border border-emerald-200/60">
-                    <Truck size={18} />
-                  </div>
-                  <div>
-                    <label htmlFor="free-shipping-toggle" className="text-sm font-semibold text-corp-charcoal block cursor-pointer">
-                      Ücretsiz Kargo
-                    </label>
-                    <p className="text-xs text-corp-gray">
-                      Açıksa bu ürün için müşteriye ücretsiz kargo gösterilir.
-                    </p>
-                  </div>
-                </div>
-                <button
-                  id="free-shipping-toggle"
-                  type="button"
-                  role="switch"
-                  aria-checked={formData.freeShipping}
-                  onClick={() => setFormData((f) => ({ ...f, freeShipping: !f.freeShipping }))}
-                  className={`relative inline-flex h-7 w-12 min-h-[44px] min-w-[44px] items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-corp-teal focus:ring-offset-2 ${
-                    formData.freeShipping ? "bg-emerald-600" : "bg-gray-300"
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform ${
-                      formData.freeShipping ? "translate-x-6" : "translate-x-1"
-                    }`}
-                  />
-                </button>
-              </div>
-
-              {/* Açıklama */}
-              <div>
-                <label className="block text-sm font-semibold text-corp-charcoal mb-1">
-                  Açıklama
-                </label>
-                <textarea
-                  rows={3}
-                  value={formData.description}
-                  onChange={(e) =>
-                    setFormData((f) => ({ ...f, description: e.target.value }))
-                  }
-                  placeholder="Ürün açıklaması..."
-                  className="w-full px-4 py-3 rounded-xl border border-corp-border focus:outline-none focus:ring-2 focus:ring-corp-teal/30 text-base sm:text-sm resize-none"
-                />
-              </div>
-
-              {/* Çoklu Görsel Yükleyici (Vercel Blob Client Upload & Concurrency Queue) */}
-              <ProductImageUploader
-                images={formData.images}
-                onChange={(newImages) =>
-                  setFormData((prev) => ({ ...prev, images: newImages }))
-                }
-                productId={editTarget?.id || "temp"}
-              />
-
-              {/* ── YENİ FORMAT: Varyant Boyutları (CSV'den gelen ürünlerde görünür) ─ */}
-              {formData.variantDimensions.length > 0 && (
-                <div>
-                  <div className="flex items-center gap-2 mb-3">
-                    <Tag size={15} className="text-corp-teal" />
-                    <span className="text-sm font-semibold text-corp-charcoal">
-                      Varyant Boyutları
-                    </span>
-                    <span className="text-xs text-corp-gray ml-auto">
-                      {formData.variantDimensions.length} boyut
-                    </span>
-                  </div>
-
-                  <div className="space-y-2">
-                    {formData.variantDimensions.map((dim, idx) => (
-                      <div
-                        key={dim.key}
-                        className="border border-corp-border rounded-xl overflow-hidden"
-                      >
-                        {/* Accordion başlığı */}
+            {/* Modal Body */}
+            <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-6">
+              {/* ───────────────────────────────────────────────────────────── */}
+              {/* TAB 1: GENEL BİLGİLER */}
+              {/* ───────────────────────────────────────────────────────────── */}
+              {activeModalTab === "general" && (
+                <div className="space-y-4">
+                  {/* Ürün Adı & Slug */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-corp-charcoal uppercase tracking-wider mb-1.5">
+                        Ürün Adı <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.name}
+                        onChange={(e) => setFormData((f) => ({ ...f, name: e.target.value }))}
+                        placeholder="Örn: Standart Kartvizit"
+                        className="w-full px-4 py-2.5 rounded-xl border border-corp-border focus:outline-none focus:ring-2 focus:ring-corp-teal/30 text-sm min-h-[44px]"
+                      />
+                    </div>
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="text-xs font-bold text-corp-charcoal uppercase tracking-wider">
+                          URL Bağlantısı (Slug)
+                        </label>
                         <button
                           type="button"
-                          onClick={() =>
-                            setExpandedDimIdx(expandedDimIdx === idx ? null : idx)
-                          }
-                          className="w-full flex items-center justify-between px-4 py-3 bg-corp-surface hover:bg-corp-teal/5 transition-colors text-left"
+                          onClick={handleAutoSlug}
+                          className="text-[11px] font-semibold text-corp-teal hover:underline flex items-center gap-1 cursor-pointer"
                         >
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span className="text-xs font-mono text-corp-gray flex-shrink-0">
-                              [{dim.key}]
-                            </span>
-                            <span className="font-semibold text-sm text-corp-charcoal truncate">
-                              {dim.label}
-                            </span>
-                            {dim.autoDetected && (
-                              <span className="flex-shrink-0 text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-semibold">
-                                Otomatik
-                              </span>
-                            )}
-                            <span className="flex-shrink-0 text-[10px] text-corp-gray">
-                              {dim.options.length} seçenek
-                            </span>
-                          </div>
-                          {expandedDimIdx === idx ? (
-                            <ChevronUp size={15} className="text-corp-gray flex-shrink-0" />
-                          ) : (
-                            <ChevronDown size={15} className="text-corp-gray flex-shrink-0" />
-                          )}
+                          <RefreshCw size={11} /> Adtan Oluştur
                         </button>
-
-                        {/* Accordion içeriği */}
-                        {expandedDimIdx === idx && (
-                          <div className="px-4 pb-4 pt-3 space-y-3 bg-white">
-                            {/* Label düzenleme */}
-                            <div>
-                              <label className="block text-xs font-semibold text-corp-charcoal mb-1">
-                                Etiket (Boyut Adı)
-                              </label>
-                              <input
-                                type="text"
-                                value={dim.label}
-                                onChange={(e) =>
-                                  updateDimensionLabel(idx, e.target.value)
-                                }
-                                placeholder={
-                                  dim.autoDetected
-                                    ? "Otomatik tahmin edildi — düzenleyebilirsiniz"
-                                    : "Boyut adı"
-                                }
-                                className={`w-full px-3 py-2 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-corp-teal/30 ${
-                                  dim.autoDetected
-                                    ? "border-amber-300 bg-amber-50 placeholder:text-amber-500 text-amber-800"
-                                    : "border-corp-border"
-                                }`}
-                              />
-                              {dim.autoDetected && (
-                                <p className="text-[10px] text-amber-600 mt-1">
-                                  Bu etiket CSV verilerinden otomatik tahmin edildi. Düzenlediğinizde &quot;Otomatik&quot; etiketi kaldırılacak.
-                                </p>
-                              )}
-                            </div>
-
-                            {/* Options düzenleme */}
-                            <div>
-                              <label className="block text-xs font-semibold text-corp-charcoal mb-2">
-                                Seçenekler
-                              </label>
-                              <DimensionOptionsEditor
-                                options={dim.options}
-                                onChange={(opts) => updateDimensionOptions(idx, opts)}
-                              />
-                            </div>
-                          </div>
-                        )}
                       </div>
-                    ))}
+                      <input
+                        type="text"
+                        value={formData.slug}
+                        onChange={(e) => setFormData((f) => ({ ...f, slug: e.target.value }))}
+                        placeholder="standart-kartvizit"
+                        className="w-full px-4 py-2.5 rounded-xl border border-corp-border focus:outline-none focus:ring-2 focus:ring-corp-teal/30 text-sm font-mono min-h-[44px]"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Kategori & Alt Kategori */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-corp-charcoal uppercase tracking-wider mb-1.5">
+                        Kategori
+                      </label>
+                      <select
+                        value={formData.category}
+                        onChange={(e) => setFormData((f) => ({ ...f, category: e.target.value }))}
+                        className="w-full px-4 py-2.5 rounded-xl border border-corp-border focus:outline-none focus:ring-2 focus:ring-corp-teal/30 text-sm bg-white min-h-[44px]"
+                      >
+                        <option value="Baski">Kurumsal Kimlik &amp; Baskı</option>
+                        <option value="Medya">Medya &amp; Reklam</option>
+                        <option value="Teknoloji">Teknoloji</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-corp-charcoal uppercase tracking-wider mb-1.5">
+                        Alt Kategori
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.subcategory}
+                        onChange={(e) =>
+                          setFormData((f) => ({ ...f, subcategory: e.target.value }))
+                        }
+                        placeholder="Örn: Kartvizit, Broşür, Tabela..."
+                        className="w-full px-4 py-2.5 rounded-xl border border-corp-border focus:outline-none focus:ring-2 focus:ring-corp-teal/30 text-sm min-h-[44px]"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Fiyat & Stok & Fotoğraftan Tasarım Ücreti */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-corp-charcoal uppercase tracking-wider mb-1.5">
+                        Taban Fiyat (TL)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={formData.price}
+                        onChange={(e) => setFormData((f) => ({ ...f, price: e.target.value }))}
+                        placeholder="0.00"
+                        className="w-full px-4 py-2.5 rounded-xl border border-corp-border focus:outline-none focus:ring-2 focus:ring-corp-teal/30 text-sm min-h-[44px]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-corp-charcoal uppercase tracking-wider mb-1.5">
+                        Stok <span className="text-corp-gray text-[10px] lowercase">(boş = sınırsız)</span>
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formData.stock}
+                        onChange={(e) => setFormData((f) => ({ ...f, stock: e.target.value }))}
+                        placeholder="Sınırsız"
+                        className="w-full px-4 py-2.5 rounded-xl border border-corp-border focus:outline-none focus:ring-2 focus:ring-corp-teal/30 text-sm min-h-[44px]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-corp-charcoal uppercase tracking-wider mb-1.5">
+                        Fotoğraftan Tasarım (TL)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={formData.photoToDesignFee}
+                        onChange={(e) =>
+                          setFormData((f) => ({ ...f, photoToDesignFee: e.target.value }))
+                        }
+                        placeholder="500"
+                        className="w-full px-4 py-2.5 rounded-xl border border-corp-border focus:outline-none focus:ring-2 focus:ring-corp-teal/30 text-sm min-h-[44px]"
+                      />
+                    </div>
+                  </div>
+
+                  {/* 3 Status Toggles (Kargo, Vitrin, Yayında) */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                    {/* Ücretsiz Kargo */}
+                    <div className="p-3.5 rounded-2xl border border-corp-border bg-corp-surface/40 flex items-center justify-between gap-3">
+                      <div>
+                        <span className="text-xs font-bold text-corp-charcoal block">Ücretsiz Kargo</span>
+                        <span className="text-[11px] text-corp-gray">Müşteriye kargo bedava</span>
+                      </div>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={formData.freeShipping}
+                        onClick={() => setFormData((f) => ({ ...f, freeShipping: !f.freeShipping }))}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors shrink-0 ${
+                          formData.freeShipping ? "bg-emerald-600" : "bg-gray-300"
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-md transition-transform ${
+                            formData.freeShipping ? "translate-x-6" : "translate-x-1"
+                          }`}
+                        />
+                      </button>
+                    </div>
+
+                    {/* Öne Çıkan (Vitrin) */}
+                    <div className="p-3.5 rounded-2xl border border-corp-border bg-corp-surface/40 flex items-center justify-between gap-3">
+                      <div>
+                        <span className="text-xs font-bold text-corp-charcoal block">Vitrin Ürünü</span>
+                        <span className="text-[11px] text-corp-gray">Öne çıkanlarda göster</span>
+                      </div>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={formData.isFeatured}
+                        onClick={() => setFormData((f) => ({ ...f, isFeatured: !f.isFeatured }))}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors shrink-0 ${
+                          formData.isFeatured ? "bg-amber-500" : "bg-gray-300"
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-md transition-transform ${
+                            formData.isFeatured ? "translate-x-6" : "translate-x-1"
+                          }`}
+                        />
+                      </button>
+                    </div>
+
+                    {/* Satışta / Aktif */}
+                    <div className="p-3.5 rounded-2xl border border-corp-border bg-corp-surface/40 flex items-center justify-between gap-3">
+                      <div>
+                        <span className="text-xs font-bold text-corp-charcoal block">Ürün Durumu</span>
+                        <span className="text-[11px] text-corp-gray">
+                          {formData.isActive ? "Mağazada Satışta" : "Pasif / Gizli"}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={formData.isActive}
+                        onClick={() => setFormData((f) => ({ ...f, isActive: !f.isActive }))}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors shrink-0 ${
+                          formData.isActive ? "bg-corp-teal" : "bg-gray-300"
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-md transition-transform ${
+                            formData.isActive ? "translate-x-6" : "translate-x-1"
+                          }`}
+                        />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Açıklama */}
+                  <div>
+                    <label className="block text-xs font-bold text-corp-charcoal uppercase tracking-wider mb-1.5">
+                      Ürün Açıklaması
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={formData.description}
+                      onChange={(e) =>
+                        setFormData((f) => ({ ...f, description: e.target.value }))
+                      }
+                      placeholder="Müşterilere gösterilecek detaylı ürün tanıtımı..."
+                      className="w-full px-4 py-2.5 rounded-xl border border-corp-border focus:outline-none focus:ring-2 focus:ring-corp-teal/30 text-sm resize-none"
+                    />
+                  </div>
+
+                  {/* Görsel Yükleyici */}
+                  <div>
+                    <label className="block text-xs font-bold text-corp-charcoal uppercase tracking-wider mb-1.5">
+                      Ürün Görselleri
+                    </label>
+                    <ProductImageUploader
+                      images={formData.images}
+                      onChange={(newImages) =>
+                        setFormData((prev) => ({ ...prev, images: newImages }))
+                      }
+                      productId={editTarget?.id || "temp"}
+                    />
                   </div>
                 </div>
               )}
 
-              {/* ── ESKİ FORMAT: Basit Varyantlar (manual ekleme) ───────────── */}
-              {formData.variantDimensions.length === 0 && (
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="block text-sm font-semibold text-corp-charcoal">
-                      Varyantlar
+              {/* ───────────────────────────────────────────────────────────── */}
+              {/* TAB 2: VARYANT & FİYAT YÖNETİMİ */}
+              {/* ───────────────────────────────────────────────────────────── */}
+              {activeModalTab === "variants" && (
+                <div className="space-y-6">
+                  {/* Varyant Modu Seçimi */}
+                  <div>
+                    <label className="block text-xs font-bold text-corp-charcoal uppercase tracking-wider mb-2">
+                      Varyant Tipi
                     </label>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setFormData((f) => ({
-                          ...f,
-                          variants: [
-                            ...f.variants,
-                            { quantity: 100, material: "", salePrice: 0 },
-                          ],
-                        }));
-                      }}
-                      className="text-xs font-semibold text-corp-teal hover:text-corp-teal-600"
-                    >
-                      + Varyant Ekle
-                    </button>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setFormData((f) => ({ ...f, variantMode: "matrix" }))}
+                        className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
+                          formData.variantMode === "matrix"
+                            ? "border-corp-teal bg-corp-teal/5 ring-2 ring-corp-teal/20"
+                            : "border-corp-border hover:bg-gray-50"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <Tag size={16} className="text-corp-teal" />
+                          <span className="font-bold text-xs text-corp-charcoal">
+                            Gelişmiş Boyutlu &amp; Matris
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-corp-gray leading-tight">
+                          Kağıt, Baskı, Ebat gibi çoklu boyutlar ve adet kademesi fiyatları.
+                        </p>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setFormData((f) => ({ ...f, variantMode: "legacy" }))}
+                        className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
+                          formData.variantMode === "legacy"
+                            ? "border-corp-teal bg-corp-teal/5 ring-2 ring-corp-teal/20"
+                            : "border-corp-border hover:bg-gray-50"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <Sliders size={16} className="text-corp-teal" />
+                          <span className="font-bold text-xs text-corp-charcoal">
+                            Basit Varyantlar
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-corp-gray leading-tight">
+                          Adet, Malzeme / Seçenek ve tekil satış fiyatından oluşan basit liste.
+                        </p>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setFormData((f) => ({ ...f, variantMode: "none" }))}
+                        className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
+                          formData.variantMode === "none"
+                            ? "border-corp-teal bg-corp-teal/5 ring-2 ring-corp-teal/20"
+                            : "border-corp-border hover:bg-gray-50"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <Package size={16} className="text-corp-teal" />
+                          <span className="font-bold text-xs text-corp-charcoal">
+                            Varyantsız Ürün
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-corp-gray leading-tight">
+                          Tekil ürün; müşteri yalnızca ürün taban fiyatıyla satın alır.
+                        </p>
+                      </button>
+                    </div>
                   </div>
 
-                  {formData.variants.length === 0 ? (
-                    <p className="text-sm text-corp-gray italic">Henüz varyant eklenmedi</p>
-                  ) : (
-                    <div className="space-y-3">
-                      {formData.variants.map((variant, index) => (
-                        <div key={index} className="flex gap-2 items-start">
-                          <div className="flex-1">
-                            <input
-                              type="number"
-                              value={variant.quantity}
-                              onChange={(e) => {
-                                const newVariants = [...formData.variants];
-                                newVariants[index].quantity = Number(e.target.value);
-                                setFormData((f) => ({ ...f, variants: newVariants }));
-                              }}
-                              placeholder="Adet"
-                              className="w-full px-3 py-2 rounded-lg border border-corp-border text-sm"
-                            />
-                          </div>
-                          <div className="flex-1">
-                            <input
-                              type="text"
-                              value={variant.material}
-                              onChange={(e) => {
-                                const newVariants = [...formData.variants];
-                                newVariants[index].material = e.target.value;
-                                setFormData((f) => ({ ...f, variants: newVariants }));
-                              }}
-                              placeholder="Malzeme"
-                              className="w-full px-3 py-2 rounded-lg border border-corp-border text-sm"
-                            />
-                          </div>
-                          <div className="flex-1">
-                            <input
-                              type="number"
-                              value={variant.salePrice}
-                              onChange={(e) => {
-                                const newVariants = [...formData.variants];
-                                newVariants[index].salePrice = Number(e.target.value);
-                                setFormData((f) => ({ ...f, variants: newVariants }));
-                              }}
-                              placeholder="Fiyat (TL)"
-                              className="w-full px-3 py-2 rounded-lg border border-corp-border text-sm"
-                            />
+                  {/* ── GELİŞMİŞ BOYUTLU FORMAT (MATRIX) ── */}
+                  {formData.variantMode === "matrix" && (
+                    <div className="space-y-6 pt-2">
+                      {/* BÖLÜM 1: BOYUTLAR */}
+                      <div className="bg-corp-surface/40 p-4 sm:p-5 rounded-2xl border border-corp-border space-y-4">
+                        <div className="flex items-center justify-between flex-wrap gap-2">
+                          <div className="flex items-center gap-2">
+                            <Tag size={16} className="text-corp-teal" />
+                            <h3 className="font-display font-bold text-sm text-corp-charcoal">
+                              1. Varyant Boyutları (Özellik Başlıkları)
+                            </h3>
+                            <span className="text-xs text-corp-gray">
+                              ({formData.variantDimensions.length} Boyut)
+                            </span>
                           </div>
                           <button
                             type="button"
-                            onClick={() => {
-                              setFormData((f) => ({
-                                ...f,
-                                variants: f.variants.filter((_, i) => i !== index),
-                              }));
-                            }}
-                            className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
+                            onClick={() => setShowAddDimForm(!showAddDimForm)}
+                            className="px-3 py-1.5 rounded-xl bg-corp-teal text-white text-xs font-semibold hover:bg-corp-teal-600 transition-colors flex items-center gap-1 cursor-pointer"
                           >
-                            <XCircle size={18} />
+                            <Plus size={14} /> Yeni Boyut Ekle
                           </button>
                         </div>
-                      ))}
+
+                        {/* Yeni Boyut Ekleme Formu */}
+                        {showAddDimForm && (
+                          <div className="p-4 bg-white rounded-xl border border-corp-teal/30 shadow-xs space-y-3 animate-in fade-in duration-150">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              <div>
+                                <label className="block text-xs font-bold text-corp-charcoal mb-1">
+                                  Boyut Adı (Örn: Kağıt Cinsi, Kesim Türü, Ebat)
+                                </label>
+                                <input
+                                  type="text"
+                                  value={newDimName}
+                                  onChange={(e) => setNewDimName(e.target.value)}
+                                  placeholder="Örn: Kağıt Cinsi"
+                                  className="w-full px-3 py-2 rounded-lg border border-corp-border text-xs focus:ring-2 focus:ring-corp-teal/30 min-h-[40px]"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-bold text-corp-charcoal mb-1">
+                                  Başlangıç Seçenekleri (virgülle ayırın)
+                                </label>
+                                <input
+                                  type="text"
+                                  value={newDimOptions}
+                                  onChange={(e) => setNewDimOptions(e.target.value)}
+                                  placeholder="Örn: 250 gr. Bristol, 350 gr. Kuşe"
+                                  className="w-full px-3 py-2 rounded-lg border border-corp-border text-xs focus:ring-2 focus:ring-corp-teal/30 min-h-[40px]"
+                                />
+                              </div>
+                            </div>
+                            <div className="flex justify-end gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setShowAddDimForm(false)}
+                                className="px-3 py-1.5 text-xs text-corp-gray hover:bg-gray-100 rounded-lg"
+                              >
+                                İptal
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleAddDimension}
+                                className="px-4 py-1.5 bg-corp-teal text-white text-xs font-semibold rounded-lg hover:bg-corp-teal-600 cursor-pointer"
+                              >
+                                Boyutu Ekle
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Boyutlar Listesi */}
+                        {formData.variantDimensions.length === 0 ? (
+                          <div className="p-6 bg-white rounded-xl border border-dashed border-corp-border text-center text-xs text-corp-gray">
+                            Henüz varyant boyutu tanımlanmadı. Yukarıdaki &quot;Yeni Boyut Ekle&quot; butonuna basarak ilk boyutunuzu ekleyebilirsiniz.
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            {formData.variantDimensions.map((dim, idx) => (
+                              <div
+                                key={dim.key}
+                                className="border border-corp-border rounded-xl overflow-hidden bg-white shadow-2xs"
+                              >
+                                <div className="flex items-center justify-between px-4 py-3 bg-corp-surface/50 border-b border-corp-border/60">
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <span className="text-[11px] font-mono text-corp-gray bg-white px-2 py-0.5 rounded border border-corp-border shrink-0">
+                                      {dim.key}
+                                    </span>
+                                    <span className="font-bold text-sm text-corp-charcoal truncate">
+                                      {dim.label}
+                                    </span>
+                                    <span className="text-[11px] text-corp-gray shrink-0">
+                                      ({dim.options.length} seçenek)
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemoveDimension(idx)}
+                                      className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                                      title="Bu boyutu sil"
+                                      aria-label={`${dim.label} boyutunu sil`}
+                                    >
+                                      <Trash2 size={15} />
+                                    </button>
+                                  </div>
+                                </div>
+
+                                <div className="p-4 space-y-3 bg-white">
+                                  <div>
+                                    <label className="block text-xs font-semibold text-corp-charcoal mb-1">
+                                      Boyut Etiketi (Müşteriye Gösterilen Başlık)
+                                    </label>
+                                    <input
+                                      type="text"
+                                      value={dim.label}
+                                      onChange={(e) => updateDimensionLabel(idx, e.target.value)}
+                                      placeholder="Boyut adı"
+                                      className="w-full px-3 py-2 rounded-lg border border-corp-border text-xs focus:ring-2 focus:ring-corp-teal/30 min-h-[38px]"
+                                    />
+                                  </div>
+
+                                  <div>
+                                    <label className="block text-xs font-semibold text-corp-charcoal mb-2">
+                                      Seçenekler (Tıklayarak silin veya yeni ekleyin)
+                                    </label>
+                                    <DimensionOptionsEditor
+                                      options={dim.options}
+                                      onChange={(opts) => updateDimensionOptions(idx, opts)}
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* BÖLÜM 2: FİYAT MATRİSİ & ADET KADEMELERİ */}
+                      <div className="bg-corp-surface/40 p-4 sm:p-5 rounded-2xl border border-corp-border space-y-4">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <Layers size={16} className="text-corp-teal" />
+                              <h3 className="font-display font-bold text-sm text-corp-charcoal">
+                                2. Fiyat Matrisi ve Adet Kademeleri
+                              </h3>
+                              <span className="text-xs text-corp-gray">
+                                ({formData.priceMatrix.length} Kombinasyon)
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-corp-gray mt-0.5">
+                              Her varyant kombinasyonu için müşteriye sunulacak adet ve fiyatları düzenleyin.
+                            </p>
+                          </div>
+
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <button
+                              type="button"
+                              onClick={syncMatrixFromDimensions}
+                              className="px-3 py-1.5 rounded-xl bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-300 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                              title="Boyut seçeneklerinden olası tüm kombinasyonları otomatik üretir"
+                            >
+                              <Sparkles size={14} className="text-amber-600" />
+                              Boyutlardan Otomatik Eşle
+                            </button>
+                            <button
+                              type="button"
+                              onClick={addCustomCombination}
+                              className="px-3 py-1.5 rounded-xl bg-corp-teal text-white hover:bg-corp-teal-600 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                            >
+                              <Plus size={14} /> Kombinasyon Ekle
+                            </button>
+                          </div>
+                        </div>
+
+                        {formData.priceMatrix.length === 0 ? (
+                          <div className="p-8 bg-white rounded-xl border border-dashed border-corp-border text-center space-y-3">
+                            <Info size={28} className="mx-auto text-corp-teal/60" />
+                            <p className="text-xs text-corp-gray max-w-md mx-auto leading-relaxed">
+                              Henüz fiyat matrisi kombinasyonu bulunmuyor. Yukarıdaki{" "}
+                              <strong>&quot;Boyutlardan Otomatik Eşle&quot;</strong> butonuna basarak eklediğiniz boyut ve seçeneklerden saniyeler içinde tüm fiyat tablosunu oluşturabilirsiniz.
+                            </p>
+                            <button
+                              type="button"
+                              onClick={syncMatrixFromDimensions}
+                              className="inline-flex items-center gap-2 px-4 py-2 bg-corp-teal text-white text-xs font-semibold rounded-xl hover:bg-corp-teal-600 cursor-pointer"
+                            >
+                              <Sparkles size={14} /> Otomatik Kombinasyon Üret
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
+                            {formData.priceMatrix.map((combo, comboIdx) => (
+                              <div
+                                key={combo.packageId || comboIdx}
+                                className="bg-white rounded-2xl border border-corp-border p-4 shadow-xs space-y-3"
+                              >
+                                {/* Kombinasyon Başlığı & Değerleri */}
+                                <div className="flex items-start justify-between gap-3 flex-wrap">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="text-[10px] font-mono text-corp-gray bg-gray-100 px-2 py-0.5 rounded font-bold">
+                                      #{combo.packageId}
+                                    </span>
+                                    {Object.entries(combo.dimensionValues || {}).map(([key, val]) => (
+                                      <span
+                                        key={key}
+                                        className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-corp-teal/10 text-corp-teal border border-corp-teal/20"
+                                      >
+                                        <span className="text-corp-gray text-[10px] uppercase">{key}:</span>
+                                        <span>{val}</span>
+                                      </span>
+                                    ))}
+                                  </div>
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    <button
+                                      type="button"
+                                      onClick={() => addTierToCombination(comboIdx)}
+                                      className="text-xs font-semibold text-corp-teal hover:underline flex items-center gap-1 cursor-pointer"
+                                    >
+                                      <Plus size={13} /> Adet Kademesi Ekle
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => removeCombination(comboIdx)}
+                                      className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                                      title="Bu kombinasyonu sil"
+                                    >
+                                      <Trash2 size={14} />
+                                    </button>
+                                  </div>
+                                </div>
+
+                                {/* Adet Kademeleri Tablosu */}
+                                <div className="overflow-x-auto rounded-xl border border-corp-border/70">
+                                  <table className="w-full text-left text-xs">
+                                    <thead className="bg-corp-surface/60 border-b border-corp-border text-corp-charcoal font-bold">
+                                      <tr>
+                                        <th className="p-2.5">Adet (Miktar)</th>
+                                        <th className="p-2.5">Satış Fiyatı (TL)</th>
+                                        <th className="p-2.5">Birim Fiyat</th>
+                                        <th className="p-2.5 text-right">İşlem</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-corp-border/50">
+                                      {combo.tiers.map((tier, tierIdx) => (
+                                        <tr key={tierIdx} className="hover:bg-gray-50/60">
+                                          <td className="p-2">
+                                            <input
+                                              type="number"
+                                              min="1"
+                                              value={tier.quantity}
+                                              onChange={(e) =>
+                                                updateTier(
+                                                  comboIdx,
+                                                  tierIdx,
+                                                  "quantity",
+                                                  Number(e.target.value)
+                                                )
+                                              }
+                                              className="w-24 sm:w-32 px-2.5 py-1.5 rounded-lg border border-corp-border text-xs font-semibold focus:ring-1 focus:ring-corp-teal"
+                                            />
+                                          </td>
+                                          <td className="p-2">
+                                            <input
+                                              type="number"
+                                              min="0"
+                                              step="0.01"
+                                              value={tier.salePrice}
+                                              onChange={(e) =>
+                                                updateTier(
+                                                  comboIdx,
+                                                  tierIdx,
+                                                  "salePrice",
+                                                  Number(e.target.value)
+                                                )
+                                              }
+                                              className="w-28 sm:w-36 px-2.5 py-1.5 rounded-lg border border-corp-border text-xs font-semibold focus:ring-1 focus:ring-corp-teal"
+                                            />
+                                          </td>
+                                          <td className="p-2">
+                                            <span className="font-mono text-xs text-corp-gray">
+                                              {tier.unitSalePrice
+                                                ? `${tier.unitSalePrice.toFixed(2)} TL`
+                                                : tier.quantity > 0
+                                                ? `${(tier.salePrice / tier.quantity).toFixed(2)} TL`
+                                                : "—"}
+                                            </span>
+                                          </td>
+                                          <td className="p-2 text-right">
+                                            <button
+                                              type="button"
+                                              onClick={() => removeTier(comboIdx, tierIdx)}
+                                              className="p-1 text-red-500 hover:bg-red-50 rounded transition-colors"
+                                              title="Bu kademeyi sil"
+                                            >
+                                              <XCircle size={15} />
+                                            </button>
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ── BASİT VARYANT FORMATI ── */}
+                  {formData.variantMode === "legacy" && (
+                    <div className="space-y-4 pt-2">
+                      <div className="flex items-center justify-between">
+                        <label className="block text-xs font-bold text-corp-charcoal uppercase tracking-wider">
+                          Basit Varyant Listesi
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFormData((f) => ({
+                              ...f,
+                              variants: [
+                                ...f.variants,
+                                {
+                                  quantity: 100,
+                                  material: "Standart",
+                                  salePrice: parseFloat(f.price) || 500,
+                                },
+                              ],
+                            }));
+                          }}
+                          className="text-xs font-semibold text-corp-teal hover:underline flex items-center gap-1 cursor-pointer"
+                        >
+                          <Plus size={14} /> Varyant Ekle
+                        </button>
+                      </div>
+
+                      {formData.variants.length === 0 ? (
+                        <div className="p-8 text-center text-xs text-corp-gray italic bg-corp-surface/30 rounded-2xl border border-corp-border">
+                          Henüz varyant eklenmedi. Yukarıdaki &quot;+ Varyant Ekle&quot; butonuna basarak ekleyebilirsiniz.
+                        </div>
+                      ) : (
+                        <div className="space-y-2.5">
+                          {formData.variants.map((variant, index) => (
+                            <div
+                              key={index}
+                              className="flex gap-2 items-center bg-white p-2.5 rounded-xl border border-corp-border shadow-2xs"
+                            >
+                              <div className="w-24 sm:w-32">
+                                <label className="block text-[10px] text-corp-gray font-semibold mb-0.5">
+                                  Adet
+                                </label>
+                                <input
+                                  type="number"
+                                  value={variant.quantity}
+                                  onChange={(e) => {
+                                    const newVariants = [...formData.variants];
+                                    newVariants[index].quantity = Number(e.target.value);
+                                    setFormData((f) => ({ ...f, variants: newVariants }));
+                                  }}
+                                  placeholder="Adet"
+                                  className="w-full px-2.5 py-1.5 rounded-lg border border-corp-border text-xs"
+                                />
+                              </div>
+                              <div className="flex-1">
+                                <label className="block text-[10px] text-corp-gray font-semibold mb-0.5">
+                                  Malzeme / Özellik
+                                </label>
+                                <input
+                                  type="text"
+                                  value={variant.material}
+                                  onChange={(e) => {
+                                    const newVariants = [...formData.variants];
+                                    newVariants[index].material = e.target.value;
+                                    setFormData((f) => ({ ...f, variants: newVariants }));
+                                  }}
+                                  placeholder="Malzeme Adı"
+                                  className="w-full px-2.5 py-1.5 rounded-lg border border-corp-border text-xs"
+                                />
+                              </div>
+                              <div className="w-28 sm:w-36">
+                                <label className="block text-[10px] text-corp-gray font-semibold mb-0.5">
+                                  Fiyat (TL)
+                                </label>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={variant.salePrice}
+                                  onChange={(e) => {
+                                    const newVariants = [...formData.variants];
+                                    newVariants[index].salePrice = Number(e.target.value);
+                                    setFormData((f) => ({ ...f, variants: newVariants }));
+                                  }}
+                                  placeholder="Fiyat (TL)"
+                                  className="w-full px-2.5 py-1.5 rounded-lg border border-corp-border text-xs"
+                                />
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setFormData((f) => ({
+                                    ...f,
+                                    variants: f.variants.filter((_, i) => i !== index),
+                                  }));
+                                }}
+                                className="p-2 text-red-500 hover:bg-red-50 rounded-lg mt-3"
+                                title="Sil"
+                              >
+                                <XCircle size={18} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* ── VARYANTSIZ FORMAT ── */}
+                  {formData.variantMode === "none" && (
+                    <div className="p-8 text-center bg-corp-surface/40 rounded-2xl border border-corp-border space-y-2">
+                      <CheckCircle2 size={32} className="mx-auto text-emerald-600" />
+                      <h4 className="font-bold text-sm text-corp-charcoal">Varyantsız Tekil Ürün</h4>
+                      <p className="text-xs text-corp-gray max-w-md mx-auto leading-relaxed">
+                        Bu ürünün alt varyantı veya boyut seçeneği bulunmamaktadır. Siparişler, &quot;Genel Bilgiler&quot; sekmesinde belirlediğiniz <strong>{formData.price || "0"} TL</strong> taban fiyat üzerinden alınacaktır.
+                      </p>
                     </div>
                   )}
                 </div>
               )}
             </div>
 
-            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-corp-border sticky bottom-0 bg-white rounded-b-3xl">
-              <button
-                type="button"
-                onClick={closeModal}
-                className="min-h-[44px] px-5 py-2.5 rounded-xl border border-corp-border text-corp-gray font-semibold hover:bg-gray-50 transition-all text-sm flex items-center justify-center"
-              >
-                İptal
-              </button>
-              <button
-                type="button"
-                onClick={handleSave}
-                disabled={saving}
-                className="min-h-[44px] bg-corp-teal text-white px-6 py-2.5 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-corp-teal-600 transition-all shadow-md active:scale-95 disabled:opacity-60 text-sm"
-              >
-                {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-                {saving ? "Kaydediliyor..." : editTarget ? "Güncelle" : "Ekle"}
-              </button>
+            {/* Modal Footer */}
+            <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-t border-corp-border sticky bottom-0 bg-white z-20">
+              <div className="text-xs text-corp-gray hidden sm:block">
+                {activeModalTab === "general" ? (
+                  <button
+                    type="button"
+                    onClick={() => setActiveModalTab("variants")}
+                    className="text-corp-teal font-semibold hover:underline"
+                  >
+                    Varyant Yönetimine Geç →
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setActiveModalTab("general")}
+                    className="text-corp-teal font-semibold hover:underline"
+                  >
+                    ← Genel Bilgilere Dön
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+                <button
+                  type="button"
+                  onClick={closeModal}
+                  className="min-h-[44px] px-5 py-2.5 rounded-xl border border-corp-border text-corp-gray font-semibold hover:bg-gray-50 transition-all text-xs sm:text-sm flex items-center justify-center cursor-pointer"
+                >
+                  İptal
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="min-h-[44px] bg-corp-teal text-white px-6 py-2.5 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-corp-teal-600 transition-all shadow-md active:scale-95 disabled:opacity-60 text-xs sm:text-sm cursor-pointer"
+                >
+                  {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                  {saving ? "Kaydediliyor..." : editTarget ? "Güncelle ve Kaydet" : "Ürünü Ekle"}
+                </button>
+              </div>
             </div>
           </div>
         </div>

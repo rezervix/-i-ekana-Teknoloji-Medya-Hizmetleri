@@ -88,6 +88,7 @@ export default function ProfileClient({
     if (!tab) return "overview";
     if (tab === "support" || tab === "destek") return "support";
     if (tab === "subscriptions" || tab === "abonelikler") return "subscriptions";
+    if (tab === "orders" || tab === "siparisler" || tab === "siparis") return "orders";
     return tab;
   };
 
@@ -199,8 +200,9 @@ export default function ProfileClient({
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       const t = params.get("tab");
-      if (t === "support" || t === "destek") {
-        setActiveTab("support");
+      if (t) {
+        const resolved = resolveTab(t);
+        if (resolved) setActiveTab(resolved);
       }
     }
     fetchAddresses();

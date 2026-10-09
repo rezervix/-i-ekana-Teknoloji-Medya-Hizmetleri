@@ -50,7 +50,7 @@ export default function ProductHeader({
       <AdCongruentHeadline productName={product.name} />
 
       {/* Product Title (h1) */}
-      <h1 className="font-display text-2xl sm:text-3xl md:text-4xl font-extrabold text-corp-charcoal dark:text-white tracking-tight">
+      <h1 className="font-display text-2xl sm:text-3xl md:text-4xl font-extrabold text-corp-charcoal tracking-tight">
         {product.name}
       </h1>
 
@@ -142,7 +142,7 @@ export default function ProductHeader({
 
       {/* Short Description */}
       {product.description && (
-        <p className="text-sm text-corp-gray dark:text-white/70 leading-relaxed border-b border-corp-border dark:border-white/10 pb-5">
+        <p className="text-sm text-slate-700 leading-relaxed border-b border-corp-border pb-5">
           {product.description}
         </p>
       )}

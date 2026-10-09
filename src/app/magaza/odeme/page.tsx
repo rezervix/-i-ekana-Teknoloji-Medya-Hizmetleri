@@ -377,21 +377,21 @@ export default function CheckoutPage() {
   return (
     <main className="min-h-screen bg-corp-surface">
       <Header />
-      <div className="pt-28 pb-20 max-w-6xl mx-auto px-6 md:px-10">
+      <div className="pt-24 sm:pt-28 pb-20 max-w-6xl mx-auto px-3.5 sm:px-6 md:px-10 min-w-0">
         <Link
           href="/magaza"
-          className="inline-flex items-center gap-2 text-corp-gray hover:text-corp-teal transition-colors mb-8"
+          className="inline-flex items-center gap-2 text-corp-gray hover:text-corp-teal transition-colors mb-6 sm:mb-8 text-sm"
         >
           <ArrowLeft size={16} /> Mağazaya Dön
         </Link>
 
-        <h1 className="font-display text-3xl font-bold text-corp-charcoal mb-8">
+        <h1 className="font-display text-2xl sm:text-3xl font-bold text-corp-charcoal mb-6 sm:mb-8">
           Siparişi Tamamla & Ödeme
         </h1>
 
         {/* ── Hızlı Sipariş / Misafir Alışverişi Bilgilendirmesi ── */}
         {!isAuthenticated && (
-          <div className="mb-6 p-4 rounded-xl bg-white border border-corp-border/80 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="mb-6 p-3.5 sm:p-4 rounded-xl bg-white border border-corp-border/80 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-corp-teal/10 text-corp-teal flex items-center justify-center flex-shrink-0">
                 <ShoppingBag size={18} />
@@ -417,7 +417,7 @@ export default function CheckoutPage() {
 
         {paytrToken && pendingOrderNumber ? (
           <section
-            className="bg-white rounded-2xl border border-corp-border shadow-sm p-6 md:p-8"
+            className="bg-white rounded-2xl border border-corp-border shadow-sm p-3.5 sm:p-6 md:p-8 w-full max-w-full overflow-hidden"
             aria-labelledby="paytr-payment-title"
           >
             <Script
@@ -426,52 +426,54 @@ export default function CheckoutPage() {
             />
             <h2
               id="paytr-payment-title"
-              className="font-display text-2xl font-bold text-corp-charcoal mb-2"
+              className="font-display text-xl sm:text-2xl font-bold text-corp-charcoal mb-2"
             >
               Güvenli Ödeme
             </h2>
-            <p className="text-sm text-corp-gray mb-6">
+            <p className="text-xs sm:text-sm text-corp-gray mb-4 sm:mb-6 leading-relaxed">
               Kart bilgileriniz PayTR&apos;nin güvenli ödeme ekranında işlenir. Ödeme tamamlanana
               kadar bu sayfadan ayrılmayın.
             </p>
-            <iframe
-              src={`https://www.paytr.com/odeme/guvenli/${paytrToken}`}
-              id="paytriframe"
-              title="PayTR güvenli ödeme formu"
-              frameBorder="0"
-              scrolling="no"
-              className="w-full min-h-[620px]"
-              onLoad={() => {
-                const resize = (
-                  window as Window & { iFrameResize?: (options: object, selector: string) => void }
-                ).iFrameResize;
-                resize?.({}, '#paytriframe');
-              }}
-            />
-            <div className="flex items-center gap-4 mt-4">
+            <div className="w-full max-w-full overflow-x-auto sm:overflow-visible flex justify-center rounded-xl bg-corp-surface/30 p-1 sm:p-2 border border-corp-border/60">
+              <iframe
+                src={`https://www.paytr.com/odeme/guvenli/${paytrToken}`}
+                id="paytriframe"
+                title="PayTR güvenli ödeme formu"
+                frameBorder="0"
+                scrolling="yes"
+                className="w-full min-w-full sm:min-w-[320px] max-w-full min-h-[640px] border-0"
+                onLoad={() => {
+                  const resize = (
+                    window as Window & { iFrameResize?: (options: object, selector: string) => void }
+                  ).iFrameResize;
+                  resize?.({}, '#paytriframe');
+                }}
+              />
+            </div>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mt-6 pt-4 border-t border-corp-border/60">
               <button
                 type="button"
                 onClick={handleCancelPayment}
-                className="inline-flex items-center gap-2 text-sm text-corp-gray hover:text-corp-teal underline cursor-pointer font-medium"
+                className="inline-flex items-center gap-2 text-xs sm:text-sm text-corp-gray hover:text-corp-teal underline cursor-pointer font-medium"
               >
                 ← Ödemeyi iptal et ve bilgileri düzenle
               </button>
               <Link
                 href="/magaza"
-                className="inline-flex items-center gap-2 text-sm text-corp-gray hover:text-corp-teal"
+                className="inline-flex items-center gap-2 text-xs sm:text-sm font-semibold text-corp-teal hover:underline"
               >
-                Alışverişe Devam Et
+                Alışverişe Devam Et →
               </Link>
             </div>
           </section>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-10">
             {/* Left Column: Form & Payment */}
             <div className="lg:col-span-7 space-y-8">
               <form
                 id="checkout-form"
                 onSubmit={handleCheckout}
-                className="bg-white p-6 md:p-8 rounded-2xl border border-corp-border shadow-sm"
+                className="bg-white p-4 sm:p-6 md:p-8 rounded-2xl border border-corp-border shadow-sm min-w-0"
               >
                 {/* ── Fatura Bilgilendirme Kutusu (Satın Almayı Engellemez) ── */}
                 <div className="mb-6 p-4 md:p-5 rounded-2xl bg-amber-50 border border-amber-200 shadow-sm flex items-start gap-3.5">
@@ -820,7 +822,7 @@ export default function CheckoutPage() {
 
             {/* Right Column: Summary */}
             <div className="lg:col-span-5 space-y-6">
-              <div className="bg-white p-6 md:p-8 rounded-2xl border border-corp-border shadow-sm">
+              <div className="bg-white p-4 sm:p-6 md:p-8 rounded-2xl border border-corp-border shadow-sm min-w-0">
                 <h2 className="font-display text-xl font-bold text-corp-charcoal mb-6 flex items-center gap-2">
                   <ShoppingBag size={20} /> Sipariş Özeti
                 </h2>

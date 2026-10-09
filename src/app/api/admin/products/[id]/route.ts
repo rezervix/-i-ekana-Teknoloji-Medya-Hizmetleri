@@ -30,6 +30,41 @@ export async function PATCH(
     if (data.freeShipping !== undefined) {
       data.freeShipping = Boolean(data.freeShipping);
     }
+    if (data.isActive !== undefined) {
+      data.isActive = Boolean(data.isActive);
+    }
+    if (data.isFeatured !== undefined) {
+      data.isFeatured = Boolean(data.isFeatured);
+    }
+    if (data.price !== undefined && data.price !== null) {
+      data.price = parseFloat(String(data.price)) || 0;
+    }
+    if (data.stock !== undefined) {
+      data.stock = data.stock === "" || data.stock === null ? null : parseInt(String(data.stock), 10);
+    }
+    if (data.photoToDesignFee !== undefined) {
+      data.photoToDesignFee = data.photoToDesignFee === "" || data.photoToDesignFee === null ? null : parseFloat(String(data.photoToDesignFee));
+    }
+    if (data.slug) {
+      const cleanSlug = String(data.slug)
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9-_]/g, "-")
+        .replace(/-+/g, "-")
+        .replace(/^-|-$/g, "");
+      if (cleanSlug) {
+        data.slug = cleanSlug;
+        const slugExists = await prisma.product.findFirst({
+          where: { slug: cleanSlug, id: { not: id } },
+        });
+        if (slugExists) {
+          return NextResponse.json(
+            { error: "Bu URL bağlantısı (slug) başka bir ürün tarafından kullanılıyor." },
+            { status: 400 }
+          );
+        }
+      }
+    }
 
     // Find current product for image diffing
     const existing = await prisma.product.findUnique({

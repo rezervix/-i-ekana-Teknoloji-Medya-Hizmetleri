@@ -92,6 +92,8 @@ export async function POST(req: Request) {
       images: imageUrls,
       customizationOptions,
       freeShipping: Boolean(data.freeShipping),
+      isActive: data.isActive !== undefined ? Boolean(data.isActive) : true,
+      isFeatured: Boolean(data.isFeatured),
       photoToDesignFee: data.photoToDesignFee !== undefined && data.photoToDesignFee !== null && data.photoToDesignFee !== ""
         ? parseFloat(String(data.photoToDesignFee))
         : null,
