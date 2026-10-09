@@ -106,7 +106,7 @@ export async function POST(req: Request) {
       });
 
       if (normalizedImages.length > 0) {
-        await tx.productImage.createMany({
+        await (tx as any).productImage.createMany({
           data: normalizedImages.map((img: any) => ({
             productId: created.id,
             url: img.url,

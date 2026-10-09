@@ -34,7 +34,7 @@ export async function PATCH(
     // Find current product for image diffing
     const existing = await prisma.product.findUnique({
       where: { id },
-      include: { productImages: true },
+      include: { productImages: true } as any,
     });
 
     if (!existing) {
@@ -75,9 +75,10 @@ export async function PATCH(
       data.images = newImageUrls;
 
       // Identify removed URLs
+      const existingProduct = existing as any;
       const existingUrls = [
         ...existing.images,
-        ...existing.productImages.map((pi) => pi.url),
+        ...((existingProduct.productImages || []) as any[]).map((pi: any) => pi?.url).filter(Boolean),
       ];
       removedImageUrls = existingUrls.filter(
         (oldUrl) => oldUrl && !newImageUrls.includes(oldUrl)
@@ -91,12 +92,12 @@ export async function PATCH(
         });
 
         // Clear existing product_images for this product and re-insert
-        await tx.productImage.deleteMany({
+        await (tx as any).productImage.deleteMany({
           where: { productId: id },
         });
 
         if (normalizedImages.length > 0) {
-          await tx.productImage.createMany({
+          await (tx as any).productImage.createMany({
             data: normalizedImages.map((img: any) => ({
               productId: id,
               url: img.url,
@@ -150,16 +151,17 @@ export async function DELETE(
   try {
     const existing = await prisma.product.findUnique({
       where: { id },
-      include: { productImages: true },
+      include: { productImages: true } as any,
     });
 
     if (!existing) {
       return NextResponse.json({ error: "Ürün bulunamadı" }, { status: 404 });
     }
 
+    const existingProduct = existing as any;
     const blobUrlsToDelete = [
       ...existing.images,
-      ...existing.productImages.map((pi) => pi.url),
+      ...((existingProduct.productImages || []) as any[]).map((pi: any) => pi?.url).filter(Boolean),
     ];
 
     // Single transaction: deletes product and cascades to product_images

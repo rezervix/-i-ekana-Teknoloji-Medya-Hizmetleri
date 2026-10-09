@@ -66,7 +66,7 @@ export async function cleanOrphanProductBlobs(dryRun: boolean = true): Promise<{
   const activeProducts = await prisma.product.findMany({
     select: { images: true },
   });
-  const activeProductImages = await prisma.productImage.findMany({
+  const activeProductImages = await (prisma as any).productImage.findMany({
     select: { url: true, blobPathname: true },
   });
 
