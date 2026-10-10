@@ -142,9 +142,9 @@ export async function PUT(req: NextRequest) {
       devCode: isDev ? code : undefined,
       message: actualSent
         ? "Yeni doğrulama kodu e-posta adresinize gönderildi."
-        : (emailResult.inDevMode
+        : (isDev
           ? "Yeni doğrulama kodu oluşturuldu (Geliştirici / Test modu)."
-          : "Yeni kod oluşturuldu fakat e-posta sunucusuna iletilemedi. Lütfen sistem yöneticisiyle iletişime geçin."),
+          : "Doğrulama kodu oluşturuldu fakat e-posta sunucusuna iletilemedi. Lütfen sistem yöneticisiyle iletişime geçin."),
     });
   } catch (error) {
     return NextResponse.json(

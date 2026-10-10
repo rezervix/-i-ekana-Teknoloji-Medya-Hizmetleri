@@ -179,7 +179,7 @@ export async function sendVerificationEmailWithDetails(
         console.log(`[sendVerificationEmail] Sent successfully via Resend to ${email}. MessageId: ${data.id}`);
         return { success: true, provider: "resend", messageId: data.id };
       }
-      console.warn(`[sendVerificationEmail] Resend error (${error?.message || "Unknown error"}), attempting SMTP fallback...`);
+      console.warn(`[sendVerificationEmail] Resend error:`, error?.message || error);
     } catch (resendErr: any) {
       console.warn(`[sendVerificationEmail] Resend call failed (${resendErr?.message}), attempting SMTP fallback...`);
     }
@@ -249,7 +249,7 @@ export async function sendVerificationEmailWithDetails(
   return {
     success: isDev,
     provider: "dev_mode",
-    inDevMode: true,
+    inDevMode: isDev,
     error: (!config.smtpPass && !config.resendApiKey)
       ? "SMTP veya Resend kimlik bilgileri ortam değişkenlerinde (.env) tanımlanmamış."
       : "SMTP ve Resend sunucu bağlantısı başarısız oldu.",
@@ -517,20 +517,45 @@ export async function sendAbandonedCartReminder1({
     return true;
   }
 
-  try {
-    const transporter = createTransporter(config.smtpHost, config.smtpPort, config.smtpUser, config.smtpPass, config.smtpPort === 465);
-    const info = await transporter.sendMail({
-      from: config.fromEmail,
-      to,
-      subject: "Sepetinizde ürünler kaldı — Çiçekana Teknoloji & Medya",
-      html,
-    });
-    console.log(`[sendAbandonedCartReminder1] Sent to ${to}. MessageId: ${info.messageId}`);
-    return true;
-  } catch (err: any) {
-    console.error("[sendAbandonedCartReminder1 Error]", err?.message || err);
-    return false;
+  // 1. Try Resend
+  if (config.resendApiKey) {
+    try {
+      const resend = new Resend(config.resendApiKey);
+      const { data, error } = await resend.emails.send({
+        from: config.fromEmail,
+        to: [to],
+        subject: "Sepetinizde ürünler kaldı — Çiçekana Teknoloji & Medya",
+        html,
+      });
+      if (!error && data?.id) {
+        console.log(`[sendAbandonedCartReminder1] Sent via Resend to ${to}. MessageId: ${data.id}`);
+        return true;
+      }
+      console.warn("[sendAbandonedCartReminder1] Resend error:", error);
+    } catch (err: any) {
+      console.warn(`[sendAbandonedCartReminder1] Resend attempt failed (${err?.message}), trying SMTP...`);
+    }
   }
+
+  // 2. Try SMTP
+  if (config.smtpPass) {
+    try {
+      const transporter = createTransporter(config.smtpHost, config.smtpPort, config.smtpUser, config.smtpPass, config.smtpPort === 465);
+      const info = await transporter.sendMail({
+        from: config.fromEmail,
+        to,
+        subject: "Sepetinizde ürünler kaldı — Çiçekana Teknoloji & Medya",
+        html,
+      });
+      console.log(`[sendAbandonedCartReminder1] Sent to ${to}. MessageId: ${info.messageId}`);
+      return true;
+    } catch (err: any) {
+      console.error("[sendAbandonedCartReminder1 Error]", err?.message || err);
+      return false;
+    }
+  }
+
+  return false;
 }
 
 export async function sendAbandonedCartReminder2({
@@ -624,19 +649,44 @@ export async function sendAbandonedCartReminder2({
     return true;
   }
 
-  try {
-    const transporter = createTransporter(config.smtpHost, config.smtpPort, config.smtpUser, config.smtpPass, config.smtpPort === 465);
-    const info = await transporter.sendMail({
-      from: config.fromEmail,
-      to,
-      subject: `Sepetinize özel %${discountPercent} indirim kuponu: ${couponCode} — Çiçekana Teknoloji & Medya`,
-      html,
-    });
-    console.log(`[sendAbandonedCartReminder2] Sent to ${to}. MessageId: ${info.messageId}`);
-    return true;
-  } catch (err: any) {
-    console.error("[sendAbandonedCartReminder2 Error]", err?.message || err);
-    return false;
+  // 1. Try Resend
+  if (config.resendApiKey) {
+    try {
+      const resend = new Resend(config.resendApiKey);
+      const { data, error } = await resend.emails.send({
+        from: config.fromEmail,
+        to: [to],
+        subject: `Sepetinize özel %${discountPercent} indirim kuponu: ${couponCode} — Çiçekana Teknoloji & Medya`,
+        html,
+      });
+      if (!error && data?.id) {
+        console.log(`[sendAbandonedCartReminder2] Sent via Resend to ${to}. MessageId: ${data.id}`);
+        return true;
+      }
+      console.warn("[sendAbandonedCartReminder2] Resend error:", error);
+    } catch (err: any) {
+      console.warn(`[sendAbandonedCartReminder2] Resend attempt failed (${err?.message}), trying SMTP...`);
+    }
   }
+
+  // 2. Try SMTP
+  if (config.smtpPass) {
+    try {
+      const transporter = createTransporter(config.smtpHost, config.smtpPort, config.smtpUser, config.smtpPass, config.smtpPort === 465);
+      const info = await transporter.sendMail({
+        from: config.fromEmail,
+        to,
+        subject: `Sepetinize özel %${discountPercent} indirim kuponu: ${couponCode} — Çiçekana Teknoloji & Medya`,
+        html,
+      });
+      console.log(`[sendAbandonedCartReminder2] Sent to ${to}. MessageId: ${info.messageId}`);
+      return true;
+    } catch (err: any) {
+      console.error("[sendAbandonedCartReminder2 Error]", err?.message || err);
+      return false;
+    }
+  }
+
+  return false;
 }
 
