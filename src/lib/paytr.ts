@@ -51,7 +51,25 @@ export function buildUserBasket(items: Array<{ name: string; unitPrice: number; 
   ).toString("base64");
 }
 
-export function paytrTestMode() {
+export function paytrTestMode(): "0" | "1" {
+  // Sadece özel olarak test modu açıkça zorlandıysa test modu aktif edilir
+  if (process.env.PAYTR_FORCE_TEST_MODE === "1") {
+    return "1";
+  }
+
+  // Canlı (Production) ortamda veya canlı alan adında (cicekanatechmedia.com)
+  // PayTR ödemeleri kesinlikle canlı modda ("0") çalışmalıdır.
+  // Sunucu ortamında (.env) eskiden kalma PAYTR_TEST_MODE="1" tanımları olsa dahi
+  // canlı mağazanın test moduna düşmesi engellenir.
+  const isProduction =
+    process.env.NODE_ENV === "production" ||
+    (process.env.NEXT_PUBLIC_SITE_URL && process.env.NEXT_PUBLIC_SITE_URL.includes("cicekanatechmedia.com")) ||
+    (process.env.NEXT_PUBLIC_APP_URL && process.env.NEXT_PUBLIC_APP_URL.includes("cicekanatechmedia.com"));
+
+  if (isProduction) {
+    return "0";
+  }
+
   return process.env.PAYTR_TEST_MODE === "1" ? "1" : "0";
 }
 

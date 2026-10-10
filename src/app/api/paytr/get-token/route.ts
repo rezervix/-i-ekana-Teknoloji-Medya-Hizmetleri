@@ -286,12 +286,15 @@ export async function POST(request: NextRequest) {
     // Her istek için yeni üretilir; callback tarafında son 16 karakter atılarak orderId elde edilir.
     const merchantOid = buildMerchantOid('ORD', order.id);
 
+    const testMode = paytrTestMode();
+
     logger.info({
       event: 'PAYTR_TOKEN_REQUESTED',
       details: {
         orderId: order.id,
         orderNumber: order.orderNumber,
         merchantOid,
+        testMode,
       },
     });
 
@@ -331,7 +334,6 @@ export async function POST(request: NextRequest) {
     const noInstallment = '0';
     const maxInstallment = '0';
     const currency = 'TL';
-    const testMode = paytrTestMode();
     const clientIp = getClientIp(request);
     const customerEmail =
       order.guestEmail || sessionUser?.email || order.user?.email || 'musteri@cicekanatechmedia.com';
