@@ -8,8 +8,11 @@ const BOT_USER_AGENTS = [
   "googlebot",
   "adsbot-google",
   "google-inspectiontool",
+  "storebot-google",
   "mediapartners-google",
   "apis-google",
+  "feedfetcher-google",
+  "google-read-aloud",
   "bingbot",
 ];
 

@@ -12,12 +12,15 @@ const SEARCH_BOT_PATTERNS = [
   "googlebot",
   "adsbot-google",
   "google-inspectiontool",
+  "storebot-google",
   "mediapartners-google",
   "apis-google",
+  "feedfetcher-google",
+  "google-read-aloud",
   "bingbot",
 ];
 
-function isKnownSearchBot(userAgent: string | null): boolean {
+export function isSearchBotOrAdsBot(userAgent: string | null): boolean {
   if (!userAgent) return false;
   const ua = userAgent.toLowerCase();
   return SEARCH_BOT_PATTERNS.some((bot) => ua.includes(bot));
@@ -101,10 +104,15 @@ export async function middleware(request: NextRequest) {
     isAllowedCountry = ALLOWED_COUNTRIES.includes(country);
   }
 
-  // Allow verified/known search bots to pass for SEO & Ads review
-  const isBot = isKnownSearchBot(userAgent);
+  // Googlebot ve AdsBot-Google (Google Ads robotları) ülke kısıtlamasından kesin olarak muaftır
+  const isBot = isSearchBotOrAdsBot(userAgent);
   if (isBot) {
     isAllowedCountry = true;
+  }
+
+  // Eğer muaf tutulan bir bot /magaza/restricted sayfasına gelirse mağaza sayfasına yönlendir
+  if (isBot && pathname === "/magaza/restricted") {
+    return NextResponse.redirect(new URL("/magaza", request.url));
   }
 
   // 3. Coğrafi Kısıtlama: /magaza (ve alt sayfaları) ile sipariş/ödeme API'leri
@@ -149,7 +157,7 @@ export async function middleware(request: NextRequest) {
     const restrictedUrl = new URL("/magaza/restricted", request.url);
     const response = NextResponse.rewrite(restrictedUrl);
     response.headers.set("X-Robots-Tag", "noindex, nofollow");
-    response.headers.set("Vary", "X-Visitor-Country, CF-IPCountry");
+    response.headers.set("Vary", "User-Agent, X-Visitor-Country, CF-IPCountry");
     response.headers.set("Cache-Control", "no-store, private, must-revalidate");
     response.cookies.set("cicekana_geo_tr", "0", {
       path: "/",
@@ -177,6 +185,9 @@ export async function middleware(request: NextRequest) {
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-is-tr-visitor", isAllowedCountry ? "1" : "0");
   requestHeaders.set("x-visitor-country-resolved", country || "UNKNOWN");
+  if (isBot) {
+    requestHeaders.set("x-is-search-bot", "1");
+  }
 
   const response = NextResponse.next({
     request: {
@@ -195,9 +206,16 @@ export async function middleware(request: NextRequest) {
     response.headers.set("Content-Type", "application/json; charset=utf-8");
   }
 
-  // Cache Vary protection for page routes
+  // Cache Vary protection for page routes - User-Agent eklenerek bot ve ziyaretçi yanıtlarının CDN/Proxy'de karışması önlenir
   if (pathname.startsWith("/magaza") || pathname === "/homepage") {
-    response.headers.set("Vary", "X-Visitor-Country, CF-IPCountry");
+    response.headers.set("Vary", "User-Agent, X-Visitor-Country, CF-IPCountry");
+  }
+
+  // Yurt dışından gelen ve kısıtlamadan muaf tutulan bot istekleri için PM2 logu
+  if (isBot && country && !ALLOWED_COUNTRIES.includes(country)) {
+    console.log(
+      `[GEO_BOT_EXEMPT] ${new Date().toISOString()} | Bot: ${userAgent.slice(0, 80)} | Origin Country: ${country} | Path: ${pathname}`
+    );
   }
 
   return response;
