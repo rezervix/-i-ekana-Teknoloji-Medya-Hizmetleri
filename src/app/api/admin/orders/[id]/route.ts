@@ -3,9 +3,13 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { z } from "zod";
 
-// ── Zod schema for status update ─────────────────────────────────────────────
+// ── Zod schema for status & archive update ───────────────────────────────────
 const PatchSchema = z.object({
-  status: z.enum(["PENDING", "CONFIRMED", "PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED"]),
+  status: z.enum(["PENDING", "CONFIRMED", "PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED"]).optional(),
+  invoiceStatus: z.enum(["NOT_REQUIRED", "PENDING", "SENT"]).optional(),
+  archived: z.boolean().optional(),
+}).refine(data => data.status !== undefined || data.invoiceStatus !== undefined || data.archived !== undefined, {
+  message: "En az bir güncellenecek alan belirtilmelidir.",
 });
 
 export async function PATCH(
@@ -45,7 +49,7 @@ export async function PATCH(
         success: false,
         error: {
           code: "VALIDATION_ERROR",
-          message: "Geçersiz durum değeri",
+          message: "Geçersiz güncelleme değeri",
           details: parsed.error.flatten(),
         },
       },
@@ -63,15 +67,34 @@ export async function PATCH(
       );
     }
 
+    const dataToUpdate: any = {};
+    if (parsed.data.status !== undefined) {
+      dataToUpdate.status = parsed.data.status;
+    }
+    if (parsed.data.invoiceStatus !== undefined) {
+      dataToUpdate.invoiceStatus = parsed.data.invoiceStatus;
+    }
+    if (parsed.data.archived !== undefined) {
+      // Arşivleme ASLA stoğu, ödeme durumunu veya sipariş durumunu değiştirmez.
+      dataToUpdate.archivedAt = parsed.data.archived ? new Date() : null;
+    }
+
     const order = await prisma.order.update({
       where: { id: orderId },
-      data: { status: parsed.data.status },
-      select: { id: true, orderNumber: true, status: true, updatedAt: true },
+      data: dataToUpdate,
+      select: {
+        id: true,
+        orderNumber: true,
+        status: true,
+        invoiceStatus: true,
+        archivedAt: true,
+        updatedAt: true,
+      },
     });
 
-    console.info("[orders/PATCH] Sipariş durumu güncellendi:", {
+    console.info("[orders/PATCH] Sipariş güncellendi:", {
       orderId,
-      newStatus: parsed.data.status,
+      updates: dataToUpdate,
       timestamp: new Date().toISOString(),
     });
 

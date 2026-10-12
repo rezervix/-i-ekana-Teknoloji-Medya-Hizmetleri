@@ -361,10 +361,12 @@ model Order {
   trackingNumber  String?
   carrier         String?
   notes           String?       @db.Text
+  archivedAt      DateTime?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
   @@index([userId])
+  @@index([archivedAt])
 }
 
 model OrderItem {

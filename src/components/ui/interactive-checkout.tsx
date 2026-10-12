@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Minus, Plus, ShoppingCart, X, CreditCard, Truck, ArrowRight } from "lucide-react";
+import { Minus, Plus, ShoppingCart, X, CreditCard, Truck, ArrowRight, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import Link from "next/link";
@@ -21,6 +21,7 @@ interface Product {
     color?: string;
     description?: string;
     slug?: string;
+    isFeatured?: boolean;
     freeShipping?: boolean;
     customizationOptions?: any;
     priceMatrix?: any;
@@ -33,10 +34,11 @@ interface CartItem extends Product {
 
 interface InteractiveCheckoutProps {
     products: Product[];
+    featuredProducts?: Product[];
     onCheckout?: () => void;
 }
 
-function InteractiveCheckout({ products, onCheckout }: InteractiveCheckoutProps) {
+function InteractiveCheckout({ products, featuredProducts, onCheckout }: InteractiveCheckoutProps) {
     const router = useRouter();
     const { items: globalCartItems, addItem, removeItem: removeGlobalItem, updateQuantity: updateGlobalQuantity } = useCartStore();
 
@@ -128,156 +130,216 @@ function InteractiveCheckout({ products, onCheckout }: InteractiveCheckoutProps)
         }
     };
 
+    const renderProductCard = (product: Product, index: number, isFeaturedCard: boolean) => {
+        const needsOptions = requiresOptions(product);
+        const priceInfo = getCardPriceDisplay(product);
+        const productUrl = `/magaza/urun/${product.slug || product.id}`;
+        const isPriority = index < 4;
+
+        return (
+            <motion.article
+                key={product.id}
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.25, delay: Math.min(index * 0.04, 0.3) }}
+                className={cn(
+                    "group flex flex-col justify-between",
+                    "p-4 rounded-2xl",
+                    "bg-white dark:bg-corp-charcoal",
+                    isFeaturedCard
+                        ? "border-2 border-amber-400/60 dark:border-amber-400/40 shadow-md hover:shadow-xl hover:border-amber-500"
+                        : "border border-corp-border dark:border-white/10 hover:border-corp-teal/50 dark:hover:border-teal-400/50 shadow-sm hover:shadow-xl",
+                    "transition-all duration-300"
+                )}
+            >
+                {/* Clickable Card Body (Valid HTML Link wrapping visual content) */}
+                <Link
+                    href={productUrl}
+                    onClick={recordScroll}
+                    className="flex flex-col flex-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-corp-teal rounded-xl"
+                >
+                    {/* Product Image Container */}
+                    <div className="relative aspect-[4/3] w-full rounded-xl overflow-hidden bg-corp-surface dark:bg-white/5 mb-3.5 border border-corp-border/40 dark:border-white/5">
+                        <Image
+                            src={product.image || "/placeholder.webp"}
+                            alt={product.name}
+                            fill
+                            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                            priority={isPriority}
+                            loading={isPriority ? undefined : "lazy"}
+                            className="object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
+                        />
+                        {/* Top Badges */}
+                        <div className="absolute top-2.5 left-2.5 flex flex-wrap gap-1.5 z-10">
+                            {isFeaturedCard && (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold rounded-full bg-amber-500 text-white shadow-sm">
+                                    <Sparkles className="w-3 h-3 fill-white" />
+                                    <span>Öne Çıkan</span>
+                                </span>
+                            )}
+                            {product.category && (
+                                <span className="px-2.5 py-1 text-[11px] font-bold rounded-full bg-white/95 dark:bg-corp-charcoal/90 backdrop-blur-md text-corp-charcoal dark:text-white shadow-xs border border-corp-border/40 dark:border-white/10 uppercase tracking-wider">
+                                    {product.category}
+                                </span>
+                            )}
+                        </div>
+                        {product.freeShipping && (
+                            <div className="absolute top-2.5 right-2.5 z-10">
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-600 text-white shadow-md">
+                                    <Truck className="w-3 h-3" />
+                                    <span>Ücretsiz Kargo</span>
+                                </span>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Text and Details */}
+                    <div className="flex flex-col flex-1">
+                        <h3 className="font-display text-base font-bold text-corp-charcoal dark:text-white group-hover:text-corp-teal dark:group-hover:text-teal-300 transition-colors line-clamp-1 mb-1.5">
+                            {product.name}
+                        </h3>
+
+                        {product.description && (
+                            <p className="text-xs text-corp-gray dark:text-white/60 line-clamp-2 leading-relaxed mb-3">
+                                {product.description}
+                            </p>
+                        )}
+
+                        {/* Price Section */}
+                        <div className="mt-auto pt-2 border-t border-corp-border/40 dark:border-white/5">
+                            <div className="flex items-baseline justify-between gap-2 flex-wrap">
+                                <div className="flex items-baseline gap-1.5">
+                                    <span className="text-lg font-extrabold text-corp-teal dark:text-teal-300 font-display">
+                                        {priceInfo.formattedPrice}
+                                    </span>
+                                    {priceInfo.isMatrix && (
+                                        <span className="text-[11px] text-corp-gray dark:text-white/60 font-medium">
+                                            başlayan
+                                        </span>
+                                    )}
+                                </div>
+                                <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-200/60 dark:border-emerald-800/40">
+                                    {priceInfo.vatNote}
+                                </span>
+                            </div>
+                            {priceInfo.startingText && (
+                                <p className="text-[11px] text-corp-gray dark:text-white/60 mt-0.5">
+                                    {priceInfo.startingText}
+                                </p>
+                            )}
+                        </div>
+                    </div>
+                </Link>
+
+                {/* Bottom Action Button (Outside Link to avoid nested <a> or <button>) */}
+                <div className="mt-4 pt-1">
+                    {needsOptions ? (
+                        <Link
+                            href={productUrl}
+                            onClick={recordScroll}
+                            className={cn(
+                                "min-h-[44px] w-full",
+                                "inline-flex items-center justify-center gap-2",
+                                "rounded-xl",
+                                isFeaturedCard
+                                    ? "bg-amber-500/10 hover:bg-amber-500 text-amber-700 hover:text-white border-amber-300"
+                                    : "bg-corp-teal/10 hover:bg-corp-teal text-corp-teal hover:text-white border-corp-teal/30",
+                                "dark:bg-teal-950/40 dark:text-teal-300 dark:hover:bg-corp-teal dark:hover:text-white",
+                                "border dark:border-teal-800/40",
+                                "font-semibold text-sm transition-all duration-200 shadow-xs",
+                                "focus:outline-none focus:ring-2 focus:ring-corp-teal"
+                            )}
+                        >
+                            <span>Seçenekleri Gör</span>
+                            <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+                        </Link>
+                    ) : (
+                        <Button
+                            size="default"
+                            variant="outline"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                addToCart(product);
+                            }}
+                            className={cn(
+                                "min-h-[44px] w-full",
+                                "gap-2 rounded-xl",
+                                isFeaturedCard
+                                    ? "border-amber-400 text-amber-700 hover:bg-amber-500 hover:text-white"
+                                    : "border-corp-teal/40 text-corp-teal hover:bg-corp-teal hover:text-white",
+                                "transition-all duration-200 font-semibold text-sm shadow-xs"
+                            )}
+                        >
+                            <Plus className="w-4 h-4" />
+                            <span>Sepete Ekle</span>
+                        </Button>
+                    )}
+                </div>
+            </motion.article>
+        );
+    };
+
     return (
         <div className="w-full max-w-7xl mx-auto">
             <div className="flex flex-col lg:flex-row gap-8 items-start">
-                {/* Left Product Grid */}
-                <div className="flex-1 w-full">
-                    {products.length === 0 ? (
-                        <div className="p-12 text-center bg-white dark:bg-corp-charcoal rounded-2xl border border-corp-border dark:border-white/10 text-corp-gray dark:text-white/60">
-                            Aramanıza veya filtrenize uygun ürün bulunamadı.
-                        </div>
-                    ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-5">
-                            {products.map((product, index) => {
-                                const needsOptions = requiresOptions(product);
-                                const priceInfo = getCardPriceDisplay(product);
-                                const productUrl = `/magaza/urun/${product.slug || product.id}`;
-                                const isPriority = index < 4;
-
-                                return (
-                                    <motion.article
-                                        key={product.id}
-                                        initial={{ opacity: 0, y: 15 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        transition={{ duration: 0.25, delay: Math.min(index * 0.04, 0.3) }}
-                                        className={cn(
-                                            "group flex flex-col justify-between",
-                                            "p-4 rounded-2xl",
-                                            "bg-white dark:bg-corp-charcoal",
-                                            "border border-corp-border dark:border-white/10",
-                                            "hover:border-corp-teal/50 dark:hover:border-teal-400/50",
-                                            "shadow-sm hover:shadow-xl",
-                                            "transition-all duration-300"
-                                        )}
-                                    >
-                                        {/* Clickable Card Body (Valid HTML Link wrapping visual content) */}
-                                        <Link
-                                            href={productUrl}
-                                            onClick={recordScroll}
-                                            className="flex flex-col flex-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-corp-teal rounded-xl"
-                                        >
-                                            {/* Product Image Container */}
-                                            <div className="relative aspect-[4/3] w-full rounded-xl overflow-hidden bg-corp-surface dark:bg-white/5 mb-3.5 border border-corp-border/40 dark:border-white/5">
-                                                <Image
-                                                    src={product.image || "/placeholder.webp"}
-                                                    alt={product.name}
-                                                    fill
-                                                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                                                    priority={isPriority}
-                                                    loading={isPriority ? undefined : "lazy"}
-                                                    className="object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
-                                                />
-                                                {/* Top Badges */}
-                                                <div className="absolute top-2.5 left-2.5 flex flex-wrap gap-1.5 z-10">
-                                                    {product.category && (
-                                                        <span className="px-2.5 py-1 text-[11px] font-bold rounded-full bg-white/95 dark:bg-corp-charcoal/90 backdrop-blur-md text-corp-charcoal dark:text-white shadow-xs border border-corp-border/40 dark:border-white/10 uppercase tracking-wider">
-                                                            {product.category}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                {product.freeShipping && (
-                                                    <div className="absolute top-2.5 right-2.5 z-10">
-                                                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-600 text-white shadow-md">
-                                                            <Truck className="w-3 h-3" />
-                                                            <span>Ücretsiz Kargo</span>
-                                                        </span>
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                            {/* Text and Details */}
-                                            <div className="flex flex-col flex-1">
-                                                <h3 className="font-display text-base font-bold text-corp-charcoal dark:text-white group-hover:text-corp-teal dark:group-hover:text-teal-300 transition-colors line-clamp-1 mb-1.5">
-                                                    {product.name}
-                                                </h3>
-
-                                                {product.description && (
-                                                    <p className="text-xs text-corp-gray dark:text-white/60 line-clamp-2 leading-relaxed mb-3">
-                                                        {product.description}
-                                                    </p>
-                                                )}
-
-                                                {/* Price Section */}
-                                                <div className="mt-auto pt-2 border-t border-corp-border/40 dark:border-white/5">
-                                                    <div className="flex items-baseline justify-between gap-2 flex-wrap">
-                                                        <div className="flex items-baseline gap-1.5">
-                                                            <span className="text-lg font-extrabold text-corp-teal dark:text-teal-300 font-display">
-                                                                {priceInfo.formattedPrice}
-                                                            </span>
-                                                            {priceInfo.isMatrix && (
-                                                                <span className="text-[11px] text-corp-gray dark:text-white/60 font-medium">
-                                                                    başlayan
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                        <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-200/60 dark:border-emerald-800/40">
-                                                            {priceInfo.vatNote}
-                                                        </span>
-                                                    </div>
-                                                    {priceInfo.startingText && (
-                                                        <p className="text-[11px] text-corp-gray dark:text-white/60 mt-0.5">
-                                                            {priceInfo.startingText}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </Link>
-
-                                        {/* Bottom Action Button (Outside Link to avoid nested <a> or <button>) */}
-                                        <div className="mt-4 pt-1">
-                                            {needsOptions ? (
-                                                <Link
-                                                    href={productUrl}
-                                                    onClick={recordScroll}
-                                                    className={cn(
-                                                        "min-h-[44px] w-full",
-                                                        "inline-flex items-center justify-center gap-2",
-                                                        "rounded-xl",
-                                                        "bg-corp-teal/10 hover:bg-corp-teal text-corp-teal hover:text-white",
-                                                        "dark:bg-teal-950/40 dark:text-teal-300 dark:hover:bg-corp-teal dark:hover:text-white",
-                                                        "border border-corp-teal/30 dark:border-teal-800/40",
-                                                        "font-semibold text-sm transition-all duration-200 shadow-xs",
-                                                        "focus:outline-none focus:ring-2 focus:ring-corp-teal"
-                                                    )}
-                                                >
-                                                    <span>Seçenekleri Gör</span>
-                                                    <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
-                                                </Link>
-                                            ) : (
-                                                <Button
-                                                    size="default"
-                                                    variant="outline"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        addToCart(product);
-                                                    }}
-                                                    className={cn(
-                                                        "min-h-[44px] w-full",
-                                                        "gap-2 rounded-xl",
-                                                        "border-corp-teal/40 text-corp-teal hover:bg-corp-teal hover:text-white",
-                                                        "transition-all duration-200 font-semibold text-sm shadow-xs"
-                                                    )}
-                                                >
-                                                    <Plus className="w-4 h-4" />
-                                                    <span>Sepete Ekle</span>
-                                                </Button>
-                                            )}
+                {/* Left Product Area */}
+                <div className="flex-1 w-full space-y-10">
+                    {/* 1. ÖNE ÇIKAN ÜRÜNLER (VİTRİN) BÖLÜMÜ */}
+                    {featuredProducts && featuredProducts.length > 0 && (
+                        <section aria-label="Öne Çıkan Ürünler" className="space-y-4">
+                            <div className="flex items-center justify-between pb-3 border-b border-corp-border/80 dark:border-white/10">
+                                <div className="flex items-center gap-2.5">
+                                    <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-amber-500 to-amber-300 text-white flex items-center justify-center shadow-md shadow-amber-500/20">
+                                        <Sparkles className="w-4 h-4 fill-white" />
+                                    </div>
+                                    <div>
+                                        <div className="flex items-center gap-2">
+                                            <h2 className="font-display text-lg sm:text-xl font-bold text-corp-charcoal dark:text-white">
+                                                Öne Çıkan Ürünler
+                                            </h2>
+                                            <span className="text-[10px] sm:text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300/40">
+                                                Vitrin
+                                            </span>
                                         </div>
-                                    </motion.article>
-                                );
-                            })}
-                        </div>
+                                        <p className="text-xs text-corp-gray dark:text-white/60">
+                                            Özenle seçilmiş vitrin ürünlerimizi keşfedin
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-5">
+                                {featuredProducts.map((product, index) =>
+                                    renderProductCard(product, index, true)
+                                )}
+                            </div>
+                        </section>
+                    )}
+
+                    {/* 2. TÜM ÜRÜNLER / ÜRÜN LİSTESİ */}
+                    {products.length > 0 ? (
+                        <section aria-label="Ürün Listesi" className="space-y-4">
+                            {featuredProducts && featuredProducts.length > 0 && (
+                                <div className="flex items-center justify-between pb-2 border-b border-corp-border/40 dark:border-white/5">
+                                    <h3 className="font-display text-base font-bold text-corp-charcoal dark:text-white">
+                                        Tüm Ürünler
+                                    </h3>
+                                    <span className="text-xs text-corp-gray dark:text-white/50">
+                                        {products.length} ürün
+                                    </span>
+                                </div>
+                            )}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-5">
+                                {products.map((product, index) =>
+                                    renderProductCard(product, index, false)
+                                )}
+                            </div>
+                        </section>
+                    ) : (
+                        (!featuredProducts || featuredProducts.length === 0) && (
+                            <div className="p-12 text-center bg-white dark:bg-corp-charcoal rounded-2xl border border-corp-border dark:border-white/10 text-corp-gray dark:text-white/60">
+                                Aramanıza veya filtrenize uygun ürün bulunamadı.
+                            </div>
+                        )
                     )}
                 </div>
 

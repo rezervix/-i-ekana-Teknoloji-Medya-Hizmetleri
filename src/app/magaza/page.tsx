@@ -20,7 +20,7 @@ export default async function MagazaPage() {
   let products: any[] = [];
   try {
     products = await prisma.product.findMany({
-      where: { isActive: true },
+      where: { isActive: true, deletedAt: null },
       include: {
         reviews: {
           select: { rating: true, isApproved: true }
@@ -42,7 +42,8 @@ export default async function MagazaPage() {
     return {
       ...p,
       avgRating,
-      reviewCount: approvedReviews.length
+      reviewCount: approvedReviews.length,
+      isFeatured: Boolean(p.isFeatured),
     };
   });
 

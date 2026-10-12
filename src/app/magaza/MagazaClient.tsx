@@ -45,6 +45,7 @@ export default function MagazaClient({ products }: { products: any[]; featuredPr
         color: p.subcategory || "Standart Baskı",
         description: p.description,
         slug: p.slug,
+        isFeatured: Boolean(p.isFeatured),
         freeShipping: Boolean(p.freeShipping),
         customizationOptions: p.customizationOptions,
         priceMatrix: p.priceMatrix || p.customizationOptions?.priceMatrix,
@@ -98,6 +99,14 @@ export default function MagazaClient({ products }: { products: any[]; featuredPr
   const filteredProducts = useMemo(() => {
     return filterProducts(storeProductsList, filters);
   }, [storeProductsList, filters]);
+
+  // ── Vitrin (Öne Çıkan) ve Normal Ürün Ayrımı ───────────────────────────
+  // Vitrin ürünü olanlar en üstte gösterilir, alttaki listede tekrar etmez.
+  const { featuredProductsList, regularProductsList } = useMemo(() => {
+    const featured = filteredProducts.filter((p) => p.isFeatured);
+    const regular = filteredProducts.filter((p) => !p.isFeatured);
+    return { featuredProductsList: featured, regularProductsList: regular };
+  }, [filteredProducts]);
 
   // ── URL Synchronization Helper ──────────────────────────────────────────
   const syncUrlParams = useCallback(
@@ -559,7 +568,10 @@ export default function MagazaClient({ products }: { products: any[]; featuredPr
                 </div>
               </div>
             ) : (
-              <InteractiveCheckout products={filteredProducts} />
+              <InteractiveCheckout
+                products={regularProductsList}
+                featuredProducts={featuredProductsList}
+              />
             )}
           </div>
         </div>

@@ -47,7 +47,14 @@ export default function OrderDetailModal({ order, onClose }: OrderDetailModalPro
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
             <div>
-              <h3 className="font-bold text-corp-charcoal">Sipariş Detayları</h3>
+              <div className="flex items-center gap-2">
+                <h3 className="font-bold text-corp-charcoal">Sipariş Detayları</h3>
+                {order.archivedAt && (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-gray-200 text-corp-charcoal">
+                    Arşivde ({formatDate(order.archivedAt)})
+                  </span>
+                )}
+              </div>
               <p className="text-sm text-corp-gray">#{order.orderNumber ?? "—"}</p>
             </div>
             <button
