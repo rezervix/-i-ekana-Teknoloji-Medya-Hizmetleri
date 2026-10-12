@@ -94,11 +94,23 @@ export function getDeviceType(): "desktop" | "mobile" | "tablet" {
   return "desktop";
 }
 
+const TRAFFIC_FIRST_KEY = "cicekana_traffic_source_first";
+const REFERRER_STORAGE_KEY = "cicekana_referrer";
+
 /**
- * URL'den veya depodan UTM Source değerini okur
+ * İlk temas (First-touch) ve mevcut oturum trafik kaynağını yakalar
+ * Kişisel veri içermez (query paramları arındırılır, yalnızca domain saklanır)
  */
-export function getUtmSource(): string | null {
-  if (typeof window === "undefined") return null;
+export function captureTrafficSource(): {
+  utmSource: string | null;
+  utmMedium: string | null;
+  utmCampaign: string | null;
+  referrer: string | null;
+} {
+  if (typeof window === "undefined") {
+    return { utmSource: null, utmMedium: null, utmCampaign: null, referrer: null };
+  }
+
   try {
     const params = new URLSearchParams(window.location.search);
     const utm = params.get("utm_source") || params.get("ref");
@@ -106,15 +118,95 @@ export function getUtmSource(): string | null {
     const term = params.get("utm_term");
     const medium = params.get("utm_medium");
 
+    // Güvenli Referrer (Domain temizleme)
+    let safeReferrer: string | null = null;
+    if (document.referrer) {
+      try {
+        const refUrl = new URL(document.referrer);
+        // Kendi sitemizden gelen iç yönlendirmeleri referrer sayma
+        if (refUrl.hostname !== window.location.hostname) {
+          safeReferrer = refUrl.hostname.replace(/^www\./, "");
+        }
+      } catch {
+        safeReferrer = null;
+      }
+    }
+
     if (utm) sessionStorage.setItem(UTM_STORAGE_KEY, utm);
     if (campaign) sessionStorage.setItem("cicekana_utm_campaign", campaign);
     if (term) sessionStorage.setItem("cicekana_utm_term", term);
     if (medium) sessionStorage.setItem("cicekana_utm_medium", medium);
+    if (safeReferrer) sessionStorage.setItem(REFERRER_STORAGE_KEY, safeReferrer);
 
-    return utm || sessionStorage.getItem(UTM_STORAGE_KEY);
+    // First-touch (ilk temas) localStorage'a kaydet (varsa ezme)
+    const existingFirst = localStorage.getItem(TRAFFIC_FIRST_KEY);
+    if (!existingFirst && (utm || safeReferrer)) {
+      localStorage.setItem(
+        TRAFFIC_FIRST_KEY,
+        JSON.stringify({
+          utmSource: utm || null,
+          utmMedium: medium || null,
+          utmCampaign: campaign || null,
+          referrer: safeReferrer || null,
+          capturedAt: new Date().toISOString(),
+        })
+      );
+    }
+
+    return {
+      utmSource: utm || sessionStorage.getItem(UTM_STORAGE_KEY),
+      utmMedium: medium || sessionStorage.getItem("cicekana_utm_medium"),
+      utmCampaign: campaign || sessionStorage.getItem("cicekana_utm_campaign"),
+      referrer: safeReferrer || sessionStorage.getItem(REFERRER_STORAGE_KEY),
+    };
   } catch {
-    return null;
+    return { utmSource: null, utmMedium: null, utmCampaign: null, referrer: null };
   }
+}
+
+/**
+ * Sipariş veya analiz için mevcut en geçerli trafik kaynağını (first-touch öncelikli) döndürür
+ */
+export function getTrafficSource(): {
+  utmSource: string | null;
+  utmMedium: string | null;
+  utmCampaign: string | null;
+  referrer: string | null;
+} {
+  if (typeof window === "undefined") {
+    return { utmSource: null, utmMedium: null, utmCampaign: null, referrer: null };
+  }
+
+  try {
+    // 1. Önce first-touch verisine bak
+    const firstStr = localStorage.getItem(TRAFFIC_FIRST_KEY);
+    if (firstStr) {
+      const parsed = JSON.parse(firstStr);
+      return {
+        utmSource: parsed.utmSource || null,
+        utmMedium: parsed.utmMedium || null,
+        utmCampaign: parsed.utmCampaign || null,
+        referrer: parsed.referrer || null,
+      };
+    }
+    // 2. Yoksa mevcut oturum verisine bak
+    return {
+      utmSource: sessionStorage.getItem(UTM_STORAGE_KEY) || null,
+      utmMedium: sessionStorage.getItem("cicekana_utm_medium") || null,
+      utmCampaign: sessionStorage.getItem("cicekana_utm_campaign") || null,
+      referrer: sessionStorage.getItem(REFERRER_STORAGE_KEY) || null,
+    };
+  } catch {
+    return { utmSource: null, utmMedium: null, utmCampaign: null, referrer: null };
+  }
+}
+
+/**
+ * URL'den veya depodan UTM Source değerini okur
+ */
+export function getUtmSource(): string | null {
+  const source = captureTrafficSource();
+  return source.utmSource;
 }
 
 /**

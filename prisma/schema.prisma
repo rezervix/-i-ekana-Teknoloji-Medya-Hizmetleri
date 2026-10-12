@@ -362,6 +362,10 @@ model Order {
   carrier         String?
   notes           String?       @db.Text
   archivedAt      DateTime?
+  utmSource       String?
+  utmMedium       String?
+  utmCampaign     String?
+  referrer        String?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 

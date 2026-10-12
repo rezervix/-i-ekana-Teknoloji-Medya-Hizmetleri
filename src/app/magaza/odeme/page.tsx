@@ -21,7 +21,7 @@ import { useSession } from 'next-auth/react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import Script from 'next/script';
-import { trackBeginCheckout, trackAddShippingInfo, trackAddPaymentInfo } from '@/lib/analytics';
+import { trackBeginCheckout, trackAddShippingInfo, trackAddPaymentInfo, getTrafficSource } from '@/lib/analytics';
 
 export default function CheckoutPage() {
   const { data: session, status } = useSession();
@@ -283,6 +283,10 @@ export default function CheckoutPage() {
         discountAmount: discount,
         finalAmount,
         invoiceRequested: customerType === 'CORPORATE' ? true : invoiceRequested,
+        utmSource: getTrafficSource().utmSource,
+        utmMedium: getTrafficSource().utmMedium,
+        utmCampaign: getTrafficSource().utmCampaign,
+        referrer: getTrafficSource().referrer,
         items: items.map((item) => ({
           productId: item.productId,
           quantity: item.quantity,

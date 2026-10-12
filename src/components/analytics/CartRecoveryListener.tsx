@@ -4,12 +4,13 @@ import { useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { useCartStore } from "@/store/useCartStore";
 import { toast } from "sonner";
-import { trackFunnelEvent } from "@/lib/analytics";
+import { trackFunnelEvent, captureTrafficSource } from "@/lib/analytics";
 
 /**
- * Faz 6: Terk Edilen Sepet Kurtarma Dinleyicisi
+ * Faz 6: Terk Edilen Sepet Kurtarma Dinleyicisi & Trafik Kaynağı Yakalayıcı
  * E-postadan gelen bağlantılarda (?recover=rec_xyz) sepeti dolu olarak geri açar
  * ve varsa kuponu (?coupon=KAZANIM10) otomatik uygular.
+ * Ayrıca ilk ziyarette UTM ve Referrer kaynaklarını yakalar.
  */
 export default function CartRecoveryListener() {
   const searchParams = useSearchParams();
@@ -17,6 +18,9 @@ export default function CartRecoveryListener() {
   const { openDrawer, setCouponCode } = useCartStore();
 
   useEffect(() => {
+    // İlk temas trafik kaynağını yakala
+    captureTrafficSource();
+
     const recoverToken = searchParams?.get("recover");
     const couponParam = searchParams?.get("coupon");
 

@@ -37,6 +37,10 @@ const createOrderSchema = z
     discountAmount: z.number().min(0).default(0),
     finalAmount: z.number().positive(),
     invoiceRequested: z.boolean().optional().default(false),
+    utmSource: z.string().optional().nullable(),
+    utmMedium: z.string().optional().nullable(),
+    utmCampaign: z.string().optional().nullable(),
+    referrer: z.string().optional().nullable(),
     items: z.array(orderItemSchema).min(1, "En az bir ürün sepetinizde olmalıdır."),
   })
   .superRefine((data, ctx) => {
@@ -136,6 +140,10 @@ export async function POST(req: NextRequest) {
       discountAmount,
       finalAmount,
       invoiceRequested,
+      utmSource,
+      utmMedium,
+      utmCampaign,
+      referrer,
       items,
     } = parsed.data;
 
@@ -243,6 +251,10 @@ export async function POST(req: NextRequest) {
         paymentStatus: "PENDING",
         shippingAddress: shippingAddress as any,
         status: "PENDING",
+        utmSource: utmSource ? String(utmSource).slice(0, 100) : null,
+        utmMedium: utmMedium ? String(utmMedium).slice(0, 100) : null,
+        utmCampaign: utmCampaign ? String(utmCampaign).slice(0, 100) : null,
+        referrer: referrer ? String(referrer).slice(0, 250) : null,
         items: {
           create: resolvedItems,
         },
