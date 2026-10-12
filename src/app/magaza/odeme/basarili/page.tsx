@@ -38,24 +38,19 @@ export default async function PaymentSuccessPage({
         },
       });
 
-      if (dbOrder) {
         orderData = {
           orderNumber: dbOrder.orderNumber,
           finalAmount: dbOrder.finalAmount,
           status: dbOrder.status,
           createdAt: dbOrder.createdAt,
-          guestName: dbOrder.guestName || session?.user?.name || null,
-          guestEmail: dbOrder.guestEmail || session?.user?.email || null,
-          shippingAddress: dbOrder.shippingAddress,
           items: dbOrder.items.map((it: any) => ({
             id: it.id,
             name: it.product?.name || "Ürün",
             quantity: it.quantity,
-            price: it.price,
+            price: it.unitPrice || it.price || 0,
             image: it.product?.images?.[0] || undefined,
           })),
         };
-      }
     } catch (err) {
       console.error("[PaymentSuccessPage] Order fetch error:", err);
     }

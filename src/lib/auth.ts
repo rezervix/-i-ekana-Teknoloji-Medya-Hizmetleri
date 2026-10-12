@@ -82,24 +82,30 @@ export const authOptions: AuthOptions = {
   ],
   callbacks: {
     async signIn({ user, account }) {
-      if (account?.provider === "google" && user.email) {
-        try {
-          // Auto verify email for Google OAuth sign-in
-          const existingUser = await prisma.user.findUnique({
-            where: { email: user.email.toLowerCase().trim() },
-          });
-          if (existingUser && (!existingUser.isEmailVerified || !existingUser.emailVerified)) {
-            await prisma.user.update({
-              where: { id: existingUser.id },
-              data: {
-                isEmailVerified: true,
-                emailVerified: new Date(),
-              },
+      if (account?.provider === "google") {
+        if (process.env.NEXT_PUBLIC_GOOGLE_LOGIN_ENABLED !== "true") {
+          logger.warn({ event: "GOOGLE_OAUTH_DISABLED_BLOCKED", email: user.email });
+          return false;
+        }
+        if (user.email) {
+          try {
+            // Auto verify email for Google OAuth sign-in
+            const existingUser = await prisma.user.findUnique({
+              where: { email: user.email.toLowerCase().trim() },
             });
+            if (existingUser && (!existingUser.isEmailVerified || !existingUser.emailVerified)) {
+              await prisma.user.update({
+                where: { id: existingUser.id },
+                data: {
+                  isEmailVerified: true,
+                  emailVerified: new Date(),
+                },
+              });
+            }
+            logger.info({ event: "GOOGLE_OAUTH_SUCCESS", email: user.email, userId: user.id });
+          } catch (err) {
+            console.error("Google sign-in sync error:", err);
           }
-          logger.info({ event: "GOOGLE_OAUTH_SUCCESS", email: user.email, userId: user.id });
-        } catch (err) {
-          console.error("Google sign-in sync error:", err);
         }
       }
       return true;

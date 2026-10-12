@@ -22,9 +22,6 @@ interface OrderSummary {
   finalAmount: number;
   status: string;
   createdAt: string | Date;
-  guestName?: string | null;
-  guestEmail?: string | null;
-  shippingAddress?: any;
   items?: Array<{
     id: string;
     name: string;
@@ -154,15 +151,14 @@ export default function PaymentSuccessClient({
           </h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs sm:text-sm">
-            {order.guestName && (
-              <div className="bg-corp-surface/50 p-3.5 rounded-xl border border-corp-border/60">
-                <span className="text-corp-gray text-xs block mb-0.5">Müşteri</span>
-                <span className="font-semibold text-corp-charcoal">{order.guestName}</span>
-                {order.guestEmail && (
-                  <span className="text-corp-gray block text-xs mt-0.5">{order.guestEmail}</span>
-                )}
-              </div>
-            )}
+            <div className="bg-corp-surface/50 p-3.5 rounded-xl border border-corp-border/60">
+              <span className="text-corp-gray text-xs block mb-0.5">Sipariş Durumu</span>
+              <span className="font-semibold text-emerald-700 flex items-center gap-1.5">
+                <CheckCircle2 size={15} className="text-emerald-600" />
+                Ödeme Onaylandı / Hazırlanıyor
+              </span>
+              <span className="text-corp-gray block text-[11px] mt-0.5">Sipariş No: #{order.orderNumber}</span>
+            </div>
 
             {formattedAmount && (
               <div className="bg-corp-surface/50 p-3.5 rounded-xl border border-corp-border/60">
@@ -241,11 +237,11 @@ export default function PaymentSuccessClient({
             </Link>
           ) : (
             <Link
-              href="/profile?tab=orders"
+              href="/magaza"
               className="w-full sm:w-auto min-h-[48px] px-6 py-3 rounded-xl bg-corp-teal text-white font-semibold text-sm hover:bg-corp-teal-600 transition-all shadow-md flex items-center justify-center gap-2 active:scale-95"
             >
               <Package size={17} />
-              <span>Siparişlerime Git</span>
+              <span>Mağazaya Dön</span>
               <ArrowRight size={15} />
             </Link>
           )}

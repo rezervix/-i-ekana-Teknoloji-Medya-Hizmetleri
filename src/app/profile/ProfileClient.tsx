@@ -2224,6 +2224,7 @@ export default function ProfileClient({
                         icon: "🌐",
                         btnText: (user?.accounts?.some((a: any) => a.provider === "google") || user?.email?.endsWith("@gmail.com")) ? "Bağlı / Aktif" : "Google ile Bağla",
                         action: () => {
+                          if (process.env.NEXT_PUBLIC_GOOGLE_LOGIN_ENABLED !== "true") return;
                           if (!user?.accounts?.some((a: any) => a.provider === "google")) {
                             window.location.href = "/api/auth/signin/google";
                           }

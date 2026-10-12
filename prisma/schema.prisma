@@ -348,6 +348,7 @@ model Order {
   taxNumber       String?
   billingAddress  Json?
   invoiceStatus   InvoiceStatus @default(NOT_REQUIRED)
+  invoiceRequested Boolean?     @default(false)
   items           OrderItem[]
   status          OrderStatus   @default(PENDING)
   totalAmount     Float

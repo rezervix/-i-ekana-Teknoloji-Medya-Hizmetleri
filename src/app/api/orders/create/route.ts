@@ -36,6 +36,7 @@ const createOrderSchema = z
     totalAmount: z.number().positive(),
     discountAmount: z.number().min(0).default(0),
     finalAmount: z.number().positive(),
+    invoiceRequested: z.boolean().optional().default(false),
     items: z.array(orderItemSchema).min(1, "En az bir ürün sepetinizde olmalıdır."),
   })
   .superRefine((data, ctx) => {
@@ -134,6 +135,7 @@ export async function POST(req: NextRequest) {
       totalAmount,
       discountAmount,
       finalAmount,
+      invoiceRequested,
       items,
     } = parsed.data;
 
@@ -233,6 +235,7 @@ export async function POST(req: NextRequest) {
         taxNumber: isCorporate ? taxNumber?.trim() : null,
         billingAddress: isCorporate ? (billingAddress as any) : null,
         invoiceStatus,
+        invoiceRequested: isCorporate ? true : Boolean(invoiceRequested),
         totalAmount,
         discountAmount,
         finalAmount,

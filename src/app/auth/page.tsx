@@ -27,6 +27,8 @@ const inputCls =
 const labelCls =
   "block font-body text-[11px] font-semibold tracking-widest uppercase text-corp-gray mb-1.5";
 
+const isGoogleLoginEnabled = process.env.NEXT_PUBLIC_GOOGLE_LOGIN_ENABLED === "true";
+
 function OrDivider() {
   return (
     <div className="flex items-center gap-3 my-6">
@@ -323,6 +325,7 @@ function SignInForm({ onForgotPassword }: { onForgotPassword: () => void }) {
   const [error, setError] = useState("");
 
   const handleGoogle = async () => {
+    if (!isGoogleLoginEnabled) return;
     setGoogleLoading(true);
     await signIn("google", { callbackUrl: "/homepage" });
   };
@@ -354,8 +357,12 @@ function SignInForm({ onForgotPassword }: { onForgotPassword: () => void }) {
 
   return (
     <>
-      <GoogleButton loading={googleLoading} onClick={handleGoogle} />
-      <OrDivider />
+      {isGoogleLoginEnabled && (
+        <>
+          <GoogleButton loading={googleLoading} onClick={handleGoogle} />
+          <OrDivider />
+        </>
+      )}
       {error && (
         <div className="mb-4 p-3.5 rounded-lg bg-error/8 border border-error/25 font-body text-[13px] text-error">
           {error}
@@ -450,6 +457,7 @@ function SignUpForm() {
   const isPasswordValid = validCount === 4;
 
   const handleGoogle = async () => {
+    if (!isGoogleLoginEnabled) return;
     setGoogleLoading(true);
     await signIn("google", { callbackUrl: "/homepage" });
   };
@@ -521,8 +529,12 @@ function SignUpForm() {
 
   return (
     <>
-      <GoogleButton loading={googleLoading} onClick={handleGoogle} />
-      <OrDivider />
+      {isGoogleLoginEnabled && (
+        <>
+          <GoogleButton loading={googleLoading} onClick={handleGoogle} />
+          <OrDivider />
+        </>
+      )}
       {error && (
         <div className="mb-4 p-3.5 rounded-lg bg-error/8 border border-error/25 font-body text-[13px] text-error">
           {error}

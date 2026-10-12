@@ -167,8 +167,9 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
-  // 4. Protect /profile and /magaza/odeme routes (Mandatory Login Enforcement)
-  if (pathname.startsWith("/profile") || pathname.startsWith("/magaza/odeme")) {
+  // 4. Protect /profile routes (Mandatory Login Enforcement)
+  // Note: /magaza/odeme allows guest checkout
+  if (pathname.startsWith("/profile")) {
     const token = await getToken({
       req: request,
       secret: process.env.NEXTAUTH_SECRET,

@@ -104,17 +104,22 @@ export default function OrderDetailModal({ order, onClose }: OrderDetailModalPro
                             <h5 className="font-semibold text-xs uppercase tracking-wider text-corp-charcoal">
                               Kurumsal Fatura Bilgileri
                             </h5>
-                            <span
-                              className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
-                                order.invoiceStatus === "SENT"
-                                  ? "bg-emerald-100 text-emerald-800"
-                                  : "bg-amber-100 text-amber-800"
-                              }`}
-                            >
-                              {order.invoiceStatus === "SENT"
-                                ? "Fatura Gönderildi"
-                                : "Fatura Bekliyor"}
-                            </span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
+                                Fatura talep edildi
+                              </span>
+                              <span
+                                className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                                  order.invoiceStatus === "SENT"
+                                    ? "bg-emerald-100 text-emerald-800"
+                                    : "bg-amber-100 text-amber-800"
+                                }`}
+                              >
+                                {order.invoiceStatus === "SENT"
+                                  ? "Fatura Gönderildi"
+                                  : "Fatura Bekliyor"}
+                              </span>
+                            </div>
                           </div>
                           <div className="grid grid-cols-2 gap-3 text-sm">
                             <div>
@@ -145,7 +150,16 @@ export default function OrderDetailModal({ order, onClose }: OrderDetailModalPro
                       ) : (
                         <div className="mt-3 pt-3 border-t border-gray-200 text-xs text-corp-gray flex items-center justify-between">
                           <span>Müşteri Tipi: <strong>Bireysel</strong></span>
-                          <span>Fatura Durumu: <strong>Gerekmiyor</strong></span>
+                          <span className="flex items-center gap-1.5">
+                            Fatura Talebi:{" "}
+                            {(order as any).invoiceRequested ? (
+                              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
+                                Fatura talep edildi
+                              </span>
+                            ) : (
+                              <strong className="text-gray-500">Talep edilmedi</strong>
+                            )}
+                          </span>
                         </div>
                       )}
 

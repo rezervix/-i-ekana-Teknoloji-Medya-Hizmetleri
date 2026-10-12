@@ -57,6 +57,7 @@ export default function CheckoutPage() {
   const [pendingOrderNumber, setPendingOrderNumber] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
   const [allowMarketing, setAllowMarketing] = useState(true);
+  const [invoiceRequested, setInvoiceRequested] = useState(false);
 
   const saveAbandonedCartSnapshot = (overrideMarketing?: boolean) => {
     if (!formData.email && !formData.phone) return;
@@ -281,6 +282,7 @@ export default function CheckoutPage() {
         totalAmount: subtotal,
         discountAmount: discount,
         finalAmount,
+        invoiceRequested: customerType === 'CORPORATE' ? true : invoiceRequested,
         items: items.map((item) => ({
           productId: item.productId,
           quantity: item.quantity,
@@ -317,7 +319,12 @@ export default function CheckoutPage() {
 
       if (!res.ok || !data.success) {
         if (data.error?.code === 'UNAUTHORIZED' || res.status === 401) {
-          router.push('/auth?callbackUrl=/magaza/odeme');
+          const subscriptionItems = items.filter((item) => item.itemType === 'subscription');
+          if (subscriptionItems.length > 0) {
+            router.push('/auth?callbackUrl=/magaza/odeme');
+            return;
+          }
+          setErrorMessage(data.error?.message || 'Sipariş oluşturulamadı. Lütfen bilgilerinizi kontrol edin.');
           return;
         }
         if (data.error?.code === 'PRODUCT_UNAVAILABLE') {
@@ -475,33 +482,6 @@ export default function CheckoutPage() {
                 onSubmit={handleCheckout}
                 className="bg-white p-4 sm:p-6 md:p-8 rounded-2xl border border-corp-border shadow-sm min-w-0"
               >
-                {/* ── Fatura Bilgilendirme Kutusu (Satın Almayı Engellemez) ── */}
-                <div className="mb-6 p-4 md:p-5 rounded-2xl bg-amber-50 border border-amber-200 shadow-sm flex items-start gap-3.5">
-                  <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <AlertTriangle size={18} />
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-body text-xs md:text-sm text-amber-900 leading-relaxed">
-                      <strong className="font-semibold text-amber-950">Bilgilendirme:</strong> Şu
-                      anda siparişleriniz için fatura düzenleyemiyoruz. Siparişiniz normal şekilde
-                      alınır ve teslim edilir. Fatura/belge ihtiyacınız varsa lütfen sipariş
-                      vermeden önce bizimle iletişime geçin.{' '}
-                      <Link
-                        href={
-                          isAuthenticated
-                            ? '/profile?tab=support'
-                            : `/auth?callbackUrl=${encodeURIComponent('/profile?tab=support')}`
-                        }
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-bold text-amber-950 underline hover:text-corp-teal transition-colors inline-flex items-center gap-1"
-                      >
-                        Destek talebi oluştur <span aria-hidden="true">↗</span>
-                      </Link>
-                    </p>
-                  </div>
-                </div>
-
                 {/* ── Satın Alma Tipi Seçici (Bireysel | Kurumsal) ── */}
                 <div className="mb-6">
                   <label className="block text-xs font-bold uppercase tracking-wider text-corp-gray mb-2">
@@ -769,7 +749,54 @@ export default function CheckoutPage() {
                   />
                 </div>
 
-                <h2 className="font-display text-xl font-bold text-corp-charcoal mb-6 mt-10">
+                {/* ── Fatura Talep & Bilgilendirme Bölümü (Ödeme Yöntemi Hemen Üstü) ── */}
+                <div className="mt-8 mb-6 pt-6 border-t border-corp-border/70">
+                  {customerType === 'INDIVIDUAL' && (
+                    <div className="mb-4">
+                      <label className="flex items-center gap-3 p-3.5 rounded-xl bg-corp-surface border border-corp-border/80 cursor-pointer select-none hover:bg-corp-surface/80 transition-colors">
+                        <input
+                          type="checkbox"
+                          checked={invoiceRequested}
+                          onChange={(e) => setInvoiceRequested(e.target.checked)}
+                          className="w-4 h-4 rounded border-corp-border text-corp-teal focus:ring-corp-teal"
+                        />
+                        <span className="text-sm font-semibold text-corp-charcoal font-body">
+                          Fatura talep ediyorum
+                        </span>
+                      </label>
+                    </div>
+                  )}
+
+                  {((customerType === 'INDIVIDUAL' && invoiceRequested) || customerType === 'CORPORATE') && (
+                    <div className="p-4 md:p-5 rounded-2xl bg-amber-50 border border-amber-200 shadow-sm flex items-start gap-3.5">
+                      <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <AlertTriangle size={18} />
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-body text-xs md:text-sm text-amber-900 leading-relaxed">
+                          <strong className="font-semibold text-amber-950">Bilgilendirme:</strong> Şu
+                          anda siparişleriniz için fatura düzenleyemiyoruz. Siparişiniz normal şekilde
+                          alınır ve teslim edilir. Fatura/belge ihtiyacınız varsa lütfen sipariş
+                          vermeden önce bizimle iletişime geçin.{' '}
+                          <Link
+                            href={
+                              isAuthenticated
+                                ? '/profile?tab=support'
+                                : `/auth?callbackUrl=${encodeURIComponent('/profile?tab=support')}`
+                            }
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-bold text-amber-950 underline hover:text-corp-teal transition-colors inline-flex items-center gap-1"
+                          >
+                            Destek talebi oluştur <span aria-hidden="true">↗</span>
+                          </Link>
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <h2 className="font-display text-xl font-bold text-corp-charcoal mb-6 mt-6">
                   Ödeme Yöntemi
                 </h2>
 
