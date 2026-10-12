@@ -301,13 +301,13 @@ export async function GET(req: NextRequest) {
         },
       },
       include: {
-        product: { select: { title: true, slug: true, price: true } },
+        product: { select: { name: true, slug: true, price: true } },
       },
     });
 
     const topSellingMap: { [prodId: string]: { name: string; quantity: number; revenue: number } } = {};
     orderItemsWithProducts.forEach((item) => {
-      const name = item.product?.title || "Bilinmeyen Ürün";
+      const name = item.product?.name || "Bilinmeyen Ürün";
       if (!topSellingMap[item.productId]) {
         topSellingMap[item.productId] = { name, quantity: 0, revenue: 0 };
       }
@@ -336,7 +336,7 @@ export async function GET(req: NextRequest) {
     const opportunityProductIds = viewItemEvents.map((v) => v.product_id).filter(Boolean);
     const opportunityDbProducts = await prisma.product.findMany({
       where: { id: { in: opportunityProductIds } },
-      select: { id: true, title: true, price: true },
+      select: { id: true, name: true, price: true },
     });
 
     const opportunityProducts = viewItemEvents
@@ -345,7 +345,7 @@ export async function GET(req: NextRequest) {
         const soldItem = topSellingMap[item.product_id];
         return {
           id: item.product_id,
-          name: prod?.title || "Ürün (" + item.product_id.slice(0, 6) + ")",
+          name: prod?.name || "Ürün (" + item.product_id.slice(0, 6) + ")",
           views: Number(item.views || 0),
           soldCount: soldItem?.quantity || 0,
           price: prod?.price || 0,

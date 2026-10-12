@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
-import { Plus, Edit, Trash2, Loader2, Search, X, Save, Upload, Image as ImageIcon, XCircle, ChevronDown, ChevronUp, Tag, Truck, Star, ArrowLeft, ArrowRight, CheckSquare, Square, AlertTriangle, Check, Sparkles, Layers, Sliders, Info, Copy, CheckCircle2, RefreshCw, Package } from "lucide-react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
+import { Plus, Edit, Trash2, Loader2, Search, X, Save, Upload, Image as ImageIcon, XCircle, ChevronDown, ChevronUp, Tag, Truck, Star, ArrowLeft, ArrowRight, CheckSquare, Square, AlertTriangle, Check, Sparkles, Layers, Sliders, Info, Copy, CheckCircle2, RefreshCw, Package, Percent, TrendingDown } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import type { VariantDimension, PriceMatrixEntry, PriceTier } from "@/types/product";
@@ -166,6 +166,292 @@ export default function ProductList({ initialProducts }: ProductListProps) {
   const [bulkDeleteModalOpen, setBulkDeleteModalOpen] = useState(false);
   const [bulkDeleteMode, setBulkDeleteMode] = useState<"selected" | "all">("selected");
   const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  // Toplu Varyant İndirimi / Fiyat Revizyonu state'leri
+  const [discountModalOpen, setDiscountModalOpen] = useState(false);
+  const [discountTargets, setDiscountTargets] = useState<Product[]>([]);
+  const [discountType, setDiscountType] = useState<
+    "DISCOUNT_AMOUNT" | "DISCOUNT_PERCENT" | "INCREASE_AMOUNT" | "INCREASE_PERCENT" | "SET_FIXED"
+  >("DISCOUNT_AMOUNT");
+  const [discountValue, setDiscountValue] = useState<string>("500");
+  const [discountUpdateBasePrice, setDiscountUpdateBasePrice] = useState(true);
+  const [discountMinPrice, setDiscountMinPrice] = useState<string>("0");
+  const [applyingDiscount, setApplyingDiscount] = useState(false);
+
+  // Tekil ürün için indirim modalı aç
+  const openDiscountModalForProduct = (product: Product) => {
+    setDiscountTargets([product]);
+    setDiscountType("DISCOUNT_AMOUNT");
+    setDiscountValue("500");
+    setDiscountUpdateBasePrice(true);
+    setDiscountMinPrice("0");
+    setDiscountModalOpen(true);
+  };
+
+  // Çoklu seçilen ürünler için indirim modalı aç
+  const openDiscountModalForSelected = () => {
+    const targets = products.filter((p) => selectedIds.includes(p.id));
+    if (targets.length === 0) {
+      toast.error("Lütfen indirim uygulanacak en az bir ürün seçin.");
+      return;
+    }
+    setDiscountTargets(targets);
+    setDiscountType("DISCOUNT_AMOUNT");
+    setDiscountValue("500");
+    setDiscountUpdateBasePrice(true);
+    setDiscountMinPrice("0");
+    setDiscountModalOpen(true);
+  };
+
+  // Backend API ile toplu indirimi uygula
+  const handleApplyDiscount = async () => {
+    const numericVal = parseFloat(discountValue);
+    if (isNaN(numericVal) || numericVal < 0) {
+      toast.error("Lütfen geçerli bir tutar veya oran girin.");
+      return;
+    }
+    if (discountTargets.length === 0) {
+      toast.error("İndirim uygulanacak ürün bulunamadı.");
+      return;
+    }
+
+    setApplyingDiscount(true);
+    try {
+      const res = await fetch("/api/admin/products/discount", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          productIds: discountTargets.map((p) => p.id),
+          type: discountType,
+          value: numericVal,
+          updateBasePrice: discountUpdateBasePrice,
+          minPrice: parseFloat(discountMinPrice) || 0,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "İndirim uygulanırken bir hata oluştu.");
+      }
+
+      if (data.products && Array.isArray(data.products)) {
+        const updatedMap = new Map<string, Product>(
+          data.products.map((p: Product) => [p.id, p])
+        );
+        setProducts((prev) =>
+          prev.map((p) => (updatedMap.has(p.id) ? { ...p, ...updatedMap.get(p.id)! } : p))
+        );
+
+        // Eğer şu an formda düzenlenen ürün de güncellendiyse formData'yı da senkronize et
+        if (editTarget && updatedMap.has(editTarget.id)) {
+          const fresh = updatedMap.get(editTarget.id)!;
+          const freshOpts = fresh.customizationOptions;
+          if (isNewFormat(freshOpts)) {
+            setFormData((f) => ({
+              ...f,
+              price: String(fresh.price),
+              priceMatrix: freshOpts.priceMatrix || [],
+            }));
+          } else if (isLegacyVariantsFormat(freshOpts)) {
+            setFormData((f) => ({
+              ...f,
+              price: String(fresh.price),
+              variants: (freshOpts.variants || []).map((v: any) => ({
+                quantity: v.quantity ?? 0,
+                material: v.material ?? "",
+                salePrice: v.salePrice ?? 0,
+              })),
+            }));
+          }
+        }
+      }
+
+      toast.success(
+        data.message || `${discountTargets.length} ürünün tüm varyantlarına başarıyla indirim uygulandı!`
+      );
+      setDiscountModalOpen(false);
+      router.refresh();
+    } catch (err: any) {
+      console.error("[Apply Discount Error]:", err);
+      toast.error(err.message || "İşlem sırasında hata oluştu.");
+    } finally {
+      setApplyingDiscount(false);
+    }
+  };
+
+  // Form içindeki aktif ürünün varyantlarına tek girdiyle doğrudan indirim uygula
+  const applyDiscountToFormVariants = (amount: number, type: "AMOUNT" | "PERCENT" = "AMOUNT") => {
+    if (formData.variantMode === "matrix") {
+      if (formData.priceMatrix.length === 0) {
+        toast.error("Fiyat matrisinde düzenlenecek varyant bulunmuyor.");
+        return;
+      }
+      const newMatrix = formData.priceMatrix.map((combo) => ({
+        ...combo,
+        tiers: combo.tiers.map((tier) => {
+          let newPrice = tier.salePrice;
+          if (type === "AMOUNT") {
+            newPrice = Math.max(0, tier.salePrice - amount);
+          } else {
+            newPrice = Math.max(0, tier.salePrice * (1 - amount / 100));
+          }
+          newPrice = parseFloat(newPrice.toFixed(2));
+          const unitPrice =
+            tier.quantity > 0 ? parseFloat((newPrice / tier.quantity).toFixed(2)) : 0;
+          return {
+            ...tier,
+            salePrice: newPrice,
+            unitSalePrice: unitPrice,
+          };
+        }),
+      }));
+
+      const oldBase = parseFloat(formData.price) || 0;
+      const newBase =
+        type === "AMOUNT" ? Math.max(0, oldBase - amount) : Math.max(0, oldBase * (1 - amount / 100));
+
+      setFormData((f) => ({
+        ...f,
+        priceMatrix: newMatrix,
+        price: String(parseFloat(newBase.toFixed(2))),
+      }));
+
+      toast.success(
+        `Tüm varyant fiyatlarına ${amount}${type === "AMOUNT" ? " TL" : "%"} indirim uygulandı. Onaylamak için "Güncelle ve Kaydet" butonuna basın.`
+      );
+    } else if (formData.variantMode === "legacy") {
+      if (formData.variants.length === 0) {
+        toast.error("Düzenlenecek varyant bulunmuyor.");
+        return;
+      }
+      const newVariants = formData.variants.map((v) => {
+        let newPrice = v.salePrice;
+        if (type === "AMOUNT") {
+          newPrice = Math.max(0, v.salePrice - amount);
+        } else {
+          newPrice = Math.max(0, v.salePrice * (1 - amount / 100));
+        }
+        return {
+          ...v,
+          salePrice: parseFloat(newPrice.toFixed(2)),
+        };
+      });
+      const oldBase = parseFloat(formData.price) || 0;
+      const newBase =
+        type === "AMOUNT" ? Math.max(0, oldBase - amount) : Math.max(0, oldBase * (1 - amount / 100));
+
+      setFormData((f) => ({
+        ...f,
+        variants: newVariants,
+        price: String(parseFloat(newBase.toFixed(2))),
+      }));
+
+      toast.success(
+        `Tüm varyantlara ${amount}${type === "AMOUNT" ? " TL" : "%"} indirim uygulandı. Onaylamak için kaydedin.`
+      );
+    } else {
+      const oldBase = parseFloat(formData.price) || 0;
+      const newBase =
+        type === "AMOUNT" ? Math.max(0, oldBase - amount) : Math.max(0, oldBase * (1 - amount / 100));
+      setFormData((f) => ({
+        ...f,
+        price: String(parseFloat(newBase.toFixed(2))),
+      }));
+      toast.success(`Taban fiyata ${amount}${type === "AMOUNT" ? " TL" : "%"} indirim uygulandı.`);
+    }
+  };
+
+  // İndirim Canlı Önizleme Verisi
+  const discountPreview = useMemo(() => {
+    if (discountTargets.length === 0) return null;
+    const numericVal = parseFloat(discountValue) || 0;
+    const minP = parseFloat(discountMinPrice) || 0;
+
+    let totalCombos = 0;
+    let totalTiers = 0;
+    const samples: Array<{
+      productName: string;
+      label: string;
+      oldPrice: number;
+      newPrice: number;
+    }> = [];
+
+    for (const target of discountTargets) {
+      const opts = target.customizationOptions;
+      if (isNewFormat(opts)) {
+        const matrix = opts.priceMatrix || [];
+        totalCombos += matrix.length;
+        for (const combo of matrix) {
+          totalTiers += (combo.tiers || []).length;
+          if (samples.length < 5 && combo.tiers && combo.tiers.length > 0) {
+            const firstTier = combo.tiers[0];
+            const oldP = Number(firstTier.salePrice) || 0;
+            let newP = oldP;
+            if (discountType === "DISCOUNT_AMOUNT") newP = oldP - numericVal;
+            else if (discountType === "DISCOUNT_PERCENT") newP = oldP * (1 - numericVal / 100);
+            else if (discountType === "INCREASE_AMOUNT") newP = oldP + numericVal;
+            else if (discountType === "INCREASE_PERCENT") newP = oldP * (1 + numericVal / 100);
+            else if (discountType === "SET_FIXED") newP = numericVal;
+            newP = Math.max(minP, parseFloat(newP.toFixed(2)));
+
+            const dimSummary = Object.values(combo.dimensionValues || {}).join(" / ");
+            samples.push({
+              productName: target.name,
+              label: `${firstTier.quantity} Adet${dimSummary ? ` • ${dimSummary}` : ""}`,
+              oldPrice: oldP,
+              newPrice: newP,
+            });
+          }
+        }
+      } else if (isLegacyVariantsFormat(opts)) {
+        const vars = opts.variants || [];
+        totalCombos += vars.length;
+        totalTiers += vars.length;
+        for (const v of vars) {
+          if (samples.length < 5) {
+            const oldP = Number(v.salePrice) || 0;
+            let newP = oldP;
+            if (discountType === "DISCOUNT_AMOUNT") newP = oldP - numericVal;
+            else if (discountType === "DISCOUNT_PERCENT") newP = oldP * (1 - numericVal / 100);
+            else if (discountType === "INCREASE_AMOUNT") newP = oldP + numericVal;
+            else if (discountType === "INCREASE_PERCENT") newP = oldP * (1 + numericVal / 100);
+            else if (discountType === "SET_FIXED") newP = numericVal;
+            newP = Math.max(minP, parseFloat(newP.toFixed(2)));
+
+            samples.push({
+              productName: target.name,
+              label: `${v.quantity} Adet ${v.material ? `• ${v.material}` : ""}`,
+              oldPrice: oldP,
+              newPrice: newP,
+            });
+          }
+        }
+      } else {
+        const oldP = target.price || 0;
+        let newP = oldP;
+        if (discountType === "DISCOUNT_AMOUNT") newP = oldP - numericVal;
+        else if (discountType === "DISCOUNT_PERCENT") newP = oldP * (1 - numericVal / 100);
+        else if (discountType === "INCREASE_AMOUNT") newP = oldP + numericVal;
+        else if (discountType === "INCREASE_PERCENT") newP = oldP * (1 + numericVal / 100);
+        else if (discountType === "SET_FIXED") newP = numericVal;
+        newP = Math.max(minP, parseFloat(newP.toFixed(2)));
+        if (samples.length < 5) {
+          samples.push({
+            productName: target.name,
+            label: "Taban Satış Fiyatı",
+            oldPrice: oldP,
+            newPrice: newP,
+          });
+        }
+      }
+    }
+
+    return {
+      totalCombos,
+      totalTiers,
+      samples,
+    };
+  }, [discountTargets, discountType, discountValue, discountMinPrice]);
 
   const openNewModal = () => {
     setEditTarget(null);
@@ -750,6 +1036,15 @@ export default function ProductList({ initialProducts }: ProductListProps) {
               </button>
               <button
                 type="button"
+                onClick={openDiscountModalForSelected}
+                className="px-3.5 py-1.5 rounded-lg border border-emerald-300 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all active:scale-95 cursor-pointer"
+                title="Seçili ürünlerin tüm varyantlarına toplu indirim uygula"
+              >
+                <Tag size={14} />
+                İndirim Uygula ({selectedIds.length})
+              </button>
+              <button
+                type="button"
                 onClick={() => openBulkDeleteConfirm("selected")}
                 className="px-4 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all active:scale-95"
               >
@@ -881,6 +1176,14 @@ export default function ProductList({ initialProducts }: ProductListProps) {
                     <td className="p-4 text-right">
                       <div className="flex items-center justify-end gap-1">
                         <button
+                          onClick={() => openDiscountModalForProduct(product)}
+                          className="p-2 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-all cursor-pointer"
+                          title="Tüm varyantlara indirim / fiyat revizyonu yap"
+                          aria-label="Varyant İndirimi"
+                        >
+                          <Tag size={16} />
+                        </button>
+                        <button
                           onClick={() => openEditModal(product)}
                           className="p-2 text-corp-gray hover:text-corp-teal hover:bg-corp-teal/10 rounded-lg transition-all"
                           title="Düzenle"
@@ -995,6 +1298,14 @@ export default function ProductList({ initialProducts }: ProductListProps) {
                     </button>
                   </div>
                   <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => openDiscountModalForProduct(product)}
+                      className="min-h-[44px] min-w-[44px] p-2.5 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-xl flex items-center justify-center transition-colors cursor-pointer"
+                      title="Tüm varyantlara indirim / fiyat revizyonu yap"
+                      aria-label="Varyant İndirimi"
+                    >
+                      <Tag size={16} />
+                    </button>
                     <button
                       onClick={() => openEditModal(product)}
                       className="min-h-[44px] min-w-[44px] p-2.5 text-corp-charcoal bg-gray-100 hover:bg-corp-teal/10 hover:text-corp-teal rounded-xl flex items-center justify-center transition-colors"
@@ -1543,6 +1854,30 @@ export default function ProductList({ initialProducts }: ProductListProps) {
                           </div>
 
                           <div className="flex items-center gap-2 flex-wrap">
+                            {formData.priceMatrix.length > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const val = prompt(
+                                    "Tüm varyant fiyatlarından kaç TL indirim yapılsın? (Örn: 500):",
+                                    "500"
+                                  );
+                                  if (val !== null) {
+                                    const num = parseFloat(val);
+                                    if (!isNaN(num) && num > 0) {
+                                      applyDiscountToFormVariants(num, "AMOUNT");
+                                    } else {
+                                      toast.error("Geçersiz indirim tutarı.");
+                                    }
+                                  }
+                                }}
+                                className="px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-300 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                                title="Formdaki tüm varyant kombinasyonlarına tek girdi ile toplu indirim uygular"
+                              >
+                                <Tag size={14} className="text-emerald-600" />
+                                Toplu İndirim Uygula
+                              </button>
+                            )}
                             <button
                               type="button"
                               onClick={syncMatrixFromDimensions}
@@ -1705,25 +2040,51 @@ export default function ProductList({ initialProducts }: ProductListProps) {
                         <label className="block text-xs font-bold text-corp-charcoal uppercase tracking-wider">
                           Basit Varyant Listesi
                         </label>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setFormData((f) => ({
-                              ...f,
-                              variants: [
-                                ...f.variants,
-                                {
-                                  quantity: 100,
-                                  material: "Standart",
-                                  salePrice: parseFloat(f.price) || 500,
-                                },
-                              ],
-                            }));
-                          }}
-                          className="text-xs font-semibold text-corp-teal hover:underline flex items-center gap-1 cursor-pointer"
-                        >
-                          <Plus size={14} /> Varyant Ekle
-                        </button>
+                        <div className="flex items-center gap-2">
+                          {formData.variants.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const val = prompt(
+                                  "Tüm varyant fiyatlarından kaç TL indirim yapılsın? (Örn: 500):",
+                                  "500"
+                                );
+                                if (val !== null) {
+                                  const num = parseFloat(val);
+                                  if (!isNaN(num) && num > 0) {
+                                    applyDiscountToFormVariants(num, "AMOUNT");
+                                  } else {
+                                    toast.error("Geçersiz indirim tutarı.");
+                                  }
+                                }
+                              }}
+                              className="px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-300 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                              title="Formdaki tüm varyantlara tek girdi ile toplu indirim uygular"
+                            >
+                              <Tag size={13} className="text-emerald-600" />
+                              Toplu İndirim
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFormData((f) => ({
+                                ...f,
+                                variants: [
+                                  ...f.variants,
+                                  {
+                                    quantity: 100,
+                                    material: "Standart",
+                                    salePrice: parseFloat(f.price) || 500,
+                                  },
+                                ],
+                              }));
+                            }}
+                            className="text-xs font-semibold text-corp-teal hover:underline flex items-center gap-1 cursor-pointer"
+                          >
+                            <Plus size={14} /> Varyant Ekle
+                          </button>
+                        </div>
                       </div>
 
                       {formData.variants.length === 0 ? (
@@ -1921,6 +2282,318 @@ export default function ProductList({ initialProducts }: ProductListProps) {
                   <>
                     <Trash2 size={14} /> Evet, Sil (
                     {bulkDeleteMode === "all" ? products.length : selectedIds.length})
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toplu Varyant İndirimi / Fiyat Revizyon Modalı */}
+      {discountModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-xl w-full shadow-2xl border border-corp-border overflow-hidden flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-150">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-corp-border bg-corp-surface/50 sticky top-0 z-10">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-emerald-100 text-emerald-700 rounded-2xl flex-shrink-0 shadow-xs">
+                  <Tag size={20} />
+                </div>
+                <div>
+                  <h3 className="font-display font-bold text-base sm:text-lg text-corp-charcoal">
+                    {discountTargets.length === 1
+                      ? `"${discountTargets[0].name}" İndirimi`
+                      : `Toplu Varyant İndirimi (${discountTargets.length} Ürün)`}
+                  </h3>
+                  <p className="text-xs text-corp-gray">
+                    Tüm varyant ve adet kademelerini tek bir girdi ile revize edin.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDiscountModalOpen(false)}
+                className="p-2 text-corp-gray hover:text-corp-charcoal hover:bg-gray-100 rounded-xl transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Content Body */}
+            <div className="p-6 overflow-y-auto space-y-5 text-sm">
+              {/* İşlem Tipi Seçimi */}
+              <div>
+                <label className="block text-xs font-bold text-corp-charcoal uppercase tracking-wider mb-2">
+                  İşlem Türü
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDiscountType("DISCOUNT_AMOUNT");
+                      if (!discountValue || discountValue === "10") setDiscountValue("500");
+                    }}
+                    className={`px-3 py-2.5 rounded-xl text-xs font-semibold border text-left transition-all cursor-pointer flex flex-col gap-0.5 ${
+                      discountType === "DISCOUNT_AMOUNT"
+                        ? "border-emerald-600 bg-emerald-50/80 text-emerald-900 ring-2 ring-emerald-600/20"
+                        : "border-corp-border bg-white text-corp-charcoal hover:bg-gray-50"
+                    }`}
+                  >
+                    <span className="font-bold flex items-center gap-1">
+                      <TrendingDown size={14} className="text-emerald-600" /> Tutar İndirimi
+                    </span>
+                    <span className="text-[10px] text-corp-gray">Örn: -500 TL</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDiscountType("DISCOUNT_PERCENT");
+                      if (!discountValue || discountValue === "500") setDiscountValue("15");
+                    }}
+                    className={`px-3 py-2.5 rounded-xl text-xs font-semibold border text-left transition-all cursor-pointer flex flex-col gap-0.5 ${
+                      discountType === "DISCOUNT_PERCENT"
+                        ? "border-emerald-600 bg-emerald-50/80 text-emerald-900 ring-2 ring-emerald-600/20"
+                        : "border-corp-border bg-white text-corp-charcoal hover:bg-gray-50"
+                    }`}
+                  >
+                    <span className="font-bold flex items-center gap-1">
+                      <Percent size={14} className="text-emerald-600" /> Yüzde İndirimi
+                    </span>
+                    <span className="text-[10px] text-corp-gray">Örn: -%15</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDiscountType("INCREASE_AMOUNT");
+                      if (!discountValue) setDiscountValue("500");
+                    }}
+                    className={`px-3 py-2.5 rounded-xl text-xs font-semibold border text-left transition-all cursor-pointer flex flex-col gap-0.5 ${
+                      discountType === "INCREASE_AMOUNT"
+                        ? "border-amber-600 bg-amber-50/80 text-amber-900 ring-2 ring-amber-600/20"
+                        : "border-corp-border bg-white text-corp-charcoal hover:bg-gray-50"
+                    }`}
+                  >
+                    <span className="font-bold">Fiyat Artışı (+TL)</span>
+                    <span className="text-[10px] text-corp-gray">Geri alma veya zam</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDiscountType("INCREASE_PERCENT");
+                      if (!discountValue) setDiscountValue("10");
+                    }}
+                    className={`px-3 py-2.5 rounded-xl text-xs font-semibold border text-left transition-all cursor-pointer flex flex-col gap-0.5 ${
+                      discountType === "INCREASE_PERCENT"
+                        ? "border-amber-600 bg-amber-50/80 text-amber-900 ring-2 ring-amber-600/20"
+                        : "border-corp-border bg-white text-corp-charcoal hover:bg-gray-50"
+                    }`}
+                  >
+                    <span className="font-bold">Oransal Artış (+%)</span>
+                    <span className="text-[10px] text-corp-gray">Örn: +%10</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDiscountType("SET_FIXED");
+                      if (!discountValue) setDiscountValue("1000");
+                    }}
+                    className={`px-3 py-2.5 rounded-xl text-xs font-semibold border text-left transition-all cursor-pointer flex flex-col gap-0.5 sm:col-span-1 col-span-2 ${
+                      discountType === "SET_FIXED"
+                        ? "border-blue-600 bg-blue-50/80 text-blue-900 ring-2 ring-blue-600/20"
+                        : "border-corp-border bg-white text-corp-charcoal hover:bg-gray-50"
+                    }`}
+                  >
+                    <span className="font-bold">Sabit Fiyata Eşitle</span>
+                    <span className="text-[10px] text-corp-gray">Tümüne tek fiyat</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Tutar / Oran Girişi */}
+              <div>
+                <label className="block text-xs font-bold text-corp-charcoal uppercase tracking-wider mb-2">
+                  {discountType.includes("PERCENT") ? "İndirim / Artış Oranı (%)" : "Tutar (TL)"}
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min="0"
+                    step={discountType.includes("PERCENT") ? "1" : "0.5"}
+                    value={discountValue}
+                    onChange={(e) => setDiscountValue(e.target.value)}
+                    placeholder={discountType.includes("PERCENT") ? "15" : "500"}
+                    className="w-full px-4 py-3 rounded-xl border border-corp-border text-lg font-bold text-corp-charcoal focus:outline-none focus:ring-2 focus:ring-emerald-500/30 pr-14"
+                  />
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-corp-gray">
+                    {discountType.includes("PERCENT") ? "%" : "TL"}
+                  </div>
+                </div>
+
+                {/* Hızlı Önceden Tanımlı Değer Butonları */}
+                <div className="flex items-center gap-1.5 flex-wrap mt-2">
+                  <span className="text-[11px] text-corp-gray mr-1">Hızlı Seçim:</span>
+                  {discountType === "DISCOUNT_AMOUNT" || discountType === "INCREASE_AMOUNT" ? (
+                    <>
+                      {["100", "250", "500", "750", "1000"].map((v) => (
+                        <button
+                          key={v}
+                          type="button"
+                          onClick={() => setDiscountValue(v)}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-colors cursor-pointer ${
+                            discountValue === v
+                              ? "bg-emerald-600 text-white border-emerald-600"
+                              : "bg-gray-100 text-corp-charcoal border-gray-200 hover:bg-gray-200"
+                          }`}
+                        >
+                          {discountType === "DISCOUNT_AMOUNT" ? `-${v} TL` : `+${v} TL`}
+                        </button>
+                      ))}
+                    </>
+                  ) : discountType.includes("PERCENT") ? (
+                    <>
+                      {["5", "10", "15", "20", "25", "50"].map((v) => (
+                        <button
+                          key={v}
+                          type="button"
+                          onClick={() => setDiscountValue(v)}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-colors cursor-pointer ${
+                            discountValue === v
+                              ? "bg-emerald-600 text-white border-emerald-600"
+                              : "bg-gray-100 text-corp-charcoal border-gray-200 hover:bg-gray-200"
+                          }`}
+                        >
+                          %{v}
+                        </button>
+                      ))}
+                    </>
+                  ) : null}
+                </div>
+              </div>
+
+              {/* Opsiyonlar (Taban Fiyat & Minimum Koruma) */}
+              <div className="p-4 bg-corp-surface/50 rounded-2xl border border-corp-border space-y-3">
+                <label className="flex items-center gap-2.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={discountUpdateBasePrice}
+                    onChange={(e) => setDiscountUpdateBasePrice(e.target.checked)}
+                    className="w-4 h-4 rounded border-corp-border text-emerald-600 focus:ring-emerald-500/30 accent-emerald-600 cursor-pointer"
+                  />
+                  <div>
+                    <span className="text-xs font-bold text-corp-charcoal block">
+                      Ürünün taban fiyatını da güncelle
+                    </span>
+                    <span className="text-[11px] text-corp-gray">
+                      Varyantsız görünümde ve vitrinde listelenen başlangıç fiyatına da uygulanır.
+                    </span>
+                  </div>
+                </label>
+
+                <div className="pt-2 border-t border-corp-border/60 flex items-center justify-between gap-3">
+                  <div>
+                    <span className="text-xs font-bold text-corp-charcoal block">
+                      Minimum Fiyat Tabanı (TL)
+                    </span>
+                    <span className="text-[11px] text-corp-gray">
+                      Hiçbir varyant fiyatı bu tutarın altına inmez (varsayılan: 0 TL).
+                    </span>
+                  </div>
+                  <input
+                    type="number"
+                    min="0"
+                    value={discountMinPrice}
+                    onChange={(e) => setDiscountMinPrice(e.target.value)}
+                    className="w-24 px-2.5 py-1.5 rounded-lg border border-corp-border text-xs font-semibold text-right"
+                  />
+                </div>
+              </div>
+
+              {/* Canlı Önizleme (Preview) */}
+              {discountPreview && (
+                <div className="bg-emerald-50/50 rounded-2xl border border-emerald-200/70 p-4 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
+                      <Sparkles size={14} className="text-emerald-600" />
+                      Canlı Değişim Önizlemesi
+                    </span>
+                    <span className="text-[11px] text-emerald-700 font-semibold">
+                      {discountPreview.totalTiers > 0
+                        ? `${discountPreview.totalCombos} kombinasyon • ${discountPreview.totalTiers} adet kademesi`
+                        : "Varyantsız tekil ürün"}
+                    </span>
+                  </div>
+
+                  {discountPreview.samples.length > 0 ? (
+                    <div className="space-y-1.5 pt-1">
+                      {discountPreview.samples.map((s, idx) => (
+                        <div
+                          key={idx}
+                          className="flex items-center justify-between text-xs bg-white/80 p-2 rounded-xl border border-emerald-100"
+                        >
+                          <span className="text-corp-charcoal font-medium truncate max-w-[220px]">
+                            {discountTargets.length > 1 ? `${s.productName}: ` : ""}
+                            {s.label}
+                          </span>
+                          <div className="flex items-center gap-2 shrink-0 font-mono">
+                            <span className="line-through text-gray-400">
+                              {s.oldPrice.toLocaleString("tr-TR")} TL
+                            </span>
+                            <span className="text-emerald-700 font-bold">
+                              → {s.newPrice.toLocaleString("tr-TR")} TL
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-corp-gray italic">
+                      Bu üründe henüz fiyat veya varyant tanımlanmamış.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Bilgilendirme ve Güvenlik Notu */}
+              <div className="p-3 bg-blue-50/60 rounded-xl border border-blue-100 flex items-start gap-2.5 text-blue-900">
+                <Info size={16} className="text-blue-600 shrink-0 mt-0.5" />
+                <p className="text-[11px] leading-relaxed">
+                  <strong>Ödeme Güvenliği:</strong> Bu işlem yalnızca ürünlerin gelecekteki satış fiyatlarını günceller.
+                  Geçmişte verilmiş siparişlerin kayıtları, faturaları ve ödeme altyapısı kesinlikle korunur ve etkilenmez.
+                </p>
+              </div>
+            </div>
+
+            {/* Footer Actions */}
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-corp-border bg-white sticky bottom-0 z-10">
+              <button
+                type="button"
+                onClick={() => setDiscountModalOpen(false)}
+                disabled={applyingDiscount}
+                className="px-4 py-2.5 rounded-xl border border-corp-border text-xs font-semibold text-corp-charcoal hover:bg-gray-100 transition-colors disabled:opacity-50 cursor-pointer"
+              >
+                Vazgeç
+              </button>
+              <button
+                type="button"
+                onClick={handleApplyDiscount}
+                disabled={applyingDiscount}
+                className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-2 shadow-md transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+              >
+                {applyingDiscount ? (
+                  <>
+                    <Loader2 size={15} className="animate-spin" /> İndirim Uygulanıyor...
+                  </>
+                ) : (
+                  <>
+                    <Tag size={15} />
+                    {discountTargets.length === 1
+                      ? "Tüm Varyantlara İndirimi Uygula"
+                      : `${discountTargets.length} Ürünün Varyantlarına Uygula`}
                   </>
                 )}
               </button>
