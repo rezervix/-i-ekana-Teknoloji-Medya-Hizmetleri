@@ -253,7 +253,10 @@ export async function POST(request: NextRequest) {
 
     // ── 2. STANDART SİPARİŞ ÖDEMESİ ──────────────────────────────────────────
     const targetOrderIdentifier = orderId || orderNumber;
-    if (typeof targetOrderIdentifier !== 'string' || !/^[A-Za-z0-9_-]+$/.test(targetOrderIdentifier)) {
+    if (
+      typeof targetOrderIdentifier !== 'string' ||
+      !/^[A-Za-z0-9_-]+$/.test(targetOrderIdentifier)
+    ) {
       return NextResponse.json(
         { success: false, message: 'Geçersiz sipariş numarası veya kimliği.' },
         { status: 400 }
@@ -336,7 +339,10 @@ export async function POST(request: NextRequest) {
     const currency = 'TL';
     const clientIp = getClientIp(request);
     const customerEmail =
-      order.guestEmail || sessionUser?.email || order.user?.email || 'musteri@cicekanatechmedia.com';
+      order.guestEmail?.trim() ||
+      sessionUser?.email ||
+      order.user?.email ||
+      'musteri@cicekanatechmedia.com';
     const siteUrl =
       process.env.NEXT_PUBLIC_SITE_URL ||
       process.env.NEXT_PUBLIC_APP_URL ||

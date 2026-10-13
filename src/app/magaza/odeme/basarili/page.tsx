@@ -1,18 +1,18 @@
-import React from "react";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
-import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
-import PaymentSuccessClient from "./PaymentSuccessClient";
-import OrderTrackingSuccess from "@/components/analytics/OrderTrackingSuccess";
-import type { Metadata } from "next";
+import React from 'react';
+import Header from '@/components/Header';
+import Footer from '@/components/Footer';
+import { prisma } from '@/lib/prisma';
+import { auth } from '@/lib/auth';
+import PaymentSuccessClient from './PaymentSuccessClient';
+import OrderTrackingSuccess from '@/components/analytics/OrderTrackingSuccess';
+import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: "Ödeme Başarılı — Çiçekana Teknoloji & Medya",
-  description: "Siparişiniz başarıyla alındı ve işleme koyuldu.",
+  title: 'Ödeme Başarılı — Çiçekana Teknoloji & Medya',
+  description: 'Siparişiniz başarıyla alındı ve işleme koyuldu.',
 };
 
-export const dynamic = "force-dynamic";
+export const dynamic = 'force-dynamic';
 
 export default async function PaymentSuccessPage({
   searchParams,
@@ -20,7 +20,7 @@ export default async function PaymentSuccessPage({
   searchParams?: Promise<{ order?: string; merchant_oid?: string }>;
 }) {
   const resolvedParams = searchParams ? await searchParams : undefined;
-  const orderNumber = resolvedParams?.order || resolvedParams?.merchant_oid || "";
+  const orderNumber = resolvedParams?.order || resolvedParams?.merchant_oid || '';
 
   const session = await auth();
   const isAuthenticated = Boolean(session && session.user);
@@ -38,6 +38,7 @@ export default async function PaymentSuccessPage({
         },
       });
 
+      if (dbOrder) {
         orderData = {
           orderNumber: dbOrder.orderNumber,
           finalAmount: dbOrder.finalAmount,
@@ -45,14 +46,15 @@ export default async function PaymentSuccessPage({
           createdAt: dbOrder.createdAt,
           items: dbOrder.items.map((it: any) => ({
             id: it.id,
-            name: it.product?.name || "Ürün",
+            name: it.product?.name || 'Ürün',
             quantity: it.quantity,
             price: it.unitPrice || it.price || 0,
             image: it.product?.images?.[0] || undefined,
           })),
         };
+      }
     } catch (err) {
-      console.error("[PaymentSuccessPage] Order fetch error:", err);
+      console.error('[PaymentSuccessPage] Order fetch error:', err);
     }
   }
 

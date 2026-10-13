@@ -21,7 +21,12 @@ import { useSession } from 'next-auth/react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import Script from 'next/script';
-import { trackBeginCheckout, trackAddShippingInfo, trackAddPaymentInfo, getTrafficSource } from '@/lib/analytics';
+import {
+  trackBeginCheckout,
+  trackAddShippingInfo,
+  trackAddPaymentInfo,
+  getTrafficSource,
+} from '@/lib/analytics';
 
 export default function CheckoutPage() {
   const { data: session, status } = useSession();
@@ -63,15 +68,16 @@ export default function CheckoutPage() {
     if (!formData.email && !formData.phone) return;
     if (!items || items.length === 0) return;
 
-    fetch("/api/cart/abandon", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+    fetch('/api/cart/abandon', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        email: formData.email,
-        phone: formData.phone,
+        email: formData.email.trim() || null,
+        phone: formData.phone.trim() || null,
         customerName: `${formData.firstName} ${formData.lastName}`.trim(),
         allowMarketing: overrideMarketing !== undefined ? overrideMarketing : allowMarketing,
-        sessionId: typeof window !== "undefined" ? sessionStorage.getItem("cicekana_session_id") : null,
+        sessionId:
+          typeof window !== 'undefined' ? sessionStorage.getItem('cicekana_session_id') : null,
         userId: (session?.user as any)?.id || null,
         cartSnapshot: {
           items,
@@ -267,7 +273,7 @@ export default function CheckoutPage() {
 
       const payload = {
         guestName: guestName.trim(),
-        guestEmail: formData.email.trim(),
+        guestEmail: formData.email.trim() || null,
         customerType,
         companyName: customerType === 'CORPORATE' ? corporateData.companyName.trim() : null,
         taxOffice: customerType === 'CORPORATE' ? corporateData.taxOffice.trim() : null,
@@ -328,14 +334,16 @@ export default function CheckoutPage() {
             router.push('/auth?callbackUrl=/magaza/odeme');
             return;
           }
-          setErrorMessage(data.error?.message || 'Sipariş oluşturulamadı. Lütfen bilgilerinizi kontrol edin.');
+          setErrorMessage(
+            data.error?.message || 'Sipariş oluşturulamadı. Lütfen bilgilerinizi kontrol edin.'
+          );
           return;
         }
         if (data.error?.code === 'PRODUCT_UNAVAILABLE') {
-          const goneIds: string[] = Array.isArray(data.error?.productIds) ? data.error.productIds : [];
-          items
-            .filter((i) => goneIds.includes(i.productId))
-            .forEach((i) => removeItem(i.id));
+          const goneIds: string[] = Array.isArray(data.error?.productIds)
+            ? data.error.productIds
+            : [];
+          items.filter((i) => goneIds.includes(i.productId)).forEach((i) => removeItem(i.id));
           setErrorMessage(
             data.error?.message ||
               'Sepetinizdeki bazı ürünler artık satışta değil ve sepetinizden çıkarıldı.'
@@ -408,7 +416,8 @@ export default function CheckoutPage() {
                 <ShoppingBag size={18} />
               </div>
               <p className="font-body text-xs md:text-sm text-corp-charcoal">
-                <strong>Hızlı Alışveriş:</strong> Üye olmadan veya e-posta doğrulaması beklemeden doğrudan sipariş verebilirsiniz.
+                <strong>Hızlı Alışveriş:</strong> Üye olmadan veya e-posta doğrulaması beklemeden
+                doğrudan sipariş verebilirsiniz.
               </p>
             </div>
             <Link
@@ -455,7 +464,9 @@ export default function CheckoutPage() {
                 className="w-full min-w-full sm:min-w-[320px] max-w-full min-h-[640px] border-0"
                 onLoad={() => {
                   const resize = (
-                    window as Window & { iFrameResize?: (options: object, selector: string) => void }
+                    window as Window & {
+                      iFrameResize?: (options: object, selector: string) => void;
+                    }
                   ).iFrameResize;
                   resize?.({}, '#paytriframe');
                 }}
@@ -667,7 +678,6 @@ export default function CheckoutPage() {
                       E-posta
                     </label>
                     <input
-                      required
                       type="email"
                       value={formData.email}
                       onChange={(e) => setFormData((prev) => ({ ...prev, email: e.target.value }))}
@@ -704,7 +714,8 @@ export default function CheckoutPage() {
                       className="mt-0.5 rounded border-corp-border text-corp-teal focus:ring-corp-teal"
                     />
                     <span className="text-xs text-corp-gray leading-relaxed font-body">
-                      Sipariş durumu, kargo takibi ve sepet hatırlatmaları için tarafıma bilgilendirme (e-posta / SMS) gönderilmesine onay veriyorum.
+                      Sipariş durumu, kargo takibi ve sepet hatırlatmaları için tarafıma
+                      bilgilendirme (e-posta / SMS) gönderilmesine onay veriyorum.
                     </span>
                   </label>
                 </div>
@@ -771,17 +782,18 @@ export default function CheckoutPage() {
                     </div>
                   )}
 
-                  {((customerType === 'INDIVIDUAL' && invoiceRequested) || customerType === 'CORPORATE') && (
+                  {((customerType === 'INDIVIDUAL' && invoiceRequested) ||
+                    customerType === 'CORPORATE') && (
                     <div className="p-4 md:p-5 rounded-2xl bg-amber-50 border border-amber-200 shadow-sm flex items-start gap-3.5">
                       <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center flex-shrink-0 mt-0.5">
                         <AlertTriangle size={18} />
                       </div>
                       <div className="flex-1">
                         <p className="font-body text-xs md:text-sm text-amber-900 leading-relaxed">
-                          <strong className="font-semibold text-amber-950">Bilgilendirme:</strong> Şu
-                          anda siparişleriniz için fatura düzenleyemiyoruz. Siparişiniz normal şekilde
-                          alınır ve teslim edilir. Fatura/belge ihtiyacınız varsa lütfen sipariş
-                          vermeden önce bizimle iletişime geçin.{' '}
+                          <strong className="font-semibold text-amber-950">Bilgilendirme:</strong>{' '}
+                          Şu anda siparişleriniz için fatura düzenleyemiyoruz. Siparişiniz normal
+                          şekilde alınır ve teslim edilir. Fatura/belge ihtiyacınız varsa lütfen
+                          sipariş vermeden önce bizimle iletişime geçin.{' '}
                           <Link
                             href={
                               isAuthenticated
