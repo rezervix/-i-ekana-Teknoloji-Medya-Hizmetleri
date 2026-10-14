@@ -7,6 +7,7 @@ import ProductBreadcrumb from "./components/ProductBreadcrumb";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getCardPriceDisplay } from "@/lib/magaza/product-card";
+import { resolveConfiguratorStepTitles } from "@/lib/services/dynamicContent";
 
 export async function generateMetadata({
   params,
@@ -124,6 +125,14 @@ export default async function ProductDetailPage({
   const priceInfo = getCardPriceDisplay(product);
   const minOfferPrice = priceInfo.displayPrice || product.price || 0;
 
+  // Resolve dynamic configurator step titles with full fallback guarantee
+  let configuratorTitles = undefined;
+  try {
+    configuratorTitles = await resolveConfiguratorStepTitles(product);
+  } catch (err) {
+    console.error("Error resolving configurator step titles:", err);
+  }
+
   // Product Schema.org JSON-LD
   const productJsonLd: Record<string, any> = {
     "@context": "https://schema.org/",
@@ -174,6 +183,7 @@ export default async function ProductDetailPage({
           product={product}
           initialReviews={reviews}
           relatedProducts={relatedProducts}
+          configuratorTitles={configuratorTitles}
         />
       </div>
       <Footer />

@@ -46,6 +46,7 @@ const EMPTY_FORM = {
   variantDimensions: [] as VariantDimension[],
   priceMatrix: [] as PriceMatrixEntry[],
   variants: [] as Array<{ quantity: number; material: string; salePrice: number }>,
+  step1Title: "",
 };
 
 function generateCartesianCombinations(dimensions: VariantDimension[]): Record<string, string>[] {
@@ -508,6 +509,7 @@ export default function ProductList({ initialProducts }: ProductListProps) {
       variantDimensions,
       priceMatrix,
       variants,
+      step1Title: opts?.step1Title || opts?.stepTitles?.step1Title || "",
     });
     setExpandedDimIdx(null);
     setShowAddDimForm(false);
@@ -767,19 +769,29 @@ export default function ProductList({ initialProducts }: ProductListProps) {
     try {
       // customizationOptions yeniden oluştur
       let customizationOptions: any = null;
+      const customTitle = formData.step1Title?.trim() || undefined;
+
       if (formData.variantMode === "matrix") {
         if (formData.variantDimensions.length > 0) {
           customizationOptions = {
             variantDimensions: formData.variantDimensions,
             priceMatrix: formData.priceMatrix,
+            ...(customTitle ? { step1Title: customTitle } : {}),
           };
+        } else if (customTitle) {
+          customizationOptions = { step1Title: customTitle };
         }
       } else if (formData.variantMode === "legacy") {
         if (formData.variants.length > 0) {
           customizationOptions = {
             variants: formData.variants,
+            ...(customTitle ? { step1Title: customTitle } : {}),
           };
+        } else if (customTitle) {
+          customizationOptions = { step1Title: customTitle };
         }
+      } else if (customTitle) {
+        customizationOptions = { step1Title: customTitle };
       }
 
       const payload = {
@@ -1468,6 +1480,23 @@ export default function ProductList({ initialProducts }: ProductListProps) {
                         className="w-full px-4 py-2.5 rounded-xl border border-corp-border focus:outline-none focus:ring-2 focus:ring-corp-teal/30 text-sm min-h-[44px]"
                       />
                     </div>
+                  </div>
+
+                  {/* Özel 1. Adım Başlığı (Opsiyonel Override) */}
+                  <div>
+                    <label className="block text-xs font-bold text-corp-charcoal uppercase tracking-wider mb-1.5">
+                      Özel 1. Adım Başlığı{" "}
+                      <span className="text-corp-gray text-[10px] font-normal lowercase">
+                        (opsiyonel — boş ise Dinamik İçerik / Kategori kuralı geçerlidir)
+                      </span>
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.step1Title}
+                      onChange={(e) => setFormData((f) => ({ ...f, step1Title: e.target.value }))}
+                      placeholder="Örn: Kaşe ve Mürekkep Özellikleri"
+                      className="w-full px-4 py-2.5 rounded-xl border border-corp-border focus:outline-none focus:ring-2 focus:ring-corp-teal/30 text-sm min-h-[44px]"
+                    />
                   </div>
 
                   {/* Fiyat & Stok & Fotoğraftan Tasarım Ücreti */}

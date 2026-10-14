@@ -24,6 +24,12 @@ import type {
 } from "@/types/product";
 
 interface ProductStepConfiguratorProps {
+  configuratorTitles?: {
+    step1Title?: string;
+    step2Title?: string;
+    step3Title?: string;
+    step4Title?: string;
+  };
   resolved: {
     mode: "new" | "legacy_variants" | "legacy_options" | "none";
     newOpts?: any;
@@ -77,6 +83,7 @@ interface ProductStepConfiguratorProps {
 }
 
 export default function ProductStepConfigurator({
+  configuratorTitles,
   resolved,
   selectedDimensions,
   onDimensionChange,
@@ -141,7 +148,7 @@ export default function ProductStepConfigurator({
             1
           </span>
           <h2 className="font-display font-bold text-base text-corp-charcoal dark:text-white">
-            Ebat ve Kağıt Özellikleri
+            {configuratorTitles?.step1Title || "Ebat ve Kağıt Özellikleri"}
           </h2>
         </div>
 
@@ -210,7 +217,7 @@ export default function ProductStepConfigurator({
             2
           </span>
           <h2 className="font-display font-bold text-base text-corp-charcoal dark:text-white">
-            Sipariş Adedi
+            {configuratorTitles?.step2Title || "Sipariş Adedi"}
           </h2>
         </div>
 
@@ -311,7 +318,7 @@ export default function ProductStepConfigurator({
             3
           </span>
           <h2 className="font-display font-bold text-base text-corp-charcoal dark:text-white">
-            Tasarımınızı Belirleyin
+            {configuratorTitles?.step3Title || "Tasarımınızı Belirleyin"}
           </h2>
         </div>
 
@@ -613,7 +620,7 @@ export default function ProductStepConfigurator({
             4
           </span>
           <h2 className="font-display font-bold text-base text-corp-charcoal dark:text-white">
-            Fiyat Özeti ve Sipariş
+            {configuratorTitles?.step4Title || "Fiyat Özeti ve Sipariş"}
           </h2>
         </div>
 

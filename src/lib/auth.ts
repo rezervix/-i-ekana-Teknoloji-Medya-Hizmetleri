@@ -84,7 +84,7 @@ export const authOptions: AuthOptions = {
     async signIn({ user, account }) {
       if (account?.provider === "google") {
         if (process.env.NEXT_PUBLIC_GOOGLE_LOGIN_ENABLED !== "true") {
-          logger.warn({ event: "GOOGLE_OAUTH_DISABLED_BLOCKED", email: user.email });
+          logger.warn({ event: "GOOGLE_OAUTH_DISABLED_BLOCKED", email: user.email ?? undefined });
           return false;
         }
         if (user.email) {

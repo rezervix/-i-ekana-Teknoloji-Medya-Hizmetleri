@@ -57,10 +57,17 @@ export default function ProductDetailClient({
   product,
   initialReviews = [],
   relatedProducts = [],
+  configuratorTitles,
 }: {
   product: any;
   initialReviews: any[];
   relatedProducts?: any[];
+  configuratorTitles?: {
+    step1Title?: string;
+    step2Title?: string;
+    step3Title?: string;
+    step4Title?: string;
+  };
 }) {
   const router = useRouter();
   const { data: session } = useSession();
@@ -508,6 +515,7 @@ export default function ProductDetailClient({
 
           {/* 2. Step Configurator Wizard (Steps 1 to 4) */}
           <ProductStepConfigurator
+            configuratorTitles={configuratorTitles}
             resolved={resolved}
             selectedDimensions={selectedDimensions}
             onDimensionChange={(key, val) =>

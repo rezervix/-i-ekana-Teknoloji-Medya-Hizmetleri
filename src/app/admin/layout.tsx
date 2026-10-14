@@ -7,7 +7,7 @@ import { signOut } from "next-auth/react";
 import {
   LayoutDashboard, FileText, FolderOpen, Package, Wrench, Users2, MessageSquareQuote,
   Image, Mail, BarChart3, Settings, LogOut, Menu, X, ChevronRight,
-  Brain, UserSquare2, HelpCircle, Building2, Briefcase, LifeBuoy, FolderGit2, Receipt, ExternalLink
+  Brain, UserSquare2, HelpCircle, Building2, Briefcase, LifeBuoy, FolderGit2, Receipt, ExternalLink, Sliders
 } from "lucide-react";
 import DatabaseStatus from "./components/DatabaseStatus";
 import Logo from "@/components/Logo";
@@ -38,6 +38,7 @@ const navSections = [
   {
     label: "İçerik",
     items: [
+      { icon: Sliders,            label: "Dinamik İçerikler", href: "/admin/content/dynamic" },
       { icon: FileText,           label: "Blog",             href: "/admin/content/blog" },
       { icon: FolderOpen,         label: "Projeler",         href: "/admin/content/projects" },
       { icon: Wrench,             label: "Hizmetler",        href: "/admin/content/services" },

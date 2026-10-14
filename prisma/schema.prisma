@@ -862,3 +862,22 @@ model FunnelEvent {
   @@index([ts])
   @@map("funnel_events")
 }
+
+// ─── Dynamic Content & CMS (Dinamik İçerik Yönetimi) ──────────────────────────
+
+model DynamicContent {
+  id          String   @id @default(cuid())
+  key         String
+  content     String   @db.Text
+  locale      String   @default("tr")
+  description String?  @db.Text
+  group       String   @default("general")
+  updatedBy   String?  @map("updated_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@unique([key, locale])
+  @@index([key])
+  @@index([group])
+  @@map("dynamic_contents")
+}
