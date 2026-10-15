@@ -4,7 +4,8 @@ import { auth } from "@/lib/auth";
 
 export async function GET() {
   const session = await auth();
-  if (!session || (session.user as any)?.role !== "SUPER_ADMIN") {
+  const role = (session?.user as any)?.role;
+  if (!session || (role !== "SUPER_ADMIN" && role !== "ADMIN")) {
     return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
   }
 
@@ -33,7 +34,8 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  if (!session || (session.user as any)?.role !== "SUPER_ADMIN") {
+  const role = (session?.user as any)?.role;
+  if (!session || (role !== "SUPER_ADMIN" && role !== "ADMIN")) {
     return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
   }
 

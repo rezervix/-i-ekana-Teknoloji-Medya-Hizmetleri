@@ -7,12 +7,11 @@ import { signOut } from "next-auth/react";
 import {
   LayoutDashboard, FileText, FolderOpen, Package, Wrench, Users2, MessageSquareQuote,
   Image, Mail, BarChart3, Settings, LogOut, Menu, X, ChevronRight,
-  Brain, UserSquare2, HelpCircle, Building2, Briefcase, LifeBuoy, FolderGit2, Receipt, ExternalLink, Sliders
+  Brain, UserSquare2, HelpCircle, Building2, Briefcase, LifeBuoy, FolderGit2, Receipt, ExternalLink, Sliders,
+  ShoppingBag
 } from "lucide-react";
 import DatabaseStatus from "./components/DatabaseStatus";
 import Logo from "@/components/Logo";
-
-
 
 const navSections = [
   {
@@ -28,7 +27,7 @@ const navSections = [
       { icon: Package,            label: "Mağaza Ürünleri",  href: "/admin/magaza/urunler" },
       { icon: Brain,              label: "AI Hizmetleri & Abonelik", href: "/admin/products" },
       { icon: Receipt,            label: "Abonelikler",      href: "/admin/subscriptions" },
-      { icon: Briefcase,          label: "Siparişler",       href: "/admin/magaza/siparisler" },
+      { icon: ShoppingBag,        label: "Siparişler",       href: "/admin/orders" },
       { icon: Image,              label: "Tasarım Şablonları", href: "/admin/tasarim-sablonlari" },
       { icon: BarChart3,          label: "Kampanyalar",      href: "/admin/magaza/kampanyalar" },
       { icon: MessageSquareQuote, label: "Yorumlar",         href: "/admin/magaza/yorumlar" },
@@ -38,6 +37,7 @@ const navSections = [
   {
     label: "İçerik",
     items: [
+      { icon: ShoppingBag,        label: "e-Ticaret Sayfası (CMS)", href: "/admin/content/e-ticaret" },
       { icon: Sliders,            label: "Dinamik İçerikler", href: "/admin/content/dynamic" },
       { icon: FileText,           label: "Blog",             href: "/admin/content/blog" },
       { icon: FolderOpen,         label: "Projeler",         href: "/admin/content/projects" },

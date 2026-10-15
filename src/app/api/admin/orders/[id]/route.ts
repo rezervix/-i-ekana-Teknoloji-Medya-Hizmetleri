@@ -17,7 +17,8 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  if (!session || (session.user as { role?: string })?.role !== "SUPER_ADMIN") {
+  const role = (session?.user as { role?: string })?.role;
+  if (!session || (role !== "SUPER_ADMIN" && role !== "ADMIN")) {
     return NextResponse.json(
       { success: false, error: { code: "UNAUTHORIZED", message: "Yetkisiz erişim" } },
       { status: 401 }
@@ -116,7 +117,8 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  if (!session || (session.user as { role?: string })?.role !== "SUPER_ADMIN") {
+  const role = (session?.user as { role?: string })?.role;
+  if (!session || (role !== "SUPER_ADMIN" && role !== "ADMIN")) {
     return NextResponse.json(
       { success: false, error: { code: "UNAUTHORIZED", message: "Yetkisiz erişim" } },
       { status: 401 }

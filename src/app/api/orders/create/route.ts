@@ -161,107 +161,149 @@ export async function POST(req: NextRequest) {
     // Mağaza ürünlerinin kimliği cuid biçimindedir. Bu biçimdeki bir kimlik DB'de yoksa
     // ürün silinmiştir; hayalet ürün olarak yeniden OLUŞTURULMAMALIDIR.
     const isStoreProductId = (id: string) => /^c[a-z0-9]{20,30}$/.test(id);
-    const unavailableProductIds: string[] = [];
-
-    for (const item of items) {
-      const rawProductId = item.productId || '';
-
-      let product = await prisma.product.findFirst({
-        where: {
-          OR: [{ id: rawProductId }, { slug: rawProductId }],
-        },
-      });
-
-      if (!product && typeof rawProductId === 'string') {
-        const baseSlug = rawProductId.replace(/-(starter|medium|enterprise)$/i, '');
-        product = await prisma.product.findFirst({
-          where: {
-            OR: [{ id: baseSlug }, { slug: baseSlug }],
-          },
-        });
-      }
-
-      if (!product && typeof rawProductId === 'string' && !isStoreProductId(rawProductId)) {
-        // Yalnızca hizmet/çözüm paketleri (slug kimlikli) otomatik oluşturulur
-        const productName = (item as any).name || rawProductId;
-        product = await prisma.product.create({
-          data: {
-            name: productName,
-            slug: rawProductId,
-            description: `${productName} Çözüm Paketi`,
-            category: ProductCategory.Teknoloji,
-            price: Number(item.unitPrice) || 0,
-            images: (item as any).image ? [(item as any).image] : [],
-          },
-        });
-      }
-
-      if (!product || !product.isActive || product.deletedAt) {
-        unavailableProductIds.push(rawProductId);
-        continue;
-      }
-
-      resolvedItems.push({
-        productId: product.id,
-        quantity: item.quantity,
-        unitPrice: item.unitPrice,
-        customizationData: item.customizationData || null,
-        selectedTemplateId: item.customizationData?.selectedTemplate || null,
-      });
-    }
-
-    if (unavailableProductIds.length > 0) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: {
-            code: 'PRODUCT_UNAVAILABLE',
-            message:
-              'Sepetinizdeki bazı ürünler artık satışta değil. Bu ürünler sepetinizden çıkarıldı, lütfen kontrol edip tekrar deneyin.',
-            productIds: unavailableProductIds,
-          },
-        },
-        { status: 409 }
-      );
-    }
-
     const orderNumber = generateOrderNumber();
     const customerEmail = guestEmail || authenticatedUserEmail || null;
     const customerName = guestName || authenticatedUserName || 'Müşteri';
-
     const isCorporate = customerType === 'CORPORATE';
     const invoiceStatus = isCorporate ? 'PENDING' : 'NOT_REQUIRED';
 
-    // ── Sipariş Oluşturma (Order & OrderItem with optional user_id linkage) ───
-    const order = await prisma.order.create({
-      data: {
-        orderNumber,
-        userId: authenticatedUserId, // Linked if logged in, null if guest!
-        guestEmail: customerEmail,
-        guestName: customerName,
-        customerType,
-        companyName: isCorporate ? companyName?.trim() : null,
-        taxOffice: isCorporate ? taxOffice?.trim() : null,
-        taxNumber: isCorporate ? taxNumber?.trim() : null,
-        billingAddress: isCorporate ? (billingAddress as any) : null,
-        invoiceStatus,
-        invoiceRequested: isCorporate ? true : Boolean(invoiceRequested),
-        totalAmount,
-        discountAmount,
-        finalAmount,
-        paymentMethod,
-        paymentStatus: 'PENDING',
-        shippingAddress: shippingAddress as any,
-        status: 'PENDING',
-        utmSource: utmSource ? String(utmSource).slice(0, 100) : null,
-        utmMedium: utmMedium ? String(utmMedium).slice(0, 100) : null,
-        utmCampaign: utmCampaign ? String(utmCampaign).slice(0, 100) : null,
-        referrer: referrer ? String(referrer).slice(0, 250) : null,
-        items: {
-          create: resolvedItems,
-        },
-      },
-    });
+    // ── Atomik Veritabanı Transaction'ı (Stock Check, Price Validation, Order Creation) ───
+    let order;
+    try {
+      order = await prisma.$transaction(async (tx) => {
+        const resolvedItems = [];
+        let calculatedSubtotal = 0;
+
+        for (const item of items) {
+          const rawProductId = item.productId || '';
+
+          let product = await tx.product.findFirst({
+            where: {
+              OR: [{ id: rawProductId }, { slug: rawProductId }],
+            },
+          });
+
+          if (!product && typeof rawProductId === 'string') {
+            const baseSlug = rawProductId.replace(/-(starter|medium|enterprise)$/i, '');
+            product = await tx.product.findFirst({
+              where: {
+                OR: [{ id: baseSlug }, { slug: baseSlug }],
+              },
+            });
+          }
+
+          if (!product && typeof rawProductId === 'string' && !isStoreProductId(rawProductId)) {
+            // Hizmet / paket ürünleri için otomatik ürün tanımlaması
+            const productName = (item as any).name || rawProductId;
+            product = await tx.product.create({
+              data: {
+                name: productName,
+                slug: rawProductId,
+                description: `${productName} Çözüm Paketi`,
+                category: ProductCategory.Teknoloji,
+                price: Number(item.unitPrice) || 0,
+                images: (item as any).image ? [(item as any).image] : [],
+              },
+            });
+          }
+
+          if (!product || !product.isActive || product.deletedAt) {
+            throw new Error(`PRODUCT_UNAVAILABLE:${rawProductId}`);
+          }
+
+          // 1. Stok Kontrolü ve Atomik Stok Düşümü
+          if (product.stock !== null && product.stock !== undefined) {
+            if (product.stock < item.quantity) {
+              throw new Error(`INSUFFICIENT_STOCK:${product.name} için yetersiz stok. Mevcut: ${product.stock}, Talep: ${item.quantity}`);
+            }
+            await tx.product.update({
+              where: { id: product.id },
+              data: {
+                stock: { decrement: item.quantity },
+              },
+            });
+          }
+
+          // 2. Fiyat Doğrulama (Frontend manipülasyonuna karşı güvenli hesaplama)
+          const itemUnitPrice = (product.price && product.price > 0) ? product.price : (Number(item.unitPrice) || 0);
+          calculatedSubtotal += itemUnitPrice * item.quantity;
+
+          resolvedItems.push({
+            productId: product.id,
+            quantity: item.quantity,
+            unitPrice: itemUnitPrice,
+            customizationData: item.customizationData || null,
+            selectedTemplateId: item.customizationData?.selectedTemplate || null,
+          });
+        }
+
+        // İndirim ve nihai tutar güvenlik doğrulaması
+        const safeDiscount = Math.min(Math.max(0, Number(discountAmount) || 0), calculatedSubtotal);
+        const calculatedFinal = Math.max(0, calculatedSubtotal - safeDiscount);
+
+        // 3. Sipariş Kaydının Oluşturulması
+        const newOrder = await tx.order.create({
+          data: {
+            orderNumber,
+            userId: authenticatedUserId,
+            guestEmail: customerEmail,
+            guestName: customerName,
+            customerType,
+            companyName: isCorporate ? companyName?.trim() : null,
+            taxOffice: isCorporate ? taxOffice?.trim() : null,
+            taxNumber: isCorporate ? taxNumber?.trim() : null,
+            billingAddress: isCorporate ? (billingAddress as any) : null,
+            invoiceStatus,
+            invoiceRequested: isCorporate ? true : Boolean(invoiceRequested),
+            totalAmount: calculatedSubtotal,
+            discountAmount: safeDiscount,
+            finalAmount: calculatedFinal,
+            paymentMethod,
+            paymentStatus: 'PENDING',
+            shippingAddress: shippingAddress as any,
+            status: 'PENDING',
+            utmSource: utmSource ? String(utmSource).slice(0, 100) : null,
+            utmMedium: utmMedium ? String(utmMedium).slice(0, 100) : null,
+            utmCampaign: utmCampaign ? String(utmCampaign).slice(0, 100) : null,
+            referrer: referrer ? String(referrer).slice(0, 250) : null,
+            items: {
+              create: resolvedItems,
+            },
+          },
+        });
+
+        return newOrder;
+      });
+    } catch (txError: any) {
+      const msg = txError.message || '';
+      if (msg.startsWith('PRODUCT_UNAVAILABLE:')) {
+        const unavailableId = msg.split(':')[1];
+        return NextResponse.json(
+          {
+            success: false,
+            error: {
+              code: 'PRODUCT_UNAVAILABLE',
+              message: 'Sepetinizdeki bazı ürünler artık satışta değil.',
+              productIds: [unavailableId],
+            },
+          },
+          { status: 409 }
+        );
+      }
+      if (msg.startsWith('INSUFFICIENT_STOCK:')) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: {
+              code: 'INSUFFICIENT_STOCK',
+              message: msg.replace('INSUFFICIENT_STOCK:', ''),
+            },
+          },
+          { status: 409 }
+        );
+      }
+      throw txError;
+    }
 
     if (customerEmail) {
       try {
