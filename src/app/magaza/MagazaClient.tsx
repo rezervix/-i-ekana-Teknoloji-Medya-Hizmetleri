@@ -50,6 +50,8 @@ export default function MagazaClient({ products }: { products: any[]; featuredPr
         customizationOptions: p.customizationOptions,
         priceMatrix: p.priceMatrix || p.customizationOptions?.priceMatrix,
         variantDimensions: p.variantDimensions || p.customizationOptions?.variantDimensions,
+        compareAtPrice: p.compareAtPrice,
+        discountPercent: p.discountPercent,
       }));
     }
     return [];
