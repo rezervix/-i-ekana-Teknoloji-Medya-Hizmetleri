@@ -3,7 +3,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { Cpu, Film, Server, BrainCircuit, Shield, TrendingUp, ArrowRight, CheckCircle, Rocket, ShoppingCart } from "lucide-react";
+import { Cpu, Film, Server, BrainCircuit, Shield, TrendingUp, ArrowRight, CheckCircle, Rocket, ShoppingCart, Share2 } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Hizmetler — Çiçekana Teknoloji & Medya",
@@ -11,6 +11,21 @@ export const metadata: Metadata = {
 };
 
 const services = [
+  {
+    slug: "sosyal-medya-reklam-danismanligi",
+    href: "/services/sosyal-medya-reklam-danismanligi",
+    icon: Share2,
+    accent: "#263d4a",
+    title: "Sosyal Medya & Reklam Danışmanlığı",
+    shortDesc: "Markanızın sosyal medya yönetimini, içerik stratejisini ve performans odaklı reklam çalışmalarını tek bir plan altında değerlendirin.",
+    features: [
+      "Sosyal medya stratejisi & hesap yönetimi",
+      "İçerik takvimi & görsel tasarım üretimi",
+      "Meta Ads & Google Ads kampanya yönetimi",
+      "Ölçümleme & performans raporları",
+    ],
+    badge: "STRATEJİK DANIŞMANLIK",
+  },
   {
     slug: "ai-automation",
     href: "/services/ai-automation",

@@ -16,7 +16,7 @@ const icons: Record<string, (props: React.SVGProps<SVGSVGElement>) => React.Reac
   youtubeUrl: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...p}><path d="M2.5 17a24 24 0 0 1 0-10 2 2 0 0 1 1.4-1.4 49.5 49.5 0 0 1 16.2 0A2 2 0 0 1 21.5 7a24 24 0 0 1 0 10 2 2 0 0 1-1.4 1.4 49.5 49.5 0 0 1-16.2 0Z" /><path d="m10 15 5-3-5-3z" /></svg>,
 };
 
-const services = [{ label: "Yapay Zeka & Otomasyon", href: "/services/ai-automation" }, { label: "e-Ticaret", href: "/e-ticaret" }];
+const services = [{ label: "Sosyal Medya & Reklam Danışmanlığı", href: "/services/sosyal-medya-reklam-danismanligi" }, { label: "Yapay Zeka & Otomasyon", href: "/services/ai-automation" }, { label: "e-Ticaret", href: "/e-ticaret" }];
 const company = [{ label: "Projelerimiz", href: "/projects" }, { label: "Blog", href: "/blog" }, { label: "Ekibimiz", href: "/team" }, { label: "İletişim", href: "/contact" }];
 const legal = [{ label: "KVKK Aydınlatma Metni", href: "/kvkk" }, { label: "Gizlilik Politikası", href: "/privacy" }, { label: "Kullanım Koşulları", href: "/terms" }];
 

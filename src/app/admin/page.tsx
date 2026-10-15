@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 import React from "react";
 import { prisma } from "@/lib/prisma";
-import { Users2, FileText, Briefcase, TrendingUp, ArrowRight } from "lucide-react";
+import { Users2, FileText, Briefcase, TrendingUp, ArrowRight, Share2 } from "lucide-react";
 import Link from "next/link";
 import { formatDate } from "@/lib/utils";
 
@@ -16,7 +16,7 @@ const LEAD_STATUS_LABELS: Record<string, { label: string; color: string }> = {
 
 async function getDashboardData() {
   try {
-    const [leadsThisMonth, openQuotes, publishedPosts, recentLeads, totalOrders, deliveredOrders] = await Promise.all([
+    const [leadsThisMonth, openQuotes, publishedPosts, recentLeads, totalOrders, deliveredOrders, newSocialApps] = await Promise.all([
       prisma.lead.count({
         where: { createdAt: { gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1) } },
       }),
@@ -32,24 +32,25 @@ async function getDashboardData() {
       }),
       prisma.order.count(),
       prisma.order.count({ where: { status: "DELIVERED" } }),
+      prisma.socialMediaApplication.count({ where: { status: "NEW" } }),
     ]);
     const conversionRate = totalOrders > 0
       ? `%${((deliveredOrders / totalOrders) * 100).toFixed(1)}`
       : "—";
-    return { leadsThisMonth, openQuotes, publishedPosts, recentLeads, conversionRate };
+    return { leadsThisMonth, openQuotes, publishedPosts, recentLeads, conversionRate, newSocialApps };
   } catch {
-    return { leadsThisMonth: 0, openQuotes: 0, publishedPosts: 0, recentLeads: [], conversionRate: "—" };
+    return { leadsThisMonth: 0, openQuotes: 0, publishedPosts: 0, recentLeads: [], conversionRate: "—", newSocialApps: 0 };
   }
 }
 
 export default async function AdminDashboard() {
-  const { leadsThisMonth, openQuotes, publishedPosts, recentLeads, conversionRate } = await getDashboardData();
+  const { leadsThisMonth, openQuotes, publishedPosts, recentLeads, conversionRate, newSocialApps } = await getDashboardData();
 
   const metrics = [
+    { icon: Share2,     label: "Yeni Sosyal Medya", value: newSocialApps,  accent: "#263d4a", href: "/admin/social-applications" },
     { icon: Users2,     label: "Bu Ay Yeni Lead",   value: leadsThisMonth, accent: "#0A4D68", href: "/admin/leads" },
     { icon: Briefcase,  label: "Açık Teklifler",     value: openQuotes,     accent: "#7C3AED", href: "/admin/quotes" },
     { icon: FileText,   label: "Yayınlanan Yazılar", value: publishedPosts, accent: "#10B981", href: "/admin/content/blog" },
-    { icon: TrendingUp, label: "Ort. Dönüşüm",       value: conversionRate, accent: "#F59E0B", href: "/admin/analytics" },
   ];
 
   return (

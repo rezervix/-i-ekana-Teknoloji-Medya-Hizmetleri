@@ -2,10 +2,18 @@
 
 import React from "react";
 import { motion } from "framer-motion";
-import { BrainCircuit, ShoppingCart, ArrowRight } from "lucide-react";
+import { BrainCircuit, ShoppingCart, ArrowRight, Share2 } from "lucide-react";
 import Link from "next/link";
 
 const services = [
+  {
+    icon: Share2,
+    title: "Sosyal Medya & Reklam Danışmanlığı",
+    desc: "Markanızın sosyal medya yönetimini, içerik stratejisini ve performans odaklı reklam çalışmalarını tek bir plan altında değerlendirin.",
+    href: "/services/sosyal-medya-reklam-danismanligi",
+    badge: "15.000 TL+",
+    isActive: true,
+  },
   {
     icon: BrainCircuit,
     title: "Yapay Zeka & Otomasyon",

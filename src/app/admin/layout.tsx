@@ -8,7 +8,7 @@ import {
   LayoutDashboard, FileText, FolderOpen, Package, Wrench, Users2, MessageSquareQuote,
   Image, Mail, BarChart3, Settings, LogOut, Menu, X, ChevronRight,
   Brain, UserSquare2, HelpCircle, Building2, Briefcase, LifeBuoy, FolderGit2, Receipt, ExternalLink, Sliders,
-  ShoppingBag
+  ShoppingBag, Share2
 } from "lucide-react";
 import DatabaseStatus from "./components/DatabaseStatus";
 import Logo from "@/components/Logo";
@@ -67,6 +67,7 @@ const navSections = [
     label: "Satış",
     items: [
       { icon: Users2,    label: "Lead / CRM", href: "/admin/leads" },
+      { icon: Share2,    label: "Sosyal Medya Başvuruları", href: "/admin/social-applications" },
       { icon: Briefcase, label: "Teklifler",   href: "/admin/quotes" },
     ],
   },

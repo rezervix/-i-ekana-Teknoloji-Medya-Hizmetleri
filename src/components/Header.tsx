@@ -12,6 +12,7 @@ import {
   User,
   BrainCircuit,
   ShoppingCart,
+  Share2,
 } from "lucide-react";
 import { useSession, signOut } from "next-auth/react";
 import CartButton from "./CartButton";
@@ -26,6 +27,12 @@ const BASE_NAV_ITEMS: NavItem[] = [
       {
         title: "Hizmetlerimiz",
         items: [
+          {
+            label: "Sosyal Medya & Reklam Danışmanlığı",
+            description: "İçerik stratejisi & performans reklam yönetimi",
+            icon: Share2,
+            link: "/services/sosyal-medya-reklam-danismanligi",
+          },
           {
             label: "Yapay Zeka & Otomasyon",
             description: "CrewAI agent & LLM süreç otomasyonu",

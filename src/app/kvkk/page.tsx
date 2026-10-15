@@ -31,7 +31,7 @@ export default function KVKKPage() {
             <h2>1. Veri Sorumlusunun Kimliği</h2>
             <p>6698 sayılı Kişisel Verilerin Korunması Kanunu ("KVKK") uyarınca kişisel verileriniz, veri sorumlusu sıfatıyla <strong>Çiçekana Teknoloji ve Medya Hizmetleri</strong> ("Şirket") tarafından aşağıda açıklanan amaçlar kapsamında işlenecektir.</p>
             <h2>2. İşlenen Kişisel Veriler</h2>
-            <p>İletişim formu aracılığıyla toplanan kişisel veriler: <strong>ad, unvan, şirket adı, e-posta adresi, sektör ve proje bilgileri.</strong></p>
+            <p>İletişim ve hizmet başvuru formları (Sosyal Medya & Reklam Danışmanlığı vb.) aracılığıyla toplanan kişisel veriler: <strong>ad, soyad, unvan/görev, işletme veya marka adı, telefon numarası, e-posta adresi, web sitesi ve sosyal medya bağlantıları, faaliyet sektörü, şehir, hizmet ve bütçe tercihleri ile proje açıklamaları.</strong></p>
             <h2>3. Kişisel Verilerin İşlenme Amaçları</h2>
             <ul>
               <li>Hizmet teklifi ve danışmanlık süreçlerinin yürütülmesi</li>
