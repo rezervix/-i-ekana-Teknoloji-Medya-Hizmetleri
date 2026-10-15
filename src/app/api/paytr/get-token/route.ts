@@ -83,12 +83,6 @@ export async function POST(request: NextRequest) {
 
     // ── 1. ABONELİK ÖDEMESİ ───────────────────────────────────────────────────
     if (subscriptionId !== undefined) {
-      if (!sessionUser?.id) {
-        return NextResponse.json(
-          { success: false, message: 'Abonelik işlemi için lütfen giriş yapın.' },
-          { status: 401 }
-        );
-      }
       if (typeof subscriptionId !== 'string' || !/^[A-Za-z0-9_-]+$/.test(subscriptionId)) {
         return NextResponse.json(
           { success: false, message: 'Geçersiz abonelik.' },
@@ -96,7 +90,7 @@ export async function POST(request: NextRequest) {
         );
       }
       const subscription = await prisma.subscription.findFirst({
-        where: { id: subscriptionId, userId: sessionUser.id, status: 'PENDING' },
+        where: { id: subscriptionId, status: 'PENDING' },
         include: { plan: true, planTier: true, user: true },
       });
       if (!subscription) {
@@ -105,6 +99,15 @@ export async function POST(request: NextRequest) {
           { status: 404 }
         );
       }
+
+      // Giriş yapılmış bir kullanıcıya aitse sahiplik doğrulaması
+      if (subscription.userId && sessionUser?.id && subscription.userId !== sessionUser.id) {
+        return NextResponse.json(
+          { success: false, message: 'Bu abonelik başka bir hesaba aittir.' },
+          { status: 403 }
+        );
+      }
+
       const totalKurus = subscription.priceAtPurchase;
       if (!Number.isSafeInteger(totalKurus) || totalKurus <= 0) {
         return NextResponse.json(
@@ -113,18 +116,19 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const userPhone = normalizePhone(subscription.user.phone);
+      const rawPhone = subscription.user?.phone || subscription.pendingPhone;
+      const userPhone = normalizePhone(rawPhone);
       if (!/^0?5\d{9}$/.test(userPhone)) {
         logger.warn({
           event: 'PAYTR_PHONE_REQUIRED',
-          userId: sessionUser.id,
+          userId: sessionUser?.id || 'GUEST',
           details: { subscriptionId: subscription.id },
         });
         return NextResponse.json(
           {
             success: false,
             message:
-              'Ödemeye devam etmek için profilinizde geçerli bir cep telefonu numarası bulunmalıdır.',
+              'Ödemeye devam etmek için geçerli bir cep telefonu numarası bulunmalıdır.',
           },
           { status: 422 }
         );
@@ -145,6 +149,13 @@ export async function POST(request: NextRequest) {
         data: { paytrCustomerCode: merchantOid },
       });
 
+      const customerEmail =
+        subscription.user?.email ||
+        subscription.pendingEmail ||
+        `${userPhone}@musteri.cicekanatechmedia.com`;
+      const customerName =
+        subscription.user?.name || subscription.pendingName || 'Müşteri';
+
       const unitPriceTL = (totalKurus / 100).toFixed(2);
       const basket = [
         [`${subscription.plan.name} - ${subscription.planTier.name}`, unitPriceTL, 1],
@@ -164,7 +175,7 @@ export async function POST(request: NextRequest) {
         merchantId +
         clientIp +
         merchantOid +
-        subscription.user.email +
+        customerEmail +
         totalKurus +
         userBasket +
         noInstallment +
@@ -173,23 +184,25 @@ export async function POST(request: NextRequest) {
         testMode;
       const paytrToken = paytrHash(hashString + merchantSalt, merchantKey);
 
+      const okUrlWithToken =
+        process.env.PAYTR_SUCCESS_URL ||
+        `${siteUrl}/services/ai-automation/${subscription.plan.slug}?payment=success&subId=${subscription.id}&token=${subscription.claimToken || ''}`;
+
       const params = new URLSearchParams({
         merchant_id: merchantId,
         user_ip: clientIp,
         merchant_oid: merchantOid,
-        email: subscription.user.email,
+        email: customerEmail,
         payment_amount: String(totalKurus),
         paytr_token: paytrToken,
         user_basket: userBasket,
         debug_on: process.env.NODE_ENV === 'production' ? '0' : '1',
         no_installment: noInstallment,
         max_installment: maxInstallment,
-        user_name: subscription.user.name || 'Müşteri',
+        user_name: customerName,
         user_address: 'Adres belirtilmedi',
         user_phone: userPhone,
-        merchant_ok_url:
-          process.env.PAYTR_SUCCESS_URL ||
-          `${siteUrl}/services/ai-automation/${subscription.plan.slug}?payment=success`,
+        merchant_ok_url: okUrlWithToken,
         merchant_fail_url:
           process.env.PAYTR_FAIL_URL ||
           `${siteUrl}/services/ai-automation/${subscription.plan.slug}?payment=failed`,

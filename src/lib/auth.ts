@@ -9,9 +9,12 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { logger } from "@/lib/logger";
 
+import { normalizePhoneNumber, checkLoginRateLimit } from "@/lib/auth-security";
+
 const loginSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(1),
+  email: z.string().optional(),
+  password: z.string().optional(),
+  claimToken: z.string().optional(),
 });
 
 export const authOptions: AuthOptions = {
@@ -37,21 +40,81 @@ export const authOptions: AuthOptions = {
         const parsed = loginSchema.safeParse(credentials);
         if (!parsed.success) return null;
 
-        const { email, password } = parsed.data;
+        // 1. Kısa ömürlü, tek kullanımlık belirteç ile güvenli otomatik giriş
+        const rawClaimToken = typeof parsed.data.claimToken === "string" ? parsed.data.claimToken.trim() : "";
+        if (rawClaimToken) {
+          if (!/^[A-Za-z0-9_-]{32,128}$/.test(rawClaimToken)) return null;
+          try {
+            const sub = await prisma.subscription.findFirst({
+              where: {
+                claimToken: rawClaimToken,
+                status: "ACTIVE",
+                claimTokenExpiresAt: { gt: new Date() },
+              },
+              include: { user: true },
+            });
+
+            if (!sub || !sub.user || !sub.user.isActive) {
+              logger.warn({
+                event: "CLAIM_TOKEN_LOGIN_FAILED",
+                claimToken: rawClaimToken.slice(0, 8),
+              });
+              return null;
+            }
+
+            // Tek kullanımlık belirteci hemen geçersiz kıl
+            await prisma.subscription.update({
+              where: { id: sub.id },
+              data: { claimToken: null, claimTokenExpiresAt: null },
+            });
+
+            logger.info({ event: "CLAIM_TOKEN_LOGIN_SUCCESS", userId: sub.user.id });
+
+            return {
+              id: sub.user.id,
+              email: sub.user.email,
+              name: sub.user.name,
+              image: sub.user.image,
+              role: sub.user.role,
+              isEmailVerified: Boolean(sub.user.isEmailVerified || sub.user.emailVerified),
+            } as any;
+          } catch (err) {
+            logger.error({ event: "CLAIM_TOKEN_ERROR", details: { error: String(err) } });
+            return null;
+          }
+        }
+
+        const input = parsed.data.email || "";
+        const password = parsed.data.password || "";
+        if (!input || !password) return null;
+
+        const rawInput = input.trim();
+        const isEmail = rawInput.includes("@");
+        const normalized = isEmail ? rawInput.toLowerCase() : normalizePhoneNumber(rawInput);
+
+        const rateLimitResult = checkLoginRateLimit("client", normalized);
+        if (!rateLimitResult.success) {
+          logger.warn({ event: "LOGIN_RATE_LIMITED", identifier: normalized });
+          throw new Error("Çok fazla başarısız deneme. Lütfen 15 dakika sonra tekrar deneyin.");
+        }
 
         try {
-          const user = await prisma.user.findUnique({
-            where: { email: email.toLowerCase().trim() },
-          });
+          const user = isEmail
+            ? await prisma.user.findUnique({
+                where: { email: normalized },
+              })
+            : await prisma.user.findFirst({
+                where: { phone: normalized },
+              });
 
           if (!user || !user.passwordHash || !user.isActive) {
-            logger.warn({ event: "LOGIN_FAILED", email, details: { reason: "User not found or inactive" } });
+            logger.warn({ event: "LOGIN_FAILED", identifier: normalized, details: { reason: "User not found or inactive" } });
             return null;
           }
 
           const passwordMatch = await bcrypt.compare(password, user.passwordHash);
           if (!passwordMatch) {
-            logger.warn({ event: "LOGIN_FAILED", email, userId: user.id, details: { reason: "Invalid credentials" } });
+            logger.warn({ event: "LOGIN_FAILED", identifier: normalized, userId: user.id, details: { reason: "Invalid credentials" } });
             return null;
           }
 
@@ -63,7 +126,7 @@ export const authOptions: AuthOptions = {
             })
             .catch(console.error);
 
-          logger.info({ event: "LOGIN_SUCCESS", email, userId: user.id });
+          logger.info({ event: "LOGIN_SUCCESS", identifier: normalized, userId: user.id });
 
           return {
             id: user.id,
@@ -73,8 +136,11 @@ export const authOptions: AuthOptions = {
             role: user.role,
             isEmailVerified: Boolean(user.isEmailVerified || user.emailVerified),
           } as any;
-        } catch (error) {
-          logger.error({ event: "AUTH_DB_ERROR", email, details: { error: String(error) } });
+        } catch (error: any) {
+          if (error.message?.includes("Çok fazla")) {
+            throw error;
+          }
+          logger.error({ event: "AUTH_DB_ERROR", identifier: normalized, details: { error: String(error) } });
           return null;
         }
       },

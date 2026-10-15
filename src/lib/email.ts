@@ -690,3 +690,187 @@ export async function sendAbandonedCartReminder2({
   return false;
 }
 
+// ─── AI Abonelik Bildirim E-postaları ────────────────────────────────────────
+
+export interface SubscriptionEmailParams {
+  to: string;
+  customerName: string;
+  planName: string;
+  tierName: string;
+  amountTL: number;
+  startDate: string;
+  portalUrl?: string;
+}
+
+export async function sendSubscriptionStartedEmail({
+  to,
+  customerName,
+  planName,
+  tierName,
+  amountTL,
+  startDate,
+  portalUrl,
+}: SubscriptionEmailParams): Promise<boolean> {
+  const config = getEmailConfig();
+  const targetPortal = portalUrl || `${config.appUrl}/profile/subscriptions`;
+
+  const html = `
+    <!DOCTYPE html>
+    <html lang="tr">
+    <head><meta charset="utf-8" /><title>Aboneliğiniz Başladı</title></head>
+    <body style="margin: 0; padding: 0; background-color: #fafafa; font-family: 'Inter', -apple-system, sans-serif;">
+      <div style="max-width: 600px; margin: 40px auto; background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.04);">
+        <div style="background: linear-gradient(135deg, #0f766e 0%, #0d9488 100%); padding: 32px; text-align: center;">
+          <h1 style="color: #ffffff; margin: 0; font-size: 22px; font-weight: 700;">ÇİÇEKANA TEKNOLOJİ & MEDYA</h1>
+          <p style="color: #ccfbf1; margin: 6px 0 0; font-size: 14px;">AI Automation Çözümleri</p>
+        </div>
+        <div style="padding: 32px;">
+          <h2 style="margin: 0 0 12px; font-size: 18px; color: #0f172a;">Tebrikler Sayın ${customerName},</h2>
+          <p style="margin: 0 0 20px; font-size: 14px; color: #475569; line-height: 1.6;">
+            <strong>${planName} (${tierName})</strong> aboneliğiniz başarıyla başlatıldı ve hesabınız aktif edildi.
+          </p>
+
+          <div style="background: #f8fafc; border-radius: 12px; padding: 20px; margin-bottom: 24px; border: 1px solid #edf2f7;">
+            <p style="margin: 0 0 8px; font-size: 13px; color: #64748b;">Abonelik Detayları:</p>
+            <p style="margin: 0 0 4px; font-size: 14px; color: #0f172a;"><strong>Paket:</strong> ${planName} — ${tierName}</p>
+            <p style="margin: 0 0 4px; font-size: 14px; color: #0f172a;"><strong>Aylık Tutar:</strong> ${amountTL.toLocaleString('tr-TR')} TL</p>
+            <p style="margin: 0; font-size: 14px; color: #0f172a;"><strong>Başlangıç Tarihi:</strong> ${startDate}</p>
+          </div>
+
+          <div style="text-align: center; margin: 32px 0 24px;">
+            <a href="${targetPortal}" style="display: inline-block; background: #0f766e; color: #ffffff; text-decoration: none; font-weight: 700; font-size: 15px; padding: 14px 32px; border-radius: 10px; box-shadow: 0 4px 12px rgba(15,118,110,0.25);">
+              Hizmetimi Yönet →
+            </a>
+          </div>
+
+          <p style="font-size: 13px; color: #64748b; line-height: 1.5; margin: 24px 0 0; border-top: 1px solid #f1f5f9; pt-4;">
+            Sorularınız veya kurulum desteği için dilediğiniz zaman bize ulaşabilirsiniz: 
+            <a href="tel:+905303412156" style="color: #0f766e; font-weight: 600;">+90 530 341 21 56</a>
+          </p>
+        </div>
+        <div style="background: #f1f5f9; padding: 16px 32px; text-align: center; border-top: 1px solid #e2e8f0;">
+          <p style="margin: 0; font-size: 11px; color: #64748b;">
+            © 2026 Çiçekana Teknoloji ve Medya Hizmetleri. Tüm hakları saklıdır.
+          </p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  const subject = `Aboneliğiniz Başladı — ${planName} — Çiçekana Teknoloji & Medya`;
+
+  if (!config.smtpPass && !config.resendApiKey) {
+    console.log(`[SUBSCRIPTION EMAIL DEV MODE] To: ${to}, Plan: ${planName}`);
+    return true;
+  }
+
+  if (config.resendApiKey) {
+    try {
+      const resend = new Resend(config.resendApiKey);
+      const { data, error } = await resend.emails.send({
+        from: config.fromEmail,
+        to: [to],
+        subject,
+        html,
+      });
+      if (!error && data?.id) return true;
+    } catch (err: any) {
+      console.warn('[sendSubscriptionStartedEmail] Resend error, attempting SMTP...');
+    }
+  }
+
+  if (config.smtpPass) {
+    try {
+      const transporter = createTransporter(
+        config.smtpHost,
+        config.smtpPort,
+        config.smtpUser,
+        config.smtpPass,
+        config.smtpPort === 465
+      );
+      await transporter.sendMail({
+        from: config.fromEmail,
+        to,
+        subject,
+        html,
+      });
+      return true;
+    } catch (err: any) {
+      console.error('[sendSubscriptionStartedEmail Error]', err?.message || err);
+    }
+  }
+
+  return false;
+}
+
+export async function sendAdminSubscriptionAlertEmail(params: {
+  customerName: string;
+  customerPhone: string;
+  customerEmail: string;
+  planName: string;
+  tierName: string;
+  amountTL: number;
+  subscriptionId: string;
+}): Promise<boolean> {
+  const config = getEmailConfig();
+  const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL || 'info@cicekanatechmedia.com';
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; padding: 20px; color: #1e293b;">
+      <h2 style="color: #0f766e;">🎉 Yeni AI Aboneliği Başlatıldı!</h2>
+      <p>Sistem üzerinden yeni bir AI Automation abonelik ödemesi tamamlandı:</p>
+      <ul>
+        <li><strong>Müşteri:</strong> ${params.customerName}</li>
+        <li><strong>Telefon:</strong> ${params.customerPhone}</li>
+        <li><strong>E-posta:</strong> ${params.customerEmail}</li>
+        <li><strong>Hizmet:</strong> ${params.planName}</li>
+        <li><strong>Paket:</strong> ${params.tierName}</li>
+        <li><strong>Tutar:</strong> ${params.amountTL.toLocaleString('tr-TR')} TL</li>
+        <li><strong>Abonelik No:</strong> ${params.subscriptionId}</li>
+      </ul>
+      <p><a href="${config.appUrl}/admin/subscriptions">Admin Paneline Git →</a></p>
+    </div>
+  `;
+
+  const subject = `[Yeni Abonelik] ${params.planName} - ${params.customerName} (${params.customerPhone})`;
+
+  if (!config.smtpPass && !config.resendApiKey) {
+    console.log(`[ADMIN ALERT DEV MODE] ${subject}`);
+    return true;
+  }
+
+  try {
+    if (config.resendApiKey) {
+      const resend = new Resend(config.resendApiKey);
+      await resend.emails.send({
+        from: config.fromEmail,
+        to: [adminEmail],
+        subject,
+        html,
+      });
+      return true;
+    }
+    if (config.smtpPass) {
+      const transporter = createTransporter(
+        config.smtpHost,
+        config.smtpPort,
+        config.smtpUser,
+        config.smtpPass,
+        config.smtpPort === 465
+      );
+      await transporter.sendMail({
+        from: config.fromEmail,
+        to: adminEmail,
+        subject,
+        html,
+      });
+      return true;
+    }
+  } catch (err: any) {
+    console.error('[sendAdminSubscriptionAlertEmail Error]', err?.message || err);
+  }
+
+  return false;
+}
+

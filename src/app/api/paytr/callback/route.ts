@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import crypto from 'node:crypto';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
+import { sendSubscriptionStartedEmail, sendAdminSubscriptionAlertEmail } from '@/lib/email';
 
 function hash(value: string, key: string) {
   return crypto.createHmac('sha256', key).update(value).digest('base64');
@@ -85,15 +86,108 @@ export async function POST(request: NextRequest) {
         const start = new Date();
         const end = new Date(start);
         end.setMonth(end.getMonth() + 1);
+
+        let finalUserId = subscription.userId;
+
+        // Misafir kullanıcı ise ödeme sonrasında hesabı kesinleştir
+        if (!finalUserId && subscription.pendingPhone) {
+          let user = await prisma.user.findFirst({
+            where: { phone: subscription.pendingPhone },
+          });
+
+          if (!user) {
+            const fallbackEmail = `${subscription.pendingPhone}@musteri.cicekanatechmedia.com`;
+            const desiredEmail = subscription.pendingEmail || fallbackEmail;
+
+            // E-posta çakışması kontrolü
+            const existingEmailUser = await prisma.user.findUnique({
+              where: { email: desiredEmail },
+            });
+
+            const safeEmail = existingEmailUser ? fallbackEmail : desiredEmail;
+
+            user = await prisma.user.create({
+              data: {
+                name: subscription.pendingName || 'Müşteri',
+                phone: subscription.pendingPhone,
+                email: safeEmail,
+                passwordHash: subscription.pendingPasswordHash,
+                role: 'EDITOR',
+                isActive: true,
+                isEmailVerified: false,
+              },
+            });
+          }
+          finalUserId = user.id;
+        }
+
         await prisma.subscription.updateMany({
           where: { id: subscription.id, status: 'PENDING' },
-          data: { status: 'ACTIVE', currentPeriodStart: start, currentPeriodEnd: end },
+          data: {
+            status: 'ACTIVE',
+            userId: finalUserId,
+            currentPeriodStart: start,
+            currentPeriodEnd: end,
+            pendingPasswordHash: null, // Hash kullanıldıktan sonra temizlenir
+          },
         });
-        logger.info({ event: 'PAYTR_SUBSCRIPTION_ACTIVATED', details: { merchantOid, originalSubId } });
+
+        logger.info({
+          event: 'PAYTR_SUBSCRIPTION_ACTIVATED',
+          details: { merchantOid, originalSubId, userId: finalUserId },
+        });
+
+        // Bildirim e-postaları (hata ödemeyi asla bozmaz)
+        try {
+          const [plan, tier, targetUser] = await Promise.all([
+            prisma.plan.findUnique({ where: { id: subscription.planId }, select: { name: true } }),
+            subscription.planTierId
+              ? prisma.planTier.findUnique({
+                  where: { id: subscription.planTierId },
+                  select: { name: true },
+                })
+              : null,
+            finalUserId
+              ? prisma.user.findUnique({
+                  where: { id: finalUserId },
+                  select: { name: true, email: true, phone: true },
+                })
+              : null,
+          ]);
+
+          const customerEmail = targetUser?.email || subscription.pendingEmail;
+          const isSynthetic = customerEmail?.endsWith('@musteri.cicekanatechmedia.com');
+
+          if (customerEmail && !isSynthetic) {
+            sendSubscriptionStartedEmail({
+              to: customerEmail,
+              customerName: targetUser?.name || subscription.pendingName || 'Değerli Müşterimiz',
+              planName: plan?.name || 'AI Automation Paketi',
+              tierName: tier?.name || 'Abonelik Paketi',
+              amountTL: subscription.priceAtPurchase / 100,
+              startDate: start.toLocaleDateString('tr-TR'),
+            }).catch((e) => console.error('Subscription customer email error:', e));
+          }
+
+          sendAdminSubscriptionAlertEmail({
+            customerName: targetUser?.name || subscription.pendingName || 'Müşteri',
+            customerPhone: targetUser?.phone || subscription.pendingPhone || '-',
+            customerEmail: customerEmail || '-',
+            planName: plan?.name || 'AI Automation Paketi',
+            tierName: tier?.name || 'Abonelik Paketi',
+            amountTL: subscription.priceAtPurchase / 100,
+            subscriptionId: subscription.id,
+          }).catch((e) => console.error('Subscription admin email error:', e));
+        } catch (mailErr) {
+          logger.warn({
+            event: 'SUBSCRIPTION_NOTIFICATION_ERROR',
+            details: { error: String(mailErr) },
+          });
+        }
       } else if (status === 'failed') {
         await prisma.subscription.updateMany({
           where: { id: subscription.id, status: 'PENDING' },
-          data: { status: 'FAILED' },
+          data: { status: 'FAILED', pendingPasswordHash: null },
         });
         logger.info({ event: 'PAYTR_SUBSCRIPTION_FAILED', details: { merchantOid, originalSubId } });
       }

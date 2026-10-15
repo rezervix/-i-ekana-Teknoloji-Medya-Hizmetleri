@@ -7,31 +7,52 @@ import Footer from "@/components/Footer";
 import { prisma } from "@/lib/prisma";
 import { formatStartingPrice } from "@/lib/plan-pricing";
 
+import NewAIAutomationList from "./components/NewAIAutomationList";
+
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "AI Otomasyon Hizmetlerimiz - Çiçekana Teknoloji & Medya",
   description:
     "Kurumsal iş süreçlerinizi optimize eden, ölçeklenebilir ve güvenli yapay zeka çözümlerini keşfedin.",
+  alternates: {
+    canonical: "https://www.cicekanatechmedia.com/services/ai-automation",
+  },
 };
 
 async function getActivePlans() {
   return prisma.plan.findMany({
-    where: { isActive: true },
+    where: { isActive: true, isListed: true },
     orderBy: [{ displayOrder: "asc" }, { createdAt: "asc" }],
     select: {
       id: true,
       slug: true,
       name: true,
       shortDescription: true,
+      cardSummary: true,
+      category: true,
       imageUrl: true,
+      heroMockupUrl: true,
       tiers: { where: { isActive: true }, select: { priceMonthly: true, isActive: true } },
     },
   });
 }
 
-export default async function AIAutomationPage() {
+export default async function AIAutomationPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ v2?: string }>;
+}) {
+  const resolvedSearchParams = searchParams ? await searchParams : {};
+  const useNewPages =
+    process.env.NEXT_PUBLIC_NEW_AI_PAGES === "true" ||
+    resolvedSearchParams.v2 === "1";
+
   const plans = await getActivePlans();
+
+  if (useNewPages) {
+    return <NewAIAutomationList plans={plans} />;
+  }
 
   return (
     <main className="min-h-screen bg-[#fcf9f8]">
@@ -86,8 +107,13 @@ export default async function AIAutomationPage() {
                     <Bot aria-hidden="true" className="text-[#00b2c9]" size={48} />
                   )}
                 </div>
+                {plan.category ? (
+                  <span className="mb-2 inline-block w-fit rounded-full bg-[#00b2c9]/10 px-2.5 py-0.5 text-[11px] font-semibold text-[#003f48]">
+                    {plan.category}
+                  </span>
+                ) : null}
                 <h2 className="mb-3 text-[24px] font-semibold leading-8 text-[#002638]">{plan.name}</h2>
-                <p className="mb-6 flex-grow text-[16px] leading-6 text-[#41484c]">{plan.shortDescription}</p>
+                <p className="mb-6 flex-grow text-[16px] leading-6 text-[#41484c]">{plan.cardSummary || plan.shortDescription}</p>
                 <div className="mb-6 text-lg font-semibold text-[#002638]">
                   {formatStartingPrice(plan)}{formatStartingPrice(plan) === "Fiyat bilgisi için iletişime geçin" ? null : <span className="ml-1 text-sm font-normal text-[#41484c]">/ay</span>}
                 </div>

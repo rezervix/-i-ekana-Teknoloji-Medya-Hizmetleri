@@ -64,6 +64,42 @@ export default function CheckoutPage() {
   const [allowMarketing, setAllowMarketing] = useState(true);
   const [invoiceRequested, setInvoiceRequested] = useState(false);
 
+  const hasSubscription = items.some((item) => item.itemType === 'subscription');
+  const [guestPassword, setGuestPassword] = useState('');
+  const [guestPasswordConfirm, setGuestPasswordConfirm] = useState('');
+  const [phoneAccountExists, setPhoneAccountExists] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [consentText, setConsentText] = useState('Abonelik koşullarını ve KVKK aydınlatma metnini okudum, kabul ediyorum.');
+
+  useEffect(() => {
+    if (hasSubscription) {
+      fetch('/api/content/dynamic?keys=subscription_terms_kvkk_consent')
+        .then((r) => r.json())
+        .then((data) => {
+          if (data && data.subscription_terms_kvkk_consent) {
+            setConsentText(data.subscription_terms_kvkk_consent);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [hasSubscription]);
+
+  const checkPhoneRegistered = async (phoneToTest: string) => {
+    const clean = phoneToTest.replace(/\D/g, '');
+    if (clean.length < 10) return;
+    try {
+      const res = await fetch('/api/auth/check-phone', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: phoneToTest }),
+      });
+      const data = await res.json();
+      if (data && data.success) {
+        setPhoneAccountExists(Boolean(data.exists));
+      }
+    } catch {}
+  };
+
   const saveAbandonedCartSnapshot = (overrideMarketing?: boolean) => {
     if (!formData.email && !formData.phone) return;
     if (!items || items.length === 0) return;
@@ -176,10 +212,6 @@ export default function CheckoutPage() {
     if (isProcessing) return; // Çift tıklama (double-click) engellemesi
 
     const subscriptionItems = items.filter((item) => item.itemType === 'subscription');
-    if (subscriptionItems.length > 0 && !isAuthenticated) {
-      router.push('/auth?callbackUrl=/magaza/odeme');
-      return;
-    }
 
     // 1. Ödeme butonuna basıldığında eski merchant_oid ve geçici verileri temizle
     try {
@@ -199,12 +231,51 @@ export default function CheckoutPage() {
         const subscriptionItem = subscriptionItems[0];
         if (!subscriptionItem.subscriptionPlanId || !subscriptionItem.subscriptionTierId)
           throw new Error('Abonelik paketi bilgisi eksik. Lütfen ürünü tekrar sepete ekleyin.');
+
+        if (!acceptedTerms) {
+          setErrorMessage('Abonelik koşullarını ve KVKK aydınlatma metnini onaylamanız gerekmektedir.');
+          setIsProcessing(false);
+          return;
+        }
+
+        if (!isAuthenticated) {
+          const cleanPhone = formData.phone.replace(/\D/g, '');
+          if (cleanPhone.length < 10) {
+            setErrorMessage('Lütfen geçerli bir cep telefonu numarası giriniz.');
+            setIsProcessing(false);
+            return;
+          }
+          if (phoneAccountExists) {
+            if (!guestPassword) {
+              setErrorMessage('Bu numarayla kayıtlı bir hesabınız var, şifrenizi girerek devam edin.');
+              setIsProcessing(false);
+              return;
+            }
+          } else {
+            if (guestPassword.length < 8) {
+              setErrorMessage('Hesap şifreniz en az 8 karakterden oluşmalıdır.');
+              setIsProcessing(false);
+              return;
+            }
+            if (guestPassword !== guestPasswordConfirm) {
+              setErrorMessage('Belirlediğiniz şifreler birbiriyle eşleşmiyor.');
+              setIsProcessing(false);
+              return;
+            }
+          }
+        }
+
         const subscriptionResponse = await fetch('/api/subscriptions/create', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             planId: subscriptionItem.subscriptionPlanId,
             planTierId: subscriptionItem.subscriptionTierId,
+            phone: formData.phone,
+            password: guestPassword,
+            email: formData.email.trim() || undefined,
+            guestName: `${formData.firstName} ${formData.lastName}`.trim(),
+            acceptedTerms,
           }),
         });
         const subscriptionData = await subscriptionResponse.json();
@@ -675,7 +746,7 @@ export default function CheckoutPage() {
                 <div className="grid grid-cols-2 gap-4 mb-4">
                   <div>
                     <label className="block text-xs font-bold uppercase text-corp-gray mb-1.5">
-                      E-posta
+                      {hasSubscription ? "E-posta (önerilir: fatura bildirimi ve şifre sıfırlama için)" : "E-posta"}
                     </label>
                     <input
                       type="email"
@@ -694,12 +765,95 @@ export default function CheckoutPage() {
                       type="tel"
                       placeholder="05XXXXXXXXX"
                       value={formData.phone}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, phone: e.target.value }))}
-                      onBlur={() => saveAbandonedCartSnapshot()}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setFormData((prev) => ({ ...prev, phone: val }));
+                        checkPhoneRegistered(val);
+                      }}
+                      onBlur={() => {
+                        saveAbandonedCartSnapshot();
+                        checkPhoneRegistered(formData.phone);
+                      }}
                       className="w-full px-4 py-3 rounded-lg border border-corp-border focus:ring-2 focus:ring-corp-teal focus:border-corp-teal text-sm"
                     />
                   </div>
                 </div>
+
+                {/* ── Hesap Bilgileri Kutusu (Yalnızca sepette abonelik var ve kullanıcı giriş yapmamışsa) ── */}
+                {hasSubscription && !isAuthenticated && (
+                  <div className="mb-6 p-4 sm:p-5 rounded-2xl bg-slate-50 border border-slate-200 shadow-sm space-y-4">
+                    <div className="flex items-center gap-2 pb-2 border-b border-slate-200">
+                      <Lock size={16} className="text-corp-teal" />
+                      <h3 className="font-display text-sm font-bold text-corp-charcoal">
+                        Hesap Bilgileri
+                      </h3>
+                    </div>
+
+                    {phoneAccountExists ? (
+                      <div className="space-y-3">
+                        <div className="p-3 rounded-xl bg-blue-50 border border-blue-200 text-xs text-blue-900 font-medium">
+                          Bu numarayla kayıtlı bir hesabınız var, şifrenizi girerek devam edin.
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold uppercase text-corp-gray mb-1.5">
+                            Hesap Şifreniz <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            required
+                            type="password"
+                            placeholder="Mevcut hesabınızın şifresi"
+                            value={guestPassword}
+                            onChange={(e) => setGuestPassword(e.target.value)}
+                            className="w-full px-4 py-3 rounded-lg border border-corp-border bg-white focus:ring-2 focus:ring-corp-teal focus:border-corp-teal text-sm"
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-xs font-bold uppercase text-corp-gray mb-1.5">
+                              Şifre Belirleyin <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              required
+                              type="password"
+                              placeholder="En az 8 karakter"
+                              value={guestPassword}
+                              onChange={(e) => setGuestPassword(e.target.value)}
+                              className="w-full px-4 py-3 rounded-lg border border-corp-border bg-white focus:ring-2 focus:ring-corp-teal focus:border-corp-teal text-sm"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold uppercase text-corp-gray mb-1.5">
+                              Şifre Tekrar <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              required
+                              type="password"
+                              placeholder="Şifreyi tekrar girin"
+                              value={guestPasswordConfirm}
+                              onChange={(e) => setGuestPasswordConfirm(e.target.value)}
+                              className="w-full px-4 py-3 rounded-lg border border-corp-border bg-white focus:ring-2 focus:ring-corp-teal focus:border-corp-teal text-sm"
+                            />
+                          </div>
+                        </div>
+
+                        <p className="text-xs text-corp-gray leading-relaxed bg-white/70 p-3 rounded-xl border border-slate-200/60">
+                          Hesabınız bu telefon numarası ve şifrenizle oluşturulur. Hizmetinizi güvenle yönetebilmeniz için e-posta adresinizi eklemenizi ve doğrulanmış bir üyelik oluşturmanızı öneririz.{' '}
+                          <a
+                            href="/auth"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-corp-teal font-semibold hover:underline inline-flex items-center gap-1"
+                          >
+                            Üyelik sayfası <span aria-hidden="true">↗</span>
+                          </a>
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* İletişim & Hatırlatma İzni Checkbox */}
                 <div className="mb-4">
@@ -918,10 +1072,45 @@ export default function CheckoutPage() {
                   </span>
                 </div>
 
+                {/* ── Zorunlu Abonelik & KVKK Onay Kutusu ── */}
+                {hasSubscription && (
+                  <div className="mb-4">
+                    <label className="flex items-start gap-2.5 p-3 rounded-xl bg-corp-surface border border-corp-border/80 cursor-pointer select-none">
+                      <input
+                        required
+                        type="checkbox"
+                        checked={acceptedTerms}
+                        onChange={(e) => setAcceptedTerms(e.target.checked)}
+                        className="mt-0.5 rounded border-corp-border text-corp-teal focus:ring-corp-teal"
+                      />
+                      <span className="text-xs text-corp-charcoal leading-relaxed font-body">
+                        <Link
+                          href="/terms"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-corp-teal font-semibold underline"
+                        >
+                          Abonelik koşullarını
+                        </Link>{' '}
+                        ve{' '}
+                        <Link
+                          href="/kvkk"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-corp-teal font-semibold underline"
+                        >
+                          KVKK aydınlatma metnini
+                        </Link>{' '}
+                        okudum, kabul ediyorum.
+                      </span>
+                    </label>
+                  </div>
+                )}
+
                 <button
                   type="submit"
                   form="checkout-form"
-                  disabled={isProcessing || items.length === 0}
+                  disabled={isProcessing || items.length === 0 || (hasSubscription && !acceptedTerms)}
                   className="w-full bg-corp-teal text-white py-4 rounded-xl font-display font-bold text-lg hover:bg-corp-teal-600 transition-all shadow-corp-hover disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none flex items-center justify-center gap-2 cursor-pointer"
                 >
                   {isProcessing ? (

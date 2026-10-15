@@ -38,7 +38,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://www.cicekanatechmedia.com'),
   title: 'Çiçekana — Daha Fazlasını Hak Edenler İçin',
   description: 'Çiçekana Teknoloji ve Medya Hizmetleri — Microsoft, THY ve Casper gibi devlerle çalışmış ekip ile markanızı zirveye taşıyoruz.',
   icons: {

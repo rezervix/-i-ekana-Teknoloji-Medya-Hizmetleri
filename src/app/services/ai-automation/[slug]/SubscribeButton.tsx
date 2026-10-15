@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useCartStore } from "@/store/useCartStore";
 
-export default function SubscribeButton({ planId, planTierId, planName, tierName, price, image }: { planId: string; planTierId?: string; planName: string; tierName: string; price: number; image?: string | null }) {
+export default function SubscribeButton({ planId, planTierId, planName, tierName, price, image, buttonText }: { planId: string; planTierId?: string; planName: string; tierName: string; price: number; image?: string | null; buttonText?: string }) {
   const { status } = useSession();
   const addItem = useCartStore((state) => state.addItem);
   const router = useRouter();
@@ -14,12 +14,17 @@ export default function SubscribeButton({ planId, planTierId, planName, tierName
   const [error, setError] = useState("");
 
   function subscribe() {
-    if (status === "loading") return;
-    if (status !== "authenticated") {
-      void signIn(undefined, { callbackUrl: window.location.href });
-      return;
-    }
-    addItem({ productId: planTierId || planId, itemType: "subscription", subscriptionPlanId: planId, subscriptionTierId: planTierId, name: `${planName} - ${tierName}`, price, quantity: 1, image: image || "https://placehold.co/160x160?text=Plan", category: "subscription" });
+    addItem({
+      productId: planTierId || planId,
+      itemType: "subscription",
+      subscriptionPlanId: planId,
+      subscriptionTierId: planTierId,
+      name: `${planName} - ${tierName}`,
+      price,
+      quantity: 1,
+      image: image || "https://placehold.co/160x160?text=Plan",
+      category: "subscription",
+    });
     router.push("/magaza/odeme");
   }
 
@@ -51,5 +56,5 @@ export default function SubscribeButton({ planId, planTierId, planName, tierName
     }
   }
 
-  return <div className="flex flex-col gap-3"><Button size="lg" onClick={subscribe} disabled={loading || status === "loading"}>{loading ? "Sepete ekleniyor…" : "Sepete Ekle"}</Button>{error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}</div>;
+  return <div className="flex flex-col gap-3"><Button size="lg" onClick={subscribe} disabled={loading || status === "loading"}>{loading ? "Sepete ekleniyor…" : (buttonText || "Aboneliği Başlat")}</Button>{error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}</div>;
 }
