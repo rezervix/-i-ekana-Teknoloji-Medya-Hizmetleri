@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { auth } from '@/lib/auth';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
-import { sendOrderConfirmationEmail } from '@/lib/email';
+import { sendOrderPendingPaymentEmail } from '@/lib/email';
 
 const ProductCategory = {
   Medya: 'Medya',
@@ -211,17 +211,11 @@ export async function POST(req: NextRequest) {
             throw new Error(`PRODUCT_UNAVAILABLE:${rawProductId}`);
           }
 
-          // 1. Stok Kontrolü ve Atomik Stok Düşümü
+          // 1. Stok Kontrolü (Stok düşümü ödeme başarıyla onaylandığında webhook/onay aşamasında yapılır)
           if (product.stock !== null && product.stock !== undefined) {
             if (product.stock < item.quantity) {
               throw new Error(`INSUFFICIENT_STOCK:${product.name} için yetersiz stok. Mevcut: ${product.stock}, Talep: ${item.quantity}`);
             }
-            await tx.product.update({
-              where: { id: product.id },
-              data: {
-                stock: { decrement: item.quantity },
-              },
-            });
           }
 
           // 2. Fiyat Doğrulama (Frontend manipülasyonuna karşı güvenli hesaplama)
@@ -241,7 +235,7 @@ export async function POST(req: NextRequest) {
         const safeDiscount = Math.min(Math.max(0, Number(discountAmount) || 0), calculatedSubtotal);
         const calculatedFinal = Math.max(0, calculatedSubtotal - safeDiscount);
 
-        // 3. Sipariş Kaydının Oluşturulması
+        // 3. Sipariş Kaydının Oluşturulması (PENDING durumunda)
         const newOrder = await tx.order.create({
           data: {
             orderNumber,
@@ -305,17 +299,28 @@ export async function POST(req: NextRequest) {
       throw txError;
     }
 
-    if (customerEmail) {
+    // ── E-Posta Bildirimi Kuralları ──────────────────────────────────────────
+    // Kredi kartı / online ödemelerde "Siparişiniz Alındı" onay e-postası ASLA burada
+    // gönderilmez! Onay e-postası yalnızca PayTR webhook/callback ödemesi başarıyla
+    // doğrulandığında tetiklenir.
+    // Havale/EFT seçilmişse müşteri bilgilendirmesi amacıyla yalnızca hesap bilgilerini
+    // içeren "Ödeme Bekleniyor" şablonu iletilir.
+    const isEftOrBankTransfer =
+      paymentMethod === 'eft' ||
+      paymentMethod === 'bank_transfer' ||
+      paymentMethod === 'havale';
+
+    if (isEftOrBankTransfer && customerEmail) {
       try {
-        await sendOrderConfirmationEmail({
+        await sendOrderPendingPaymentEmail({
           to: customerEmail,
           orderNumber: order.orderNumber,
           customerName: customerName,
           customerType,
-          finalAmount,
+          finalAmount: order.finalAmount,
         });
       } catch (mailErr) {
-        console.warn('[ORDER_EMAIL_WARNING] Could not send confirmation email:', mailErr);
+        console.warn('[ORDER_PENDING_EMAIL_WARNING] Could not send pending payment email:', mailErr);
       }
     }
 
@@ -323,31 +328,40 @@ export async function POST(req: NextRequest) {
       event: 'ORDER_CREATED',
       userId: authenticatedUserId || undefined,
       email: customerEmail || undefined,
-      details: { orderId: order.id, orderNumber: order.orderNumber, finalAmount },
+      details: {
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        finalAmount: order.finalAmount,
+        paymentMethod,
+        paymentStatus: 'PENDING',
+      },
     });
 
-    // Terk edilen sepet dönüşümü (Geri kazanım kaydı)
-    try {
-      const orFilters: any[] = [];
-      if (customerEmail) orFilters.push({ email: customerEmail.toLowerCase() });
-      if (shippingAddress?.phone) orFilters.push({ phone: shippingAddress.phone });
-      if (authenticatedUserId) orFilters.push({ userId: authenticatedUserId });
+    // Havale/EFT için sipariş oluşturulduğunda sepeti dönüştür;
+    // Kredi kartı/online ödemelerde ise terk edilen sepet dönüşümü PayTR callback'te başarılı ödeme anında yapılır.
+    if (isEftOrBankTransfer) {
+      try {
+        const orFilters: any[] = [];
+        if (customerEmail) orFilters.push({ email: customerEmail.toLowerCase() });
+        if (shippingAddress?.phone) orFilters.push({ phone: shippingAddress.phone });
+        if (authenticatedUserId) orFilters.push({ userId: authenticatedUserId });
 
-      if (orFilters.length > 0) {
-        await prisma.cartAbandonmentLog.updateMany({
-          where: {
-            OR: orFilters,
-            converted: false,
-          },
-          data: {
-            converted: true,
-            recoveredAt: new Date(),
-            status: 'RECOVERED',
-          },
-        });
+        if (orFilters.length > 0) {
+          await prisma.cartAbandonmentLog.updateMany({
+            where: {
+              OR: orFilters,
+              converted: false,
+            },
+            data: {
+              converted: true,
+              recoveredAt: new Date(),
+              status: 'RECOVERED',
+            },
+          });
+        }
+      } catch (convErr) {
+        console.warn('[ORDER_CONVERT_WARNING]', convErr);
       }
-    } catch (convErr) {
-      console.warn('[ORDER_CONVERT_WARNING]', convErr);
     }
 
     return NextResponse.json({

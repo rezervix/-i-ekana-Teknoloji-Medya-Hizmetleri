@@ -1,8 +1,11 @@
 import { NextRequest } from 'next/server';
 import crypto from 'node:crypto';
 import { prisma } from '@/lib/prisma';
-import { logger } from '@/lib/logger';
-import { sendSubscriptionStartedEmail, sendAdminSubscriptionAlertEmail } from '@/lib/email';
+import {
+  sendSubscriptionStartedEmail,
+  sendAdminSubscriptionAlertEmail,
+  sendOrderConfirmationEmail,
+} from '@/lib/email';
 
 function hash(value: string, key: string) {
   return crypto.createHmac('sha256', key).update(value).digest('base64');
@@ -204,7 +207,7 @@ export async function POST(request: NextRequest) {
           { orderNumber: merchantOid },
         ],
       },
-      include: { items: true },
+      include: { items: true, user: true },
     });
     if (!order) {
       logger.error({
@@ -236,6 +239,102 @@ export async function POST(request: NextRequest) {
         event: 'PAYTR_PAYMENT_COMPLETED',
         details: { merchantOid, originalOrderId, orderId: order.id, orderNumber: order.orderNumber, updated },
       });
+
+      // ── Sipariş Onay E-postası ve Dönüşüm (Yalnızca ödeme kesinleştiğinde & idempotent) ──
+      if (updated) {
+        const customerEmail =
+          order.guestEmail?.trim() ||
+          order.user?.email?.trim() ||
+          null;
+        const customerName =
+          order.guestName?.trim() ||
+          order.user?.name?.trim() ||
+          'Değerli Müşterimiz';
+
+        if (customerEmail) {
+          // Idempotency kontrolü: Bu sipariş için daha önce onay e-postası iletildi mi?
+          const emailLogKey = `order_confirmation_${order.id}`;
+          try {
+            const alreadySent = await prisma.emailLog.findFirst({
+              where: {
+                templateId: emailLogKey,
+                status: 'sent',
+              },
+            });
+
+            if (!alreadySent) {
+              const emailSuccess = await sendOrderConfirmationEmail({
+                to: customerEmail,
+                orderNumber: order.orderNumber,
+                customerName,
+                customerType: order.customerType,
+                finalAmount: order.finalAmount,
+              });
+
+              if (emailSuccess) {
+                await prisma.emailLog.create({
+                  data: {
+                    recipient: customerEmail,
+                    subject: `Siparişiniz Alındı — #${order.orderNumber} — Çiçekana Teknoloji & Medya`,
+                    templateId: emailLogKey,
+                    status: 'sent',
+                  },
+                });
+                logger.info({
+                  event: 'ORDER_CONFIRMATION_EMAIL_SENT',
+                  details: {
+                    orderId: order.id,
+                    orderNumber: order.orderNumber,
+                    recipient: customerEmail,
+                  },
+                });
+              }
+            } else {
+              logger.info({
+                event: 'ORDER_CONFIRMATION_EMAIL_ALREADY_SENT',
+                details: { orderId: order.id, orderNumber: order.orderNumber },
+              });
+            }
+          } catch (mailErr) {
+            logger.error({
+              event: 'ORDER_CONFIRMATION_EMAIL_ERROR',
+              details: {
+                orderId: order.id,
+                orderNumber: order.orderNumber,
+                error: mailErr instanceof Error ? mailErr.message : String(mailErr),
+              },
+            });
+          }
+        }
+
+        // Terk edilen sepet dönüşümü (Gerçekleşen başarılı ödeme anında)
+        try {
+          const orFilters: any[] = [];
+          if (customerEmail) orFilters.push({ email: customerEmail.toLowerCase() });
+          const shippingAddress = order.shippingAddress as any;
+          if (shippingAddress?.phone) orFilters.push({ phone: shippingAddress.phone });
+          if (order.userId) orFilters.push({ userId: order.userId });
+
+          if (orFilters.length > 0) {
+            await prisma.cartAbandonmentLog.updateMany({
+              where: {
+                OR: orFilters,
+                converted: false,
+              },
+              data: {
+                converted: true,
+                recoveredAt: new Date(),
+                status: 'RECOVERED',
+              },
+            });
+          }
+        } catch (convErr) {
+          logger.warn({
+            event: 'CART_ABANDONMENT_CONVERSION_ERROR',
+            details: { error: String(convErr) },
+          });
+        }
+      }
     } else if (status === 'failed') {
       await prisma.order.updateMany({
         where: { id: order.id, paymentStatus: 'PENDING' },

@@ -2,15 +2,28 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { z } from "zod";
+import { sendOrderConfirmationEmail } from "@/lib/email";
 
-// ── Zod schema for status & archive update ───────────────────────────────────
-const PatchSchema = z.object({
-  status: z.enum(["PENDING", "CONFIRMED", "PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED"]).optional(),
-  invoiceStatus: z.enum(["NOT_REQUIRED", "PENDING", "SENT"]).optional(),
-  archived: z.boolean().optional(),
-}).refine(data => data.status !== undefined || data.invoiceStatus !== undefined || data.archived !== undefined, {
-  message: "En az bir güncellenecek alan belirtilmelidir.",
-});
+// ── Zod schema for status, paymentStatus & archive update ───────────────────
+const PatchSchema = z
+  .object({
+    status: z
+      .enum(["PENDING", "CONFIRMED", "PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED"])
+      .optional(),
+    paymentStatus: z.enum(["PENDING", "COMPLETED", "FAILED"]).optional(),
+    invoiceStatus: z.enum(["NOT_REQUIRED", "PENDING", "SENT"]).optional(),
+    archived: z.boolean().optional(),
+  })
+  .refine(
+    (data) =>
+      data.status !== undefined ||
+      data.paymentStatus !== undefined ||
+      data.invoiceStatus !== undefined ||
+      data.archived !== undefined,
+    {
+      message: "En az bir güncellenecek alan belirtilmelidir.",
+    }
+  );
 
 export async function PATCH(
   req: Request,
@@ -59,8 +72,11 @@ export async function PATCH(
   }
 
   try {
-    // Verify order exists first
-    const existing = await prisma.order.findUnique({ where: { id: orderId }, select: { id: true } });
+    // Verify order exists first with items and user
+    const existing = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: { items: true, user: true },
+    });
     if (!existing) {
       return NextResponse.json(
         { success: false, error: { code: "NOT_FOUND", message: "Sipariş bulunamadı" } },
@@ -72,12 +88,37 @@ export async function PATCH(
     if (parsed.data.status !== undefined) {
       dataToUpdate.status = parsed.data.status;
     }
+    if (parsed.data.paymentStatus !== undefined) {
+      dataToUpdate.paymentStatus = parsed.data.paymentStatus;
+    }
     if (parsed.data.invoiceStatus !== undefined) {
       dataToUpdate.invoiceStatus = parsed.data.invoiceStatus;
     }
     if (parsed.data.archived !== undefined) {
       // Arşivleme ASLA stoğu, ödeme durumunu veya sipariş durumunu değiştirmez.
       dataToUpdate.archivedAt = parsed.data.archived ? new Date() : null;
+    }
+
+    // Havale/EFT veya manuel sipariş yönetici tarafından onaylandığında / ödendiğinde
+    const isBecomingConfirmedOrPaid =
+      existing.paymentStatus !== "COMPLETED" &&
+      (parsed.data.paymentStatus === "COMPLETED" ||
+        parsed.data.status === "CONFIRMED" ||
+        parsed.data.status === "PROCESSING");
+
+    if (isBecomingConfirmedOrPaid) {
+      dataToUpdate.paymentStatus = "COMPLETED";
+      if (!dataToUpdate.status && existing.status === "PENDING") {
+        dataToUpdate.status = "CONFIRMED";
+      }
+
+      // Stok düşümü (daha önce düşülmediyse)
+      for (const item of existing.items) {
+        await prisma.product.updateMany({
+          where: { id: item.productId, stock: { not: null } },
+          data: { stock: { decrement: item.quantity } },
+        });
+      }
     }
 
     const order = await prisma.order.update({
@@ -87,6 +128,7 @@ export async function PATCH(
         id: true,
         orderNumber: true,
         status: true,
+        paymentStatus: true,
         invoiceStatus: true,
         archivedAt: true,
         updatedAt: true,
@@ -98,6 +140,50 @@ export async function PATCH(
       updates: dataToUpdate,
       timestamp: new Date().toISOString(),
     });
+
+    // Eğer sipariş yeni onaylandıysa ve onay e-postası gitmediyse gönder (Idempotent)
+    if (isBecomingConfirmedOrPaid) {
+      const customerEmail =
+        existing.guestEmail?.trim() || existing.user?.email?.trim() || null;
+      const customerName =
+        existing.guestName?.trim() || existing.user?.name?.trim() || "Değerli Müşterimiz";
+
+      if (customerEmail) {
+        const emailLogKey = `order_confirmation_${existing.id}`;
+        try {
+          const alreadySent = await prisma.emailLog.findFirst({
+            where: { templateId: emailLogKey, status: "sent" },
+          });
+
+          if (!alreadySent) {
+            const emailSuccess = await sendOrderConfirmationEmail({
+              to: customerEmail,
+              orderNumber: existing.orderNumber,
+              customerName,
+              customerType: existing.customerType,
+              finalAmount: existing.finalAmount,
+            });
+
+            if (emailSuccess) {
+              await prisma.emailLog.create({
+                data: {
+                  recipient: customerEmail,
+                  subject: `Siparişiniz Alındı — #${existing.orderNumber} — Çiçekana Teknoloji & Medya`,
+                  templateId: emailLogKey,
+                  status: "sent",
+                },
+              });
+              console.info("[orders/PATCH] Onay e-postası gönderildi:", {
+                orderId: existing.id,
+                email: customerEmail,
+              });
+            }
+          }
+        } catch (mailErr) {
+          console.error("[orders/PATCH] E-posta gönderme hatası:", mailErr);
+        }
+      }
+    }
 
     return NextResponse.json({ success: true, data: order });
   } catch (error) {

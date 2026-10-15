@@ -347,8 +347,8 @@ export async function sendOrderConfirmationEmail(params: {
     console.log(`Order Number: ${orderNumber}`);
     console.log(`Customer: ${customerName} (${customerType || "INDIVIDUAL"})`);
     console.log(`Amount: ${finalAmount} TL`);
+    console.log(`Payment Status: ONAYLANDI / COMPLETED`);
     console.log(`Support Link: ${supportLink}`);
-    console.log(`Notice: Şu anda siparişleriniz için fatura düzenleyemiyoruz...`);
     console.log(`==========================================\n`);
     return true;
   }
@@ -367,13 +367,17 @@ export async function sendOrderConfirmationEmail(params: {
           <h1 style="color: #0f2734; margin: 0; font-size: 24px; font-weight: 700;">ÇİÇEKANA TEKNOLOJİ & MEDYA</h1>
         </div>
         <div style="background-color: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+          <div style="display: inline-block; padding: 6px 12px; background-color: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 9999px; margin-bottom: 16px;">
+            <span style="color: #047857; font-size: 12px; font-weight: 700;">✓ Ödeme Onaylandı</span>
+          </div>
           <h2 style="font-size: 20px; font-weight: 600; color: #111827; margin: 0 0 16px 0;">Sayın ${customerName},</h2>
           <p style="font-size: 15px; color: #4b5563; line-height: 1.6; margin: 0 0 16px 0;">
-            #<strong>${orderNumber}</strong> numaralı siparişiniz başarıyla alınmıştır.
+            #<strong>${orderNumber}</strong> numaralı siparişinizin ödemesi başarıyla alınmış ve onaylanmıştır. Siparişiniz hazırlık aşamasına iletilmiştir.
           </p>
           <div style="background-color: #f9fafb; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
             <p style="margin: 0 0 8px 0; font-size: 14px; color: #374151;"><strong>Müşteri Tipi:</strong> ${customerType === "CORPORATE" ? "Kurumsal" : "Bireysel"}</p>
-            <p style="margin: 0; font-size: 14px; color: #374151;"><strong>Toplam Tutar:</strong> ${finalAmount.toLocaleString("tr-TR")} TL</p>
+            <p style="margin: 0 0 8px 0; font-size: 14px; color: #374151;"><strong>Toplam Tutar:</strong> ${finalAmount.toLocaleString("tr-TR")} TL</p>
+            <p style="margin: 0; font-size: 14px; color: #047857;"><strong>Ödeme Durumu:</strong> Başarılı (Tahsil Edildi)</p>
           </div>
 
           ${noticeHtml}
@@ -422,6 +426,127 @@ export async function sendOrderConfirmationEmail(params: {
       return true;
     } catch (error) {
       console.error("[sendOrderConfirmationEmail SMTP Error]", error);
+    }
+  }
+
+  return false;
+}
+
+export async function sendOrderPendingPaymentEmail(params: {
+  to: string;
+  orderNumber: string;
+  customerName: string;
+  customerType?: string;
+  finalAmount: number;
+  bankDetails?: {
+    bankName?: string;
+    accountHolder?: string;
+    iban?: string;
+  };
+}): Promise<boolean> {
+  const { to, orderNumber, customerName, customerType, finalAmount, bankDetails } = params;
+  const config = getEmailConfig();
+  const supportLink = `${config.appUrl}/profile?tab=support`;
+
+  const bankName = bankDetails?.bankName || process.env.BANK_NAME || "Ziraat Bankası";
+  const accountHolder = bankDetails?.accountHolder || process.env.BANK_ACCOUNT_HOLDER || "Çiçekana Teknoloji ve Medya Hizmetleri";
+  const iban = bankDetails?.iban || process.env.BANK_IBAN || "TR00 0000 0000 0000 0000 00";
+
+  // Dev / Demo fallback if SMTP password not provided and no Resend
+  if (!config.smtpPass && !config.resendApiKey) {
+    console.log(`\n==========================================`);
+    console.log(`[ORDER PENDING PAYMENT EMAIL DEMO/DEV MODE]`);
+    console.log(`To: ${to}`);
+    console.log(`Order Number: ${orderNumber}`);
+    console.log(`Customer: ${customerName} (${customerType || "INDIVIDUAL"})`);
+    console.log(`Amount: ${finalAmount} TL`);
+    console.log(`Payment Method: Havale / EFT (Ödeme Bekleniyor)`);
+    console.log(`Bank: ${bankName} - IBAN: ${iban} - Alıcı: ${accountHolder}`);
+    console.log(`==========================================\n`);
+    return true;
+  }
+
+  const html = `
+    <!DOCTYPE html>
+    <html lang="tr">
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Siparişiniz Oluşturuldu (Ödeme Bekleniyor)</title>
+    </head>
+    <body style="margin: 0; padding: 0; background-color: #fafafa; font-family: 'Inter', Arial, sans-serif;">
+      <div style="width: 100%; max-width: 600px; margin: 0 auto; padding: 40px 16px;">
+        <div style="text-align: center; padding: 20px 0;">
+          <h1 style="color: #0f2734; margin: 0; font-size: 24px; font-weight: 700;">ÇİÇEKANA TEKNOLOJİ & MEDYA</h1>
+        </div>
+        <div style="background-color: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+          <div style="display: inline-block; padding: 6px 12px; background-color: #fef3c7; border: 1px solid #fde68a; border-radius: 9999px; margin-bottom: 16px;">
+            <span style="color: #b45309; font-size: 12px; font-weight: 700;">⏳ Havale / EFT Ödemesi Bekleniyor</span>
+          </div>
+          <h2 style="font-size: 20px; font-weight: 600; color: #111827; margin: 0 0 16px 0;">Sayın ${customerName},</h2>
+          <p style="font-size: 15px; color: #4b5563; line-height: 1.6; margin: 0 0 16px 0;">
+            #<strong>${orderNumber}</strong> numaralı siparişiniz oluşturulmuştur. Siparişinizin onaylanıp işleme alınabilmesi için lütfen belirtilen tutarı aşağıdaki banka hesabımıza havale/EFT olarak iletiniz.
+          </p>
+          <div style="background-color: #f9fafb; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+            <p style="margin: 0 0 8px 0; font-size: 14px; color: #374151;"><strong>Müşteri Tipi:</strong> ${customerType === "CORPORATE" ? "Kurumsal" : "Bireysel"}</p>
+            <p style="margin: 0 0 8px 0; font-size: 14px; color: #374151;"><strong>Ödenecek Tutar:</strong> ${finalAmount.toLocaleString("tr-TR")} TL</p>
+            <p style="margin: 0; font-size: 14px; color: #b45309;"><strong>Durum:</strong> Havale / EFT Bekleniyor</p>
+          </div>
+
+          <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 18px; margin-bottom: 20px;">
+            <h3 style="margin: 0 0 10px 0; color: #166534; font-size: 15px; font-weight: 700;">Banka Hesap Bilgileri</h3>
+            <p style="margin: 0 0 6px 0; font-size: 13px; color: #15803d;"><strong>Banka:</strong> ${bankName}</p>
+            <p style="margin: 0 0 6px 0; font-size: 13px; color: #15803d;"><strong>Alıcı Ünvanı:</strong> ${accountHolder}</p>
+            <p style="margin: 0 0 6px 0; font-size: 13px; color: #15803d;"><strong>IBAN:</strong> <span style="font-family: monospace; font-size: 14px; font-weight: bold;">${iban}</span></p>
+            <p style="margin: 8px 0 0 0; font-size: 12px; color: #166534; line-height: 1.4; border-top: 1px dashed #86efac; padding-top: 8px;">
+              ⚠️ <strong>Önemli:</strong> Lütfen transfer açıklama kısmına yalnızca <strong>#${orderNumber}</strong> sipariş numaranızı yazınız. Ödemeniz onaylandığında sipariş onay e-postası iletilecektir.
+            </p>
+          </div>
+
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${config.appUrl}/profile?tab=orders" style="display: inline-block; background-color: #0f766e; color: #ffffff; font-weight: bold; font-size: 14px; padding: 12px 24px; border-radius: 6px; text-decoration: none;">
+              Siparişimi Görüntüle
+            </a>
+          </div>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  // 1. Try Resend
+  if (config.resendApiKey) {
+    try {
+      const resend = new Resend(config.resendApiKey);
+      const { data, error } = await resend.emails.send({
+        from: config.fromEmail,
+        to: [to],
+        subject: `Siparişiniz Oluşturuldu (Ödeme Bekleniyor) — #${orderNumber} — Çiçekana Teknoloji & Medya`,
+        html,
+      });
+      if (!error && data?.id) {
+        console.log(`[sendOrderPendingPaymentEmail] Sent via Resend to ${to}. MessageId: ${data.id}`);
+        return true;
+      }
+    } catch (err: any) {
+      console.warn(`[sendOrderPendingPaymentEmail] Resend attempt failed (${err?.message}), trying SMTP...`);
+    }
+  }
+
+  // 2. Try SMTP
+  if (config.smtpPass) {
+    try {
+      const transporter = createTransporter(config.smtpHost, config.smtpPort, config.smtpUser, config.smtpPass, config.smtpPort === 465);
+      const info = await transporter.sendMail({
+        from: config.fromEmail,
+        to,
+        subject: `Siparişiniz Oluşturuldu (Ödeme Bekleniyor) — #${orderNumber} — Çiçekana Teknoloji & Medya`,
+        html,
+      });
+      console.log(`[sendOrderPendingPaymentEmail] Sent to ${to}. MessageId: ${info.messageId}`);
+      return true;
+    } catch (error) {
+      console.error("[sendOrderPendingPaymentEmail SMTP Error]", error);
     }
   }
 

@@ -6,6 +6,7 @@ import { auth } from '@/lib/auth';
 import PaymentSuccessClient from './PaymentSuccessClient';
 import OrderTrackingSuccess from '@/components/analytics/OrderTrackingSuccess';
 import type { Metadata } from 'next';
+import { redirect } from 'next/navigation';
 
 export const metadata: Metadata = {
   title: 'Ödeme Başarılı — Çiçekana Teknoloji & Medya',
@@ -39,6 +40,10 @@ export default async function PaymentSuccessPage({
       });
 
       if (dbOrder) {
+        if (dbOrder.paymentStatus === 'FAILED') {
+          redirect(`/magaza/odeme/basarisiz?order=${encodeURIComponent(orderNumber)}`);
+        }
+
         orderData = {
           orderNumber: dbOrder.orderNumber,
           finalAmount: dbOrder.finalAmount,
