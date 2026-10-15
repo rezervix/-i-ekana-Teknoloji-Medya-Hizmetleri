@@ -20,7 +20,7 @@ const services = [
     desc: "Uçtan uca yönetilen e-ticaret altyapısı, sepet kurtarma ve çapraz satış araçları.",
     href: "/e-ticaret",
     badge: null,
-    isActive: false,
+    isActive: true,
   },
 ];
 

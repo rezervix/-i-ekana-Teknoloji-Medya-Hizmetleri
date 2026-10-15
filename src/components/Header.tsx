@@ -11,6 +11,7 @@ import {
   LogOut,
   User,
   BrainCircuit,
+  ShoppingCart,
 } from "lucide-react";
 import { useSession, signOut } from "next-auth/react";
 import CartButton from "./CartButton";
@@ -30,6 +31,12 @@ const BASE_NAV_ITEMS: NavItem[] = [
             description: "CrewAI agent & LLM süreç otomasyonu",
             icon: BrainCircuit,
             link: "/services/ai-automation",
+          },
+          {
+            label: "e-Ticaret",
+            description: "Uçtan uca yönetilen e-ticaret altyapısı",
+            icon: ShoppingCart,
+            link: "/e-ticaret",
           },
         ],
       },

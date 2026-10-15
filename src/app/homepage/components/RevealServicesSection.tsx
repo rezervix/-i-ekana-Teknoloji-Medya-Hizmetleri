@@ -31,7 +31,7 @@ const FALLBACK_SERVICES: Service[] = [
     slug: "e-ticaret",
     revealImage1: null,
     revealImage2: null,
-    isActive: false,
+    isActive: true,
   },
 ];
 

@@ -138,7 +138,7 @@ function PkgCard({ pkg }: { pkg: typeof packages[0] }) {
       </div>
 
       <a
-        href="https://wa.me/90XXXXXXXXXX?text=E-ticaret%20paketi%20sat%C4%B1n%20almak%20istiyorum"
+        href="https://wa.me/905303412156?text=E-ticaret%20paketi%20sat%C4%B1n%20almak%20istiyorum"
         target="_blank"
         rel="noopener noreferrer"
         className="flex items-center justify-center gap-2 py-4 rounded-xl font-body font-bold text-[15px] transition-all hover:-translate-y-0.5 mb-6"
@@ -351,7 +351,7 @@ export default function ETicaretPage() {
               Paketini Seç, Başla <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
             </a>
             <a
-              href="tel:+90XXXXXXXXXX"
+              href="tel:+905303412156"
               className="inline-flex items-center gap-2 px-8 py-4 rounded-md font-body font-semibold text-[15px] text-white border border-white/30 hover:border-white/60 hover:bg-white/10 transition-all duration-200"
             >
               Satış Temsilcisiyle Görüş

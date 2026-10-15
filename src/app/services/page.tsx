@@ -3,7 +3,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { Cpu, Film, Server, BrainCircuit, Shield, TrendingUp, ArrowRight, CheckCircle, Rocket } from "lucide-react";
+import { Cpu, Film, Server, BrainCircuit, Shield, TrendingUp, ArrowRight, CheckCircle, Rocket, ShoppingCart } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Hizmetler — Çiçekana Teknoloji & Medya",
@@ -13,6 +13,7 @@ export const metadata: Metadata = {
 const services = [
   {
     slug: "ai-automation",
+    href: "/services/ai-automation",
     icon: BrainCircuit,
     accent: "#0EA5E9",
     title: "Yapay Zeka & Otomasyon",
@@ -20,7 +21,17 @@ const services = [
     features: ["LLM & RAG entegrasyon", "CrewAI agent pipeline", "İş akışı otomasyonu", "Veri analitiği & raporlama"],
   },
   {
+    slug: "e-ticaret",
+    href: "/e-ticaret",
+    icon: ShoppingCart,
+    accent: "#0A4D68",
+    title: "e-Ticaret Çözümleri",
+    shortDesc: "Uçtan uca yönetilen profesyonel e-ticaret altyapısı, sepet kurtarma ve çapraz satış sistemleri.",
+    features: ["Uçtan uca altyapı yönetimi", "Otomatik sepet kurtarma", "Akıllı çapraz satış kurguları", "Yapay zeka chatbot & SEO"],
+  },
+  {
     slug: "genc-girisimci-destegi",
+    href: "/services/genc-girisimci-destegi",
     icon: Rocket,
     accent: "#E8622A",
     title: "Genç Girişimci Desteği",
@@ -66,7 +77,7 @@ export default function ServicesPage() {
             {services.map((s) => (
               <Link
                 key={s.slug}
-                href={`/services/${s.slug}`}
+                href={s.href || `/services/${s.slug}`}
                 className="corp-service-card group relative flex flex-col gap-6 p-8 rounded-xl border border-corp-border bg-white overflow-hidden"
               >
                 {/* Hover glow */}
