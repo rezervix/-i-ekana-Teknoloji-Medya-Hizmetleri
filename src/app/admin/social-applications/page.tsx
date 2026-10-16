@@ -16,7 +16,7 @@ async function getApplicationsData(): Promise<{
   stats: Record<string, number>;
 }> {
   try {
-    const [applications, countsByStatus, totalCount] = await Promise.all([
+    const [applications, countsByStatus, countsByType, totalCount] = await Promise.all([
       prisma.socialMediaApplication.findMany({
         orderBy: { createdAt: "desc" },
         include: {
@@ -29,11 +29,17 @@ async function getApplicationsData(): Promise<{
         by: ["status"],
         _count: { status: true },
       }),
+      prisma.socialMediaApplication.groupBy({
+        by: ["applicationType"],
+        _count: { applicationType: true },
+      }),
       prisma.socialMediaApplication.count(),
     ]);
 
     const stats: Record<string, number> = {
       TOTAL: totalCount,
+      QUICK: 0,
+      DETAILED: 0,
       NEW: 0,
       REVIEWING: 0,
       CONTACTED: 0,
@@ -46,6 +52,11 @@ async function getApplicationsData(): Promise<{
 
     countsByStatus.forEach((item) => {
       stats[item.status] = item._count.status;
+    });
+
+    countsByType.forEach((item) => {
+      if (item.applicationType === "quick") stats.QUICK = item._count.applicationType;
+      if (item.applicationType === "detailed") stats.DETAILED = item._count.applicationType;
     });
 
     // Serialize dates for Client component
@@ -73,6 +84,8 @@ async function getApplicationsData(): Promise<{
       applications: [],
       stats: {
         TOTAL: 0,
+        QUICK: 0,
+        DETAILED: 0,
         NEW: 0,
         REVIEWING: 0,
         CONTACTED: 0,

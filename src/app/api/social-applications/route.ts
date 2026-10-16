@@ -3,7 +3,11 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Resend } from "resend";
-import { socialApplicationSchema } from "@/types/social-application";
+import {
+  socialApplicationSchema,
+  quickApplicationSchema,
+  normalizeTurkishPhone,
+} from "@/types/social-application";
 
 // In-memory rate limiter: { ip -> [timestamps] }
 const rateLimitMap = new Map<string, number[]>();
@@ -45,13 +49,122 @@ export async function POST(req: NextRequest) {
   }
 
   // 2. Request body parsing
-  let body: unknown;
+  let body: any;
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "Geçersiz istek gövdesi" }, { status: 400 });
   }
 
+  const isQuick = body?.applicationType === "quick";
+  const userAgent = req.headers.get("user-agent") || undefined;
+  const referer = req.headers.get("referer") || undefined;
+
+  // ── BRANCH A: HIZLI BAŞVURU (HERO FORM) ──
+  if (isQuick) {
+    const parsedQuick = quickApplicationSchema.safeParse(body);
+    if (!parsedQuick.success) {
+      const errorDetails = parsedQuick.error.flatten().fieldErrors;
+      const firstErrorMessage =
+        Object.values(errorDetails)[0]?.[0] || "Lütfen telefon numaranızı kontrol ediniz.";
+
+      return NextResponse.json(
+        {
+          error: firstErrorMessage,
+          details: errorDetails,
+        },
+        { status: 422 }
+      );
+    }
+
+    // Honeypot check for bots
+    if (parsedQuick.data.honeypot && parsedQuick.data.honeypot.length > 0) {
+      return NextResponse.json({
+        success: true,
+        applicationNumber: "SMA-BOT-PROCESSED",
+      });
+    }
+
+    const phoneNorm = normalizeTurkishPhone(parsedQuick.data.phone);
+    const cleanPhone = phoneNorm.isValid ? phoneNorm.formatted : parsedQuick.data.phone;
+    const applicationNumber = generateApplicationNumber();
+
+    try {
+      const application = await prisma.socialMediaApplication.create({
+        data: {
+          applicationNumber,
+          applicationType: "quick",
+          phone: cleanPhone,
+          fullName: null,
+          companyName: null,
+          email: null,
+          services: ["Hızlı Başvuru - Ön Görüşme Talebi"],
+          platforms: [],
+          goals: [],
+          monthlyServiceBudget: "15.000 TL ve üzeri (Hızlı Başvuru Teyitli)",
+          monthlyAdSpendBudget: "Görüşmede Belirlenecek",
+          sector: null,
+          budgetConfirmed: true,
+          budgetConfirmedAt: new Date(),
+          kvkkConsent: true,
+          marketingConsent: false,
+          status: "NEW",
+          ipAddress: ip !== "unknown" ? ip : null,
+          userAgent: userAgent ? userAgent.slice(0, 500) : null,
+          landingPage: referer ? referer.slice(0, 500) : "/services/sosyal-medya-reklam-danismanligi#hizli-basvuru",
+        },
+      });
+
+      // Internal admin notification email
+      if (process.env.RESEND_API_KEY) {
+        try {
+          const resend = new Resend(process.env.RESEND_API_KEY);
+          await resend.emails.send({
+            from: "Çiçekana Bildirim <info@cicekanatechmedia.com>",
+            to: "info@cicekanatechmedia.com",
+            subject: `⚡ Yeni Hızlı Başvuru: ${cleanPhone} (${application.applicationNumber})`,
+            html: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;">
+                <h2 style="color: #263d4a; margin-top: 0;">⚡ Yeni Hızlı Başvuru (Hero Section)</h2>
+                <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                  <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold; width: 35%;">Başvuru No</td><td style="padding: 8px; border: 1px solid #ddd;">${application.applicationNumber}</td></tr>
+                  <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Başvuru Türü</td><td style="padding: 8px; border: 1px solid #ddd; color: #0284C7; font-weight: bold;">Hızlı Başvuru (Telefon Talebi)</td></tr>
+                  <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Telefon</td><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold; font-size: 15px;">${cleanPhone}</td></tr>
+                  <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">15.000 TL Bütçe Teyidi</td><td style="padding: 8px; border: 1px solid #ddd; color: green; font-weight: bold;">ONAYLANDI (Zorunlu)</td></tr>
+                  <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Tarih / Saat</td><td style="padding: 8px; border: 1px solid #ddd;">${new Date().toLocaleString("tr-TR")}</td></tr>
+                </table>
+                <div style="margin-top: 24px;">
+                  <a href="https://cicekanatechmedia.com/admin/social-applications" style="background: #263d4a; color: #ffffff; padding: 10px 18px; border-radius: 6px; text-decoration: none; font-size: 13px; font-weight: bold; display: inline-block;">
+                    Admin Panelinde İncele
+                  </a>
+                </div>
+              </div>
+            `,
+          });
+        } catch (emailErr) {
+          console.error("[Quick Application Email Error]:", emailErr);
+        }
+      }
+
+      return NextResponse.json({
+        success: true,
+        applicationNumber: application.applicationNumber,
+        message:
+          "İletişim talebiniz alındı. Başvurunuzu değerlendirdikten sonra sizinle iletişime geçeceğiz.",
+      });
+    } catch (dbErr: any) {
+      console.error("[Quick Application DB Error]:", dbErr);
+      return NextResponse.json(
+        {
+          error:
+            "Başvurunuz kaydedilirken bir hata oluştu. Lütfen telefon numaranızı kontrol edip tekrar deneyiniz.",
+        },
+        { status: 500 }
+      );
+    }
+  }
+
+  // ── BRANCH B: MEVCUT DETAYLI BAŞVURU (UZUN FORM) ──
   // 3. Schema validation
   const parsed = socialApplicationSchema.safeParse(body);
   if (!parsed.success) {
@@ -99,21 +212,21 @@ export async function POST(req: NextRequest) {
     marketingConsent,
   } = parsed.data;
 
-  const userAgent = req.headers.get("user-agent") || undefined;
-  const referer = req.headers.get("referer") || undefined;
-
-  let applicationNumber = generateApplicationNumber();
+  const phoneNorm = normalizeTurkishPhone(phone);
+  const cleanPhone = phoneNorm.isValid ? phoneNorm.formatted : phone;
+  const applicationNumber = generateApplicationNumber();
 
   // 5. Database persistence
   try {
     const application = await prisma.socialMediaApplication.create({
       data: {
         applicationNumber,
+        applicationType: "detailed",
         fullName,
         companyName,
         title: title || null,
         email,
-        phone,
+        phone: cleanPhone,
         website: website || null,
         socialMediaUrl: socialMediaUrl || null,
         sector,

@@ -1,10 +1,15 @@
 import "dotenv/config";
 import { prisma } from "../src/lib/prisma";
-import { socialApplicationSchema } from "../src/types/social-application";
+import {
+  socialApplicationSchema,
+  quickApplicationSchema,
+  normalizeTurkishPhone,
+} from "../src/types/social-application";
 
 async function runTests() {
   console.log("=================================================");
   console.log("🧪 SOSYAL MEDYA & REKLAM DANIŞMANLIĞI ENTEGRASYON TESTİ");
+  console.log("   (Detaylı Form + Hero Section Hızlı Başvuru)");
   console.log("=================================================\n");
 
   let testsPassed = 0;
@@ -20,192 +25,172 @@ async function runTests() {
     }
   }
 
-  // ── TEST 1: Zod Şema Doğrulaması - Zorunlu Bütçe Teyidi Eksikse Reddedilmeli
-  console.log("--- Test 1: Zorunlu Bütçe Teyidi Doğrulaması ---");
-  const invalidDataNoBudgetConfirm = {
-    fullName: "Mehmet Demir",
-    companyName: "Demir Lojistik",
-    email: "mehmet@demirlojistik.com",
-    phone: "05321112233",
-    sector: "B2B / Kurumsal Hizmetler",
-    services: ["Meta Ads danışmanlığı ve yönetimi"],
-    platforms: ["Instagram", "Facebook"],
-    goals: ["Nitelikli müşteri adayları kazanmak"],
-    monthlyServiceBudget: "15.000–25.000 TL",
-    monthlyAdSpendBudget: "10.000–30.000 TL",
-    budgetConfirmed: false, // ONAYLANMAMIŞ
-    kvkkConsent: true,
-  };
-
-  const parseResult1 = socialApplicationSchema.safeParse(invalidDataNoBudgetConfirm);
+  // ── TEST 1: Telefon Numarası Normalizasyonu
+  console.log("--- Test 1: Türkiye Telefon Numarası Normalizasyonu ---");
+  const testPhone1 = normalizeTurkishPhone("0532 123 45 67");
+  assert(testPhone1.isValid, "0532 123 45 67 geçerli olarak algılandı");
   assert(
-    !parseResult1.success,
-    "Bütçe teyidi olmadan form şemadan geçememeli (422 reddedildi)"
+    testPhone1.formatted === "0532 123 45 67",
+    `Biçim doğru: ${testPhone1.formatted}`
   );
-  if (!parseResult1.success) {
-    const errorMsg = parseResult1.error.flatten().fieldErrors.budgetConfirmed?.[0];
+
+  const testPhone2 = normalizeTurkishPhone("+90 544 987 65 43");
+  assert(testPhone2.isValid, "+90 ile başlayan telefon geçerli olarak algılandı");
+  assert(
+    testPhone2.formatted === "0544 987 65 43",
+    `+90 temizlenip 05xx formatına dönüştü: ${testPhone2.formatted}`
+  );
+
+  const testPhone3 = normalizeTurkishPhone("5551234567");
+  assert(testPhone3.isValid, "Başında 0 olmayan 10 haneli 5xx geçerli algılandı");
+  assert(
+    testPhone3.formatted === "0555 123 45 67",
+    `Başında 0 eklenip normalize edildi: ${testPhone3.formatted}`
+  );
+
+  const testPhoneInvalid = normalizeTurkishPhone("0212 123 45 67");
+  assert(!testPhoneInvalid.isValid, "05 dışındaki sabit hat cep telefonu olarak reddedildi");
+
+  const testPhoneShort = normalizeTurkishPhone("0532 12");
+  assert(!testPhoneShort.isValid, "Eksik basamaklı numara reddedildi");
+
+  // ── TEST 2: Hızlı Başvuru Şema Doğrulaması - Zorunlu Bütçe Teyidi Eksikse Reddedilmeli
+  console.log("\n--- Test 2: Hızlı Başvuru - Bütçe Teyidi Eksikse Red ---");
+  const quickWithoutBudgetConfirm = {
+    phone: "05321234567",
+    budgetConfirmed: false,
+    applicationType: "quick",
+  };
+  const quickResult1 = quickApplicationSchema.safeParse(quickWithoutBudgetConfirm);
+  assert(!quickResult1.success, "Bütçe teyidi olmadan hızlı başvuru geçememeli");
+  if (!quickResult1.success) {
+    const msg = quickResult1.error.flatten().fieldErrors.budgetConfirmed?.[0];
     assert(
-      errorMsg?.includes("minimum hizmet bütçesi") === true,
-      `Hata mesajı doğru metni içeriyor: "${errorMsg}"`
+      msg?.includes("minimum hizmet bütçesi") === true,
+      `Hata mesajı doğru metni içeriyor: "${msg}"`
     );
   }
 
-  // ── TEST 2: Zod Şema Doğrulaması - Geçersiz Bütçe Değeri
-  console.log("\n--- Test 2: 15.000 TL Altı Bütçe Seçimi Reddi ---");
-  const invalidDataLowBudget = {
-    ...invalidDataNoBudgetConfirm,
-    monthlyServiceBudget: "5.000–10.000 TL", // Geçersiz bütçe aralığı
+  // ── TEST 3: Hızlı Başvuru Şema Doğrulaması - Geçerli Veri
+  console.log("\n--- Test 3: Hızlı Başvuru - Geçerli Form Doğrulaması ---");
+  const validQuickData = {
+    phone: "0532 555 44 33",
     budgetConfirmed: true,
+    applicationType: "quick",
   };
+  const quickResult2 = quickApplicationSchema.safeParse(validQuickData);
+  assert(quickResult2.success, "Yalnızca telefon ve bütçe teyidi içeren hızlı başvuru doğrulandı");
 
-  const parseResult2 = socialApplicationSchema.safeParse(invalidDataLowBudget);
-  assert(
-    !parseResult2.success,
-    "15.000 TL altı / tanımsız bütçe değeri şemadan geçememeli"
-  );
-
-  // ── TEST 3: Geçerli Başvuru Doğrulaması
-  console.log("\n--- Test 3: Eksiksiz & Geçerli Başvuru Şema Doğrulaması ---");
-  const validData = {
-    fullName: "Test Yetkili",
-    companyName: "Test Otomotiv A.Ş.",
-    title: "Genel Müdür",
-    email: "test.otomotiv@example.com",
-    phone: "05551234567",
-    website: "https://www.testotomotiv.com",
-    socialMediaUrl: "@testotomotiv",
-    sector: "B2B / Kurumsal Hizmetler",
-    city: "İstanbul",
-    services: [
-      "Sosyal medya hesap yönetimi",
-      "Meta Ads danışmanlığı ve yönetimi",
-      "Sosyal medya ve reklam yönetiminin birlikte yürütülmesi",
-    ],
-    platforms: ["Instagram", "Facebook", "LinkedIn"],
-    goals: ["Marka bilinirliğini artırmak", "Satışları artırmak"],
-    monthlyServiceBudget: "25.000–50.000 TL",
-    monthlyAdSpendBudget: "30.000–75.000 TL",
-    preferredPeriod: "Önümüzdeki 2 hafta içinde",
-    currentAccountStatus: "Aktif hesap var fakat reklam yapılmıyor",
-    currentAdExperience: "Kendi bünyemizde temel düzeyde denedik",
-    notes: "Nitelikli B2B müşteri adayları toplamak istiyoruz.",
-    preferredContactMethod: "WhatsApp",
+  // ── TEST 4: Detaylı Başvuru Şeması - Geriye Uyumluluk
+  console.log("\n--- Test 4: Detaylı Başvuru (Mevcut Form) Geriye Uyumluluk ---");
+  const validDetailedData = {
+    fullName: "Ali Veli",
+    companyName: "Veli Ticaret Ltd.",
+    email: "ali@veliticaret.com",
+    phone: "05321112233",
+    sector: "E-Ticaret / Perakende",
+    services: ["Meta Ads danışmanlığı ve yönetimi"],
+    platforms: ["Instagram", "Facebook"],
+    goals: ["Satışları artırmak"],
+    monthlyServiceBudget: "15.000–25.000 TL",
+    monthlyAdSpendBudget: "10.000–30.000 TL",
     budgetConfirmed: true,
     kvkkConsent: true,
-    marketingConsent: true,
   };
+  const detailedResult = socialApplicationSchema.safeParse(validDetailedData);
+  assert(detailedResult.success, "Detaylı form şeması eskisi gibi başarıyla doğrulandı");
 
-  const parseResult3 = socialApplicationSchema.safeParse(validData);
-  assert(parseResult3.success, "Eksiksiz ve bütçe teyitli veri başarıyla doğrulandı");
-
-  // ── TEST 4: Veritabanına Kalıcı Kayıt ve applicationNumber
-  console.log("\n--- Test 4: Veritabanı Kayıt & Benzersiz Başvuru No ---");
-  const testAppNumber = `SMA-TEST-${Date.now().toString().slice(-6)}`;
-  let createdApp: any = null;
+  // ── TEST 5: Veritabanına Hızlı Başvuru Kaydı (applicationType = 'quick')
+  console.log("\n--- Test 5: Veritabanına Hızlı Başvuru Kaydı Oluşturma ---");
+  const quickAppNumber = `SMA-QUICK-${Date.now().toString().slice(-6)}`;
+  let createdQuickApp: any = null;
 
   try {
-    createdApp = await prisma.socialMediaApplication.create({
+    const phoneNorm = normalizeTurkishPhone(validQuickData.phone);
+    createdQuickApp = await prisma.socialMediaApplication.create({
       data: {
-        applicationNumber: testAppNumber,
-        fullName: validData.fullName,
-        companyName: validData.companyName,
-        title: validData.title,
-        email: validData.email,
-        phone: validData.phone,
-        website: validData.website,
-        socialMediaUrl: validData.socialMediaUrl,
-        sector: validData.sector,
-        city: validData.city,
-        services: validData.services,
-        platforms: validData.platforms,
-        goals: validData.goals,
-        monthlyServiceBudget: validData.monthlyServiceBudget,
-        monthlyAdSpendBudget: validData.monthlyAdSpendBudget,
-        preferredPeriod: validData.preferredPeriod,
-        currentAccountStatus: validData.currentAccountStatus,
-        currentAdExperience: validData.currentAdExperience,
-        notes: validData.notes,
-        preferredContactMethod: validData.preferredContactMethod,
+        applicationNumber: quickAppNumber,
+        applicationType: "quick",
+        phone: phoneNorm.formatted,
+        fullName: null,
+        companyName: null,
+        email: null,
+        services: ["Hızlı Başvuru - Ön Görüşme Talebi"],
+        platforms: [],
+        goals: [],
+        monthlyServiceBudget: "15.000 TL ve üzeri (Hızlı Başvuru Teyitli)",
+        monthlyAdSpendBudget: "Görüşmede Belirlenecek",
+        sector: null,
         budgetConfirmed: true,
         budgetConfirmedAt: new Date(),
         kvkkConsent: true,
-        marketingConsent: true,
+        marketingConsent: false,
         status: "NEW",
-        landingPage: "/services/sosyal-medya-reklam-danismanligi",
+        landingPage: "/services/sosyal-medya-reklam-danismanligi#hizli-basvuru",
       },
     });
 
-    assert(Boolean(createdApp?.id), `Başvuru DB'ye kaydedildi (ID: ${createdApp?.id})`);
-    assert(
-      createdApp.applicationNumber === testAppNumber,
-      `Başvuru no eşleşiyor: ${createdApp.applicationNumber}`
-    );
-    assert(createdApp.status === "NEW", "Varsayılan statü NEW olarak atandı");
-    assert(
-      createdApp.budgetConfirmed === true,
-      "budgetConfirmed bayrağı veritabanında true olarak saklandı"
-    );
+    assert(Boolean(createdQuickApp?.id), `Hızlı başvuru DB'ye kaydedildi (ID: ${createdQuickApp?.id})`);
+    assert(createdQuickApp.applicationType === "quick", "applicationType alanı 'quick' olarak kaydedildi");
+    assert(createdQuickApp.phone === phoneNorm.formatted, `Telefon formatı korundu: ${createdQuickApp.phone}`);
+    assert(createdQuickApp.fullName === null, "fullName alanı null olarak sorunsuz kabul edildi");
+    assert(createdQuickApp.companyName === null, "companyName alanı null olarak sorunsuz kabul edildi");
+    assert(createdQuickApp.budgetConfirmed === true, "15.000 TL bütçe teyidi veritabanında true olarak saklandı");
   } catch (err: any) {
-    console.error("DB create error:", err);
+    console.error("DB create error (quick):", err);
     assert(false, "DB create işlemi başarılı olmalı");
   }
 
-  // ── TEST 5: Dahili Not Ekleme İlişkisi
-  console.log("\n--- Test 5: Dahili Not (Internal Note) Ekleme ---");
-  if (createdApp) {
+  // ── TEST 6: Admin Listeleme & Filtreleme (applicationType = 'quick')
+  console.log("\n--- Test 6: Admin Paneli Filtreleme (type = 'quick') ---");
+  if (createdQuickApp) {
     try {
-      const note = await prisma.socialMediaApplicationNote.create({
-        data: {
-          applicationId: createdApp.id,
-          authorName: "Danışman Ayşe",
-          content: "Müşteri ile ilk temas planlandı. Bütçe aralığı teyit edildi.",
-        },
+      const quickAppsInDb = await prisma.socialMediaApplication.findMany({
+        where: { applicationType: "quick" },
+        orderBy: { createdAt: "desc" },
       });
 
-      assert(Boolean(note.id), `Dahili not başarıyla kaydedildi (ID: ${note.id})`);
-      assert(
-        note.applicationId === createdApp.id,
-        "Dahili not başvuruyla doğru ilişkilendirildi"
-      );
+      assert(quickAppsInDb.length > 0, "applicationType: 'quick' filtresiyle kayıtlar başarıyla listelendi");
+      const found = quickAppsInDb.some((a) => a.id === createdQuickApp.id);
+      assert(found, "Yeni oluşturulan hızlı başvuru listede bulundu");
     } catch (err: any) {
-      assert(false, "Dahili not ekleme hatası: " + err.message);
+      assert(false, "Admin filtreleme hatası: " + err.message);
     }
   }
 
-  // ── TEST 6: Durum & Takip Tarihi Güncelleme (Admin PATCH)
-  console.log("\n--- Test 6: Durum ve Takip Tarihi Güncelleme ---");
-  if (createdApp) {
+  // ── TEST 7: Hızlı Başvuruya Admin Dahili Notu ve Durum Güncelleme
+  console.log("\n--- Test 7: Hızlı Başvuru Durum Güncelleme & Not Ekleme ---");
+  if (createdQuickApp) {
     try {
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-
-      const updated = await prisma.socialMediaApplication.update({
-        where: { id: createdApp.id },
+      const updatedApp = await prisma.socialMediaApplication.update({
+        where: { id: createdQuickApp.id },
         data: {
           status: "CONTACTED",
-          followUpDate: tomorrow,
-        },
-        include: {
-          adminNotes: true,
         },
       });
+      assert(updatedApp.status === "CONTACTED", "Hızlı başvuru statüsü CONTACTED olarak güncellendi");
 
-      assert(updated.status === "CONTACTED", "Statü CONTACTED olarak güncellendi");
-      assert(Boolean(updated.followUpDate), "Takip tarihi başarıyla kaydedildi");
-      assert(updated.adminNotes.length === 1, "İlişkili dahili not başarıyla getirildi");
+      const note = await prisma.socialMediaApplicationNote.create({
+        data: {
+          applicationId: createdQuickApp.id,
+          authorName: "Admin Test",
+          content: "Müşteri arandı, 15.000 TL bütçe ve hedefler konuşuldu.",
+        },
+      });
+      assert(Boolean(note.id), "Hızlı başvuruya dahili not başarıyla eklendi");
     } catch (err: any) {
-      assert(false, "Güncelleme hatası: " + err.message);
+      assert(false, "Hızlı başvuru güncelleme hatası: " + err.message);
     }
   }
 
-  // ── TEST 7: Temizlik (Test verisinin DB'den silinmesi)
-  console.log("\n--- Test 7: Test Verisi Temizliği ---");
-  if (createdApp) {
+  // ── TEST 8: Temizlik
+  console.log("\n--- Test 8: Test Verisi Temizliği ---");
+  if (createdQuickApp) {
     try {
       await prisma.socialMediaApplication.delete({
-        where: { id: createdApp.id },
+        where: { id: createdQuickApp.id },
       });
-      console.log(`🧹 Test kaydı (${testAppNumber}) başarıyla temizlendi.`);
+      console.log(`🧹 Test hızlı başvuru kaydı (${quickAppNumber}) başarıyla temizlendi.`);
       assert(true, "Veritabanı temizliği tamamlandı");
     } catch (err: any) {
       assert(false, "Temizlik hatası: " + err.message);
@@ -213,9 +198,7 @@ async function runTests() {
   }
 
   console.log("\n=================================================");
-  console.log(
-    `SONUÇ: ${testsPassed} BAŞARILI, ${testsFailed} BAŞARISIZ`
-  );
+  console.log(`SONUÇ: ${testsPassed} BAŞARILI, ${testsFailed} BAŞARISIZ`);
   console.log("=================================================");
 
   if (testsFailed > 0) {

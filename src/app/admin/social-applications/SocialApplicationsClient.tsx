@@ -34,20 +34,21 @@ import {
 export type SocialApplicationItem = {
   id: string;
   applicationNumber: string;
-  fullName: string;
-  companyName: string;
+  applicationType?: string;
+  fullName?: string | null;
+  companyName?: string | null;
   title?: string | null;
-  email: string;
+  email?: string | null;
   phone: string;
   website?: string | null;
   socialMediaUrl?: string | null;
-  sector: string;
+  sector?: string | null;
   city?: string | null;
   services: string[];
   platforms: string[];
   goals: string[];
-  monthlyServiceBudget: string;
-  monthlyAdSpendBudget: string;
+  monthlyServiceBudget?: string | null;
+  monthlyAdSpendBudget?: string | null;
   preferredPeriod?: string | null;
   currentAccountStatus?: string | null;
   currentAdExperience?: string | null;
@@ -89,6 +90,7 @@ export default function SocialApplicationsClient({
   // Filters & Search
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
+  const [typeFilter, setTypeFilter] = useState<"ALL" | "quick" | "detailed">("ALL");
   const [budgetFilter, setBudgetFilter] = useState("ALL");
   const [sectorFilter, setSectorFilter] = useState("ALL");
 
@@ -119,22 +121,42 @@ export default function SocialApplicationsClient({
   // Filter logic
   const filtered = useMemo(() => {
     return applications.filter((app) => {
+      // Type (quick vs detailed)
+      if (
+        typeFilter !== "ALL" &&
+        (app.applicationType || "detailed") !== typeFilter
+      ) {
+        return false;
+      }
+
       // Status
       if (statusFilter !== "ALL" && app.status !== statusFilter) return false;
+
       // Budget
       if (budgetFilter !== "ALL" && app.monthlyServiceBudget !== budgetFilter)
         return false;
+
       // Sector
       if (sectorFilter !== "ALL" && app.sector !== sectorFilter) return false;
 
       // Search
       if (search.trim()) {
         const q = search.toLowerCase();
-        const matchCompany = app.companyName.toLowerCase().includes(q);
-        const matchName = app.fullName.toLowerCase().includes(q);
-        const matchEmail = app.email.toLowerCase().includes(q);
-        const matchPhone = app.phone.toLowerCase().includes(q);
-        const matchNo = app.applicationNumber.toLowerCase().includes(q);
+        const matchCompany = app.companyName
+          ? app.companyName.toLowerCase().includes(q)
+          : false;
+        const matchName = app.fullName
+          ? app.fullName.toLowerCase().includes(q)
+          : false;
+        const matchEmail = app.email
+          ? app.email.toLowerCase().includes(q)
+          : false;
+        const matchPhone = app.phone
+          ? app.phone.toLowerCase().includes(q)
+          : false;
+        const matchNo = app.applicationNumber
+          ? app.applicationNumber.toLowerCase().includes(q)
+          : false;
         const matchCity = app.city ? app.city.toLowerCase().includes(q) : false;
         if (
           !matchCompany &&
@@ -150,7 +172,7 @@ export default function SocialApplicationsClient({
 
       return true;
     });
-  }, [applications, statusFilter, budgetFilter, sectorFilter, search]);
+  }, [applications, statusFilter, typeFilter, budgetFilter, sectorFilter, search]);
 
   // Update Status
   const handleStatusChange = async (newStatus: string) => {
@@ -286,6 +308,7 @@ export default function SocialApplicationsClient({
 
     const headers = [
       "Başvuru No",
+      "Tür",
       "Tarih",
       "İşletme Adı",
       "Yetkili Kişi",
@@ -306,19 +329,20 @@ export default function SocialApplicationsClient({
 
     const rows = filtered.map((a) => [
       sanitize(a.applicationNumber),
+      sanitize(a.applicationType === "quick" ? "Hızlı Başvuru" : "Detaylı Başvuru"),
       sanitize(new Date(a.createdAt).toLocaleString("tr-TR")),
-      sanitize(a.companyName),
-      sanitize(a.fullName),
+      sanitize(a.companyName || (a.applicationType === "quick" ? "Hızlı İletişim Talebi" : "—")),
+      sanitize(a.fullName || (a.applicationType === "quick" ? "Telefon ile Başvuru" : "—")),
       sanitize(a.title || ""),
-      sanitize(a.email),
+      sanitize(a.email || "—"),
       sanitize(a.phone),
-      sanitize(a.sector),
+      sanitize(a.sector || "—"),
       sanitize(a.city || ""),
-      sanitize(a.monthlyServiceBudget),
-      sanitize(a.monthlyAdSpendBudget),
-      sanitize(a.services.join(", ")),
-      sanitize(a.platforms.join(", ")),
-      sanitize(a.goals.join(", ")),
+      sanitize(a.monthlyServiceBudget || "15.000 TL+ (Teyitli)"),
+      sanitize(a.monthlyAdSpendBudget || "—"),
+      sanitize((a.services || []).join(", ")),
+      sanitize((a.platforms || []).join(", ")),
+      sanitize((a.goals || []).join(", ")),
       sanitize(a.budgetConfirmed ? "ONAYLANDI" : "HAYIR"),
       sanitize(APPLICATION_STATUS_META[a.status]?.label || a.status),
       sanitize(
@@ -342,15 +366,16 @@ export default function SocialApplicationsClient({
   };
 
   // Clean phone number for WhatsApp link
-  const getWhatsAppLink = (rawPhone: string, company: string) => {
+  const getWhatsAppLink = (rawPhone: string, company?: string | null) => {
     const clean = rawPhone.replace(/\D/g, "");
     const formatted = clean.startsWith("0")
       ? "9" + clean
       : clean.startsWith("90")
       ? clean
       : "90" + clean;
+    const desc = company ? `${company} için ilettiğiniz` : "iletmiş olduğunuz";
     const text = encodeURIComponent(
-      `Merhaba, Çiçekana Teknoloji & Medya'dan ulaşıyorum. ${company} için ilettiğiniz Sosyal Medya & Reklam Danışmanlığı başvurunuzu değerlendirdik.`
+      `Merhaba, Çiçekana Teknoloji & Medya'dan ulaşıyorum. ${desc} Sosyal Medya & Reklam Danışmanlığı başvurunuzu değerlendirdik.`
     );
     return `https://wa.me/${formatted}?text=${text}`;
   };
@@ -381,6 +406,65 @@ export default function SocialApplicationsClient({
         >
           <Download size={15} />
           <span>CSV Dışa Aktar</span>
+        </button>
+      </div>
+
+      {/* ── APPLICATION TYPE SELECTOR TABS ── */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+        <span className="text-[12px] font-bold text-corp-charcoal shrink-0 mr-1">
+          Tür:
+        </span>
+        <button
+          onClick={() => setTypeFilter("ALL")}
+          className={`px-3 py-1.5 rounded-lg font-body text-[12px] font-semibold transition-all whitespace-nowrap border ${
+            typeFilter === "ALL"
+              ? "bg-corp-charcoal text-white border-corp-charcoal shadow-sm"
+              : "bg-white text-corp-gray border-corp-border hover:bg-corp-surface"
+          }`}
+        >
+          Tüm Türler ({stats.TOTAL || applications.length})
+        </button>
+        <button
+          onClick={() => setTypeFilter("quick")}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-body text-[12px] font-semibold transition-all whitespace-nowrap border ${
+            typeFilter === "quick"
+              ? "bg-sky-600 text-white border-sky-600 shadow-sm"
+              : "bg-white text-sky-700 border-sky-200 hover:bg-sky-50"
+          }`}
+        >
+          <span>⚡ Hızlı Başvuru (Hero)</span>
+          <span
+            className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+              typeFilter === "quick"
+                ? "bg-white text-sky-700"
+                : "bg-sky-100 text-sky-800"
+            }`}
+          >
+            {stats.QUICK ||
+              applications.filter((a) => a.applicationType === "quick").length}
+          </span>
+        </button>
+        <button
+          onClick={() => setTypeFilter("detailed")}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-body text-[12px] font-semibold transition-all whitespace-nowrap border ${
+            typeFilter === "detailed"
+              ? "bg-corp-teal text-white border-corp-teal shadow-sm"
+              : "bg-white text-corp-teal border-corp-teal/30 hover:bg-corp-teal-50"
+          }`}
+        >
+          <span>📋 Detaylı Başvuru (Form)</span>
+          <span
+            className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+              typeFilter === "detailed"
+                ? "bg-white text-corp-teal"
+                : "bg-corp-teal-50 text-corp-teal"
+            }`}
+          >
+            {stats.DETAILED ||
+              applications.filter(
+                (a) => (a.applicationType || "detailed") === "detailed"
+              ).length}
+          </span>
         </button>
       </div>
 
@@ -539,11 +623,22 @@ export default function SocialApplicationsClient({
                         onClick={() => handleOpenDetail(app)}
                         className="hover:bg-corp-surface/50 cursor-pointer transition-colors group"
                       >
-                        {/* No & Date */}
+                        {/* No & Date & Type */}
                         <td className="py-3.5 px-4">
-                          <span className="font-mono text-[12px] font-bold text-corp-charcoal block group-hover:text-corp-teal">
-                            {app.applicationNumber}
-                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono text-[12px] font-bold text-corp-charcoal block group-hover:text-corp-teal">
+                              {app.applicationNumber}
+                            </span>
+                            {app.applicationType === "quick" ? (
+                              <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-sky-100 text-sky-800 border border-sky-200">
+                                ⚡ HIZLI
+                              </span>
+                            ) : (
+                              <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                                DETAYLI
+                              </span>
+                            )}
+                          </div>
                           <span className="text-[11px] text-corp-gray">
                             {dateFormatted}
                           </span>
@@ -552,27 +647,34 @@ export default function SocialApplicationsClient({
                         {/* Company & Name */}
                         <td className="py-3.5 px-4">
                           <span className="font-bold text-corp-charcoal block">
-                            {app.companyName}
+                            {app.companyName ||
+                              (app.applicationType === "quick"
+                                ? "Hızlı İletişim Talebi"
+                                : "Belirtilmedi")}
                           </span>
                           <span className="text-[12px] text-corp-gray">
-                            {app.fullName} {app.title ? `(${app.title})` : ""}
+                            {app.fullName ||
+                              (app.applicationType === "quick"
+                                ? "Telefon ile Başvuru"
+                                : "—")}{" "}
+                            {app.title ? `(${app.title})` : ""}
                           </span>
                         </td>
 
                         {/* Contact */}
                         <td className="py-3.5 px-4">
-                          <span className="block text-[12px] text-corp-charcoal">
+                          <span className="block font-semibold text-[13px] text-corp-charcoal">
                             {app.phone}
                           </span>
                           <span className="text-[11px] text-corp-gray">
-                            {app.email}
+                            {app.email || "—"}
                           </span>
                         </td>
 
                         {/* Sector */}
                         <td className="py-3.5 px-4">
                           <span className="text-[12px] text-corp-charcoal block">
-                            {app.sector}
+                            {app.sector || "—"}
                           </span>
                           {app.city && (
                             <span className="text-[11px] text-corp-gray">
@@ -583,15 +685,21 @@ export default function SocialApplicationsClient({
 
                         {/* Service Budget */}
                         <td className="py-3.5 px-4">
-                          <span className="inline-block px-2.5 py-0.5 rounded text-[11px] font-bold bg-corp-teal-50 text-corp-teal border border-corp-teal/20">
-                            {app.monthlyServiceBudget}
-                          </span>
+                          {app.applicationType === "quick" ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                              <CheckCircle2 size={12} /> 15.000 TL+ (Teyitli)
+                            </span>
+                          ) : (
+                            <span className="inline-block px-2.5 py-0.5 rounded text-[11px] font-bold bg-corp-teal-50 text-corp-teal border border-corp-teal/20">
+                              {app.monthlyServiceBudget}
+                            </span>
+                          )}
                         </td>
 
                         {/* Ad Budget */}
                         <td className="py-3.5 px-4">
                           <span className="text-[12px] text-corp-gray">
-                            {app.monthlyAdSpendBudget}
+                            {app.monthlyAdSpendBudget || "—"}
                           </span>
                         </td>
 
@@ -649,14 +757,32 @@ export default function SocialApplicationsClient({
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <span className="font-mono text-[11px] font-bold text-corp-teal block">
-                        {app.applicationNumber}
-                      </span>
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <span className="font-mono text-[11px] font-bold text-corp-teal">
+                          {app.applicationNumber}
+                        </span>
+                        {app.applicationType === "quick" ? (
+                          <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-sky-100 text-sky-800 border border-sky-200">
+                            ⚡ HIZLI
+                          </span>
+                        ) : (
+                          <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                            DETAYLI
+                          </span>
+                        )}
+                      </div>
                       <h3 className="font-display text-[15px] font-bold text-corp-charcoal">
-                        {app.companyName}
+                        {app.companyName ||
+                          (app.applicationType === "quick"
+                            ? `Hızlı Başvuru (${app.phone})`
+                            : "İşletme Belirtilmedi")}
                       </h3>
                       <p className="font-body text-[12px] text-corp-gray">
-                        {app.fullName} {app.title ? `• ${app.title}` : ""}
+                        {app.fullName ||
+                          (app.applicationType === "quick"
+                            ? "Telefon ile Talep"
+                            : "—")}{" "}
+                        {app.title ? `• ${app.title}` : ""}
                       </p>
                     </div>
 
@@ -677,16 +803,22 @@ export default function SocialApplicationsClient({
                       <span className="text-corp-gray block text-[10px] uppercase">
                         Hizmet Bütçesi
                       </span>
-                      <strong className="text-corp-teal font-bold">
-                        {app.monthlyServiceBudget}
-                      </strong>
+                      {app.applicationType === "quick" ? (
+                        <span className="text-emerald-700 font-bold text-[12px] flex items-center gap-1">
+                          <CheckCircle2 size={12} /> 15.000 TL+ Teyitli
+                        </span>
+                      ) : (
+                        <strong className="text-corp-teal font-bold">
+                          {app.monthlyServiceBudget}
+                        </strong>
+                      )}
                     </div>
                     <div>
                       <span className="text-corp-gray block text-[10px] uppercase">
-                        Reklam Bütçesi
+                        Telefon
                       </span>
-                      <span className="text-corp-charcoal font-medium">
-                        {app.monthlyAdSpendBudget}
+                      <span className="text-corp-charcoal font-semibold">
+                        {app.phone}
                       </span>
                     </div>
                   </div>
@@ -721,20 +853,43 @@ export default function SocialApplicationsClient({
             {/* Drawer Top Header */}
             <div className="p-6 border-b border-corp-border sticky top-0 bg-white z-10 flex items-start justify-between">
               <div>
-                <div className="flex items-center gap-2 mb-1">
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
                   <span className="font-mono text-[12px] font-bold text-corp-teal bg-corp-teal-50 px-2.5 py-0.5 rounded border border-corp-teal/20">
                     {selected.applicationNumber}
                   </span>
+                  {selected.applicationType === "quick" ? (
+                    <span className="text-[11px] font-bold bg-sky-100 text-sky-800 border border-sky-200 px-2 py-0.5 rounded-full">
+                      ⚡ Hızlı Başvuru
+                    </span>
+                  ) : (
+                    <span className="text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200 px-2 py-0.5 rounded-full">
+                      📋 Detaylı Başvuru
+                    </span>
+                  )}
                   <span className="text-[12px] text-corp-gray font-body">
                     {new Date(selected.createdAt).toLocaleString("tr-TR")}
                   </span>
                 </div>
                 <h2 className="font-display text-xl font-bold text-corp-charcoal">
-                  {selected.companyName}
+                  {selected.companyName ||
+                    (selected.applicationType === "quick"
+                      ? `Hızlı Başvuru: ${selected.phone}`
+                      : "İşletme Belirtilmedi")}
                 </h2>
                 <p className="font-body text-[13px] text-corp-gray">
-                  Yetkili: <strong>{selected.fullName}</strong>{" "}
-                  {selected.title ? `(${selected.title})` : ""}
+                  {selected.applicationType === "quick" ? (
+                    <span>
+                      İletişim Talebi • Telefon:{" "}
+                      <strong className="text-corp-charcoal font-semibold">
+                        {selected.phone}
+                      </strong>
+                    </span>
+                  ) : (
+                    <>
+                      Yetkili: <strong>{selected.fullName || "—"}</strong>{" "}
+                      {selected.title ? `(${selected.title})` : ""}
+                    </>
+                  )}
                 </p>
               </div>
 
@@ -749,6 +904,24 @@ export default function SocialApplicationsClient({
 
             {/* Drawer Body */}
             <div className="p-6 space-y-6 flex-1 font-body text-[13px]">
+              {/* Quick Application Info Alert */}
+              {selected.applicationType === "quick" && (
+                <div className="p-4 rounded-xl bg-sky-50 border border-sky-200 text-sky-900 text-[13px] flex items-start gap-3">
+                  <div className="w-7 h-7 rounded-lg bg-sky-600 text-white flex items-center justify-center shrink-0 mt-0.5 text-[11px] font-bold">
+                    ⚡
+                  </div>
+                  <div className="space-y-1">
+                    <strong className="block font-bold text-sky-950">
+                      Hero Section Hızlı Başvuru Kaydı
+                    </strong>
+                    <p className="text-[12px] text-sky-800 leading-relaxed">
+                      Bu başvuru, kullanıcının sayfanın en üstündeki formdan yalnızca telefon numarasını girip 15.000 TL asgari bütçe koşulunu teyit etmesiyle oluşturulmuştur.
+                      Detaylı şirket ve hizmet hedefleri ilk telefon görüşmesinde belirlenecektir.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Quick Communication Buttons */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                 <a
@@ -769,13 +942,20 @@ export default function SocialApplicationsClient({
                   <span>Ara: {selected.phone}</span>
                 </a>
 
-                <a
-                  href={`mailto:${selected.email}`}
-                  className="flex items-center justify-center gap-2 p-2.5 rounded-xl bg-corp-surface text-corp-charcoal border border-corp-border font-semibold text-[13px] hover:bg-corp-border/60 transition-colors"
-                >
-                  <Mail size={15} />
-                  <span>E-posta Gönder</span>
-                </a>
+                {selected.email ? (
+                  <a
+                    href={`mailto:${selected.email}`}
+                    className="flex items-center justify-center gap-2 p-2.5 rounded-xl bg-corp-surface text-corp-charcoal border border-corp-border font-semibold text-[13px] hover:bg-corp-border/60 transition-colors"
+                  >
+                    <Mail size={15} />
+                    <span>E-posta Gönder</span>
+                  </a>
+                ) : (
+                  <div className="flex items-center justify-center gap-2 p-2.5 rounded-xl bg-[#FAFAFC] text-corp-gray-light border border-corp-border text-[12px]">
+                    <Mail size={15} />
+                    <span>E-posta Yok (Hızlı)</span>
+                  </div>
+                )}
               </div>
 
               {/* Status & Follow Up Actions */}
@@ -876,7 +1056,7 @@ export default function SocialApplicationsClient({
                   <div>
                     <span className="text-corp-gray block">Sektör:</span>
                     <span className="font-semibold text-corp-charcoal">
-                      {selected.sector}
+                      {selected.sector || "Belirtilmedi (Görüşmede alınacak)"}
                     </span>
                   </div>
                   <div>
@@ -913,13 +1093,13 @@ export default function SocialApplicationsClient({
                   <div>
                     <span className="text-corp-gray block">Başlama Dönemi:</span>
                     <span className="text-corp-charcoal font-medium">
-                      {selected.preferredPeriod || "Hemen"}
+                      {selected.preferredPeriod || "Hemen (Öncelikli)"}
                     </span>
                   </div>
                   <div>
                     <span className="text-corp-gray block">İletişim Tercihi:</span>
                     <span className="text-corp-charcoal font-medium">
-                      {selected.preferredContactMethod || "WhatsApp"}
+                      {selected.preferredContactMethod || "Telefon Görüşmesi"}
                     </span>
                   </div>
                 </div>
@@ -931,14 +1111,20 @@ export default function SocialApplicationsClient({
                       İlgilenilen Hizmetler:
                     </span>
                     <div className="flex flex-wrap gap-1.5">
-                      {selected.services.map((s) => (
-                        <span
-                          key={s}
-                          className="px-2.5 py-1 rounded-md bg-corp-teal-50 text-corp-teal text-[11px] font-semibold border border-corp-teal/10"
-                        >
-                          {s}
+                      {selected.services && selected.services.length > 0 ? (
+                        selected.services.map((s) => (
+                          <span
+                            key={s}
+                            className="px-2.5 py-1 rounded-md bg-corp-teal-50 text-corp-teal text-[11px] font-semibold border border-corp-teal/10"
+                          >
+                            {s}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-[12px] text-corp-gray italic">
+                          Hızlı Başvuru — Görüşmede belirlenecek
                         </span>
-                      ))}
+                      )}
                     </div>
                   </div>
 
@@ -947,14 +1133,20 @@ export default function SocialApplicationsClient({
                       Yönetilmesi İstenen Platformlar:
                     </span>
                     <div className="flex flex-wrap gap-1.5">
-                      {selected.platforms.map((p) => (
-                        <span
-                          key={p}
-                          className="px-2 py-0.5 rounded-md bg-corp-surface text-corp-charcoal text-[11px] font-medium border border-corp-border"
-                        >
-                          {p}
+                      {selected.platforms && selected.platforms.length > 0 ? (
+                        selected.platforms.map((p) => (
+                          <span
+                            key={p}
+                            className="px-2 py-0.5 rounded-md bg-corp-surface text-corp-charcoal text-[11px] font-medium border border-corp-border"
+                          >
+                            {p}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-[12px] text-corp-gray italic">
+                          Belirtilmedi (Görüşmede kararlaştırılacak)
                         </span>
-                      ))}
+                      )}
                     </div>
                   </div>
 
@@ -963,14 +1155,20 @@ export default function SocialApplicationsClient({
                       İşletme Hedefleri:
                     </span>
                     <div className="flex flex-wrap gap-1.5">
-                      {selected.goals.map((g) => (
-                        <span
-                          key={g}
-                          className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 text-[11px] font-medium border border-amber-200"
-                        >
-                          {g}
+                      {selected.goals && selected.goals.length > 0 ? (
+                        selected.goals.map((g) => (
+                          <span
+                            key={g}
+                            className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 text-[11px] font-medium border border-amber-200"
+                          >
+                            {g}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-[12px] text-corp-gray italic">
+                          Belirtilmedi (Görüşmede belirlenecek)
                         </span>
-                      ))}
+                      )}
                     </div>
                   </div>
                 </div>

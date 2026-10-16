@@ -188,6 +188,89 @@ export const socialApplicationSchema = z.object({
   }),
   marketingConsent: z.boolean().default(false),
   honeypot: z.string().max(0).optional(),
+  applicationType: z.literal("detailed").default("detailed").optional(),
 });
 
 export type SocialApplicationFormData = z.infer<typeof socialApplicationSchema>;
+
+/**
+ * Normalizes Turkish phone numbers into a consistent standard format.
+ * Accepts: "05xx xxx xx xx", "5xx xxx xx xx", "+905xxxxxxxxx", "00905xxxxxxxxx", etc.
+ * Normalizes to clean 10-digit mobile number and canonical "05XX XXX XX XX" display format.
+ */
+export function normalizeTurkishPhone(input: string): {
+  isValid: boolean;
+  coreDigits: string;
+  formatted: string;
+  errorMessage?: string;
+} {
+  if (!input) {
+    return {
+      isValid: false,
+      coreDigits: "",
+      formatted: "",
+      errorMessage: "Lütfen telefon numaranızı giriniz",
+    };
+  }
+
+  // Strip everything except digits
+  let digits = input.replace(/\D/g, "");
+
+  // Strip international prefix
+  if (digits.startsWith("0090")) {
+    digits = digits.slice(4);
+  } else if (digits.startsWith("90") && digits.length >= 12) {
+    digits = digits.slice(2);
+  }
+
+  // Strip leading 0
+  if (digits.startsWith("0")) {
+    digits = digits.slice(1);
+  }
+
+  // A valid Turkish mobile or geographic phone number is 10 digits
+  if (digits.length !== 10) {
+    return {
+      isValid: false,
+      coreDigits: digits,
+      formatted: input,
+      errorMessage: "Lütfen 10 haneli geçerli bir telefon numarası giriniz (Örn: 05XX XXX XX XX)",
+    };
+  }
+
+  // Turkish mobile numbers start with 5 (e.g. 50x, 53x, 54x, 55x)
+  if (!digits.startsWith("5")) {
+    return {
+      isValid: false,
+      coreDigits: digits,
+      formatted: input,
+      errorMessage: "Lütfen 05 ile başlayan geçerli bir cep telefonu numarası giriniz",
+    };
+  }
+
+  const formatted = `0${digits.slice(0, 3)} ${digits.slice(3, 6)} ${digits.slice(6, 8)} ${digits.slice(8, 10)}`;
+
+  return {
+    isValid: true,
+    coreDigits: digits,
+    formatted,
+  };
+}
+
+export const quickApplicationSchema = z.object({
+  phone: z
+    .string()
+    .trim()
+    .min(10, { message: "Lütfen telefon numaranızı giriniz" })
+    .max(25, { message: "Telefon numarası geçersiz" })
+    .refine((val) => normalizeTurkishPhone(val).isValid, {
+      message: "Lütfen 05 ile başlayan geçerli bir telefon numarası giriniz (Örn: 05XX XXX XX XX)",
+    }),
+  budgetConfirmed: z.literal(true, {
+    message: "Başvurunuza devam edebilmeniz için minimum hizmet bütçesi bilgilendirmesini onaylamanız gerekir.",
+  }),
+  honeypot: z.string().max(0).optional(),
+  applicationType: z.literal("quick").default("quick"),
+});
+
+export type QuickApplicationFormData = z.infer<typeof quickApplicationSchema>;

@@ -32,11 +32,16 @@ export async function GET(req: NextRequest) {
   const status = searchParams.get("status") || "ALL";
   const budget = searchParams.get("budget") || "ALL";
   const sector = searchParams.get("sector") || "ALL";
+  const type = searchParams.get("type") || "ALL";
 
   const whereClause: any = {};
 
   if (status !== "ALL") {
     whereClause.status = status;
+  }
+
+  if (type !== "ALL") {
+    whereClause.applicationType = type;
   }
 
   if (budget !== "ALL") {
@@ -59,7 +64,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const [applications, countsByStatus, totalCount] = await Promise.all([
+    const [applications, countsByStatus, countsByType, totalCount] = await Promise.all([
       prisma.socialMediaApplication.findMany({
         where: whereClause,
         orderBy: { createdAt: "desc" },
@@ -73,11 +78,17 @@ export async function GET(req: NextRequest) {
         by: ["status"],
         _count: { status: true },
       }),
+      prisma.socialMediaApplication.groupBy({
+        by: ["applicationType"],
+        _count: { applicationType: true },
+      }),
       prisma.socialMediaApplication.count(),
     ]);
 
     const stats: Record<string, number> = {
       TOTAL: totalCount,
+      QUICK: 0,
+      DETAILED: 0,
       NEW: 0,
       REVIEWING: 0,
       CONTACTED: 0,
@@ -90,6 +101,11 @@ export async function GET(req: NextRequest) {
 
     countsByStatus.forEach((item) => {
       stats[item.status] = item._count.status;
+    });
+
+    countsByType.forEach((item) => {
+      if (item.applicationType === "quick") stats.QUICK = item._count.applicationType;
+      if (item.applicationType === "detailed") stats.DETAILED = item._count.applicationType;
     });
 
     return NextResponse.json({

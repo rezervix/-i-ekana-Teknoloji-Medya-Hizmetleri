@@ -952,20 +952,21 @@ enum SocialApplicationStatus {
 model SocialMediaApplication {
   id                    String                      @id @default(cuid())
   applicationNumber     String                      @unique
-  fullName              String
-  companyName           String
+  applicationType       String                      @default("detailed")
+  fullName              String?
+  companyName           String?
   title                 String?
-  email                 String
+  email                 String?
   phone                 String
   website               String?
   socialMediaUrl        String?
-  sector                String
+  sector                String?
   city                  String?
-  services              String[]
-  platforms             String[]
-  goals                 String[]
-  monthlyServiceBudget  String
-  monthlyAdSpendBudget  String
+  services              String[]                    @default([])
+  platforms             String[]                    @default([])
+  goals                 String[]                    @default([])
+  monthlyServiceBudget  String?
+  monthlyAdSpendBudget  String?
   preferredPeriod       String?
   currentAccountStatus  String?
   currentAdExperience   String?
@@ -988,6 +989,7 @@ model SocialMediaApplication {
   updatedAt             DateTime                    @updatedAt
 
   @@index([status])
+  @@index([applicationType])
   @@index([email])
   @@index([phone])
   @@index([companyName])

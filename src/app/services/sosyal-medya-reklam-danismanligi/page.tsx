@@ -4,6 +4,7 @@ import Link from "next/link";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import SocialApplicationForm from "./components/SocialApplicationForm";
+import QuickApplicationForm from "./components/QuickApplicationForm";
 import {
   ArrowRight,
   CheckCircle,
@@ -279,50 +280,58 @@ export default function SocialMediaServicePage() {
         />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-10 lg:px-16">
-          <div className="max-w-3xl">
-            {/* Category badge */}
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[11px] font-semibold tracking-wider uppercase bg-corp-teal-50 text-corp-teal border border-corp-teal/20 mb-5">
-              <Sparkles size={13} />
-              <span>KURUMSAL SOSYAL MEDYA & PERFORMANS PAZARLAMA</span>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 xl:gap-14 items-start">
+            {/* ── HERO SOL: BAŞLIK, AÇIKLAMA, 15.000 TL BİLGİSİ VE DETAYLI FORM CTA ── */}
+            <div className="lg:col-span-7 space-y-6">
+              {/* Category badge */}
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[11px] font-semibold tracking-wider uppercase bg-corp-teal-50 text-corp-teal border border-corp-teal/20">
+                <Sparkles size={13} />
+                <span>KURUMSAL SOSYAL MEDYA & PERFORMANS PAZARLAMA</span>
+              </div>
+
+              {/* H1 */}
+              <h1 className="font-display text-3xl sm:text-4xl md:text-5xl lg:text-[44px] xl:text-[50px] text-corp-charcoal font-bold tracking-tight leading-[1.15]">
+                Sosyal Medya & Reklam Danışmanlığı
+              </h1>
+
+              {/* Alt mesaj */}
+              <p className="font-body text-base sm:text-lg text-corp-gray leading-relaxed font-normal">
+                Markanızın dijital iletişimini stratejiyle yönetin. Sosyal medya hesap yönetimi, özgün içerik üretimi, Meta & Google reklam optimizasyonu ve ölçülebilir büyüme süreçlerini tek bir çatı altında planlayın.
+              </p>
+
+              {/* Minimum bütçe uyarısı (Hero sol metin dengesi) */}
+              <div className="inline-flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 p-4 rounded-xl bg-[#FAFAFC] border border-corp-border w-full max-w-xl">
+                <div className="flex items-center gap-2 text-corp-teal shrink-0 font-semibold text-[13px] font-body">
+                  <ShieldCheck size={18} className="text-corp-coral" />
+                  <span>Minimum Hizmet Bedeli:</span>
+                </div>
+                <div className="font-body text-[13px] text-corp-charcoal leading-snug">
+                  <strong className="text-corp-charcoal font-bold">15.000 TL / Ay</strong>'dan başlayan bütçelerle nitelikli işletmelere özel danışmanlık.
+                </div>
+              </div>
+
+              {/* Hero CTA buttons (Uzun başvuru formuna yönlendiren mevcut CTA korunuyor) */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-2">
+                <a
+                  href="#basvuru-formu"
+                  className="inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-xl bg-corp-teal text-white font-body font-semibold text-[14px] sm:text-[15px] hover:bg-corp-teal-600 transition-all shadow-[0_4px_16px_rgba(10,77,104,0.22)] hover:-translate-y-0.5"
+                >
+                  <span>Detaylı Başvuru Formu</span>
+                  <ArrowRight size={17} />
+                </a>
+
+                <a
+                  href="#hizmet-kapsami"
+                  className="inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl border border-corp-border font-body font-semibold text-[14px] text-corp-charcoal hover:bg-corp-surface transition-colors"
+                >
+                  Hizmet Kapsamını İncele
+                </a>
+              </div>
             </div>
 
-            {/* H1 */}
-            <h1 className="font-display text-3xl sm:text-4xl md:text-5xl lg:text-6xl text-corp-charcoal font-bold tracking-tight leading-[1.15] mb-6">
-              Sosyal Medya & Reklam Danışmanlığı
-            </h1>
-
-            {/* Alt mesaj */}
-            <p className="font-body text-base sm:text-lg md:text-xl text-corp-gray leading-relaxed mb-6 font-normal">
-              Markanızın dijital iletişimini stratejiyle yönetin. Sosyal medya hesap yönetimi, özgün içerik üretimi, Meta & Google reklam optimizasyonu ve ölçülebilir büyüme süreçlerini tek bir çatı altında planlayın.
-            </p>
-
-            {/* Minimum bütçe uyarısı (Hero üstünde net görünür) */}
-            <div className="inline-flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 p-4 rounded-xl bg-[#FAFAFC] border border-corp-border mb-8 max-w-xl">
-              <div className="flex items-center gap-2 text-corp-teal shrink-0 font-semibold text-[13px] font-body">
-                <ShieldCheck size={18} className="text-corp-coral" />
-                <span>Minimum Hizmet Bedeli:</span>
-              </div>
-              <div className="font-body text-[13px] text-corp-charcoal leading-snug">
-                <strong className="text-corp-charcoal font-bold">15.000 TL / Ay</strong>'dan başlayan bütçelerle nitelikli işletmelere özel danışmanlık.
-              </div>
-            </div>
-
-            {/* Hero CTA button */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-              <a
-                href="#basvuru-formu"
-                className="inline-flex items-center justify-center gap-2.5 px-7 py-4 rounded-xl bg-corp-teal text-white font-body font-semibold text-[15px] hover:bg-corp-teal-600 transition-all shadow-[0_4px_16px_rgba(10,77,104,0.22)] hover:-translate-y-0.5"
-              >
-                <span>Başvuru Formuna Geç</span>
-                <ArrowRight size={18} />
-              </a>
-
-              <a
-                href="#hizmet-kapsami"
-                className="inline-flex items-center justify-center gap-2 px-6 py-4 rounded-xl border border-corp-border font-body font-semibold text-[14px] text-corp-charcoal hover:bg-corp-surface transition-colors"
-              >
-                Hizmet Kapsamını İncele
-              </a>
+            {/* ── HERO SAĞ: YENİ HIZLI BAŞVURU KARTI (TELEFON + 15K BÜTÇE TEYİDİ) ── */}
+            <div className="lg:col-span-5 w-full">
+              <QuickApplicationForm />
             </div>
           </div>
         </div>
