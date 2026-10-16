@@ -8,6 +8,7 @@ import Footer from "@/components/Footer";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { formatTryPrice, getStartingPrice, getTierFeatures } from "@/lib/plan-pricing";
+import { buildPlanJsonLd, DEFAULT_SITE_URL, PRODUCT_FALLBACK_FAQS } from "@/lib/seo-schema";
 import SubscribeButton from "./SubscribeButton";
 import PackageFeatures from "./PackageFeatures";
 import StorySections from "./StorySections";
@@ -49,22 +50,58 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const plan = await getPlan((await params).slug);
   if (!plan) return { title: "Hizmet bulunamadı", robots: { index: false, follow: false } };
 
-  const title = plan.metaTitle || `${plan.name} | Çiçekana Teknoloji & Medya`;
-  const description = (plan.metaDescription || plan.heroSubheadline || plan.shortDescription).slice(0, 160);
-  const image = plan.ogImageUrl || plan.heroMockupUrl || plan.imageUrl || undefined;
-  const canonical = `https://www.cicekanatechmedia.com/services/ai-automation/${plan.slug}`;
+  const siteUrl = DEFAULT_SITE_URL;
+  const canonical = `${siteUrl}/services/ai-automation/${plan.slug}`;
+  const title = plan.metaTitle || `${plan.name} | AI Otomasyon — Çiçekana`;
+  const description = (plan.metaDescription || plan.heroSubheadline || plan.shortDescription || plan.name).slice(0, 160);
+  const image = plan.ogImageUrl || plan.heroMockupUrl || plan.imageUrl || `${siteUrl}/favicon.ico`;
 
   return {
     title,
     description,
+    keywords: [
+      plan.name,
+      plan.category || "AI Otomasyon",
+      "Müşteri Destek Sistemi",
+      "WhatsApp AI Bot",
+      "Omnichannel CRM",
+      "Çiçekana Teknoloji & Medya",
+    ],
     alternates: { canonical },
     openGraph: {
       title,
       description,
       url: canonical,
-      images: image ? [{ url: image, alt: plan.heroImageAlt || plan.name }] : undefined,
+      siteName: "Çiçekana Teknoloji ve Medya",
+      locale: "tr_TR",
+      type: "website",
+      images: [
+        {
+          url: image,
+          alt: plan.heroImageAlt || plan.name,
+        },
+      ],
     },
-    robots: plan.isActive ? undefined : { index: false, follow: false },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [image],
+      creator: "@cicekanamedia",
+    },
+    robots: plan.isActive
+      ? {
+          index: true,
+          follow: true,
+          googleBot: {
+            index: true,
+            follow: true,
+            "max-video-preview": -1,
+            "max-image-preview": "large",
+            "max-snippet": -1,
+          },
+        }
+      : { index: false, follow: false },
   };
 }
 
@@ -150,50 +187,84 @@ export default async function AIAutomationPlanPage({
   const heroTitle = plan.heroHeadline || plan.name;
   const heroSubtitle = plan.heroSubheadline || plan.shortDescription;
   const planFeatures = getTierFeatures(plan.features);
-  const benefits = asItems(plan.benefits);
   const highlights = asItems(plan.highlights);
-  const steps = asItems(plan.steps);
-  const faqs = asFaqs(plan.faqs);
   const demoScreenshots = Array.isArray(plan.demoScreenshots) ? (plan.demoScreenshots as any[]) : [];
   const trustBlocks = Array.isArray(plan.trustBlocks) ? (plan.trustBlocks as any[]) : [];
 
-  const productJsonLd = {
-    "@context": "https://schema.org",
-    "@type": "Product",
-    name: plan.name,
-    description: heroSubtitle,
-    image: plan.heroMockupUrl || plan.imageUrl || undefined,
-    offers: tiers.map((tier) => ({
-      "@type": "Offer",
-      name: tier.name,
-      priceCurrency: "TRY",
-      price: (tier.priceMonthly / 100).toFixed(2),
-      availability: "https://schema.org/InStock",
-      url: `/services/ai-automation/${plan.slug}#paketler`,
-    })),
+  // Robust GEO & LLM content resolution: ensure FAQs and Benefits are populated for crawlers
+  let resolvedFaqs = asFaqs(plan.faqs);
+  if (resolvedFaqs.length === 0 && PRODUCT_FALLBACK_FAQS[plan.slug]) {
+    resolvedFaqs = PRODUCT_FALLBACK_FAQS[plan.slug];
+  }
+
+  let resolvedBenefits = asItems(plan.benefits);
+  if (resolvedBenefits.length === 0 && plan.slug.includes("midvem")) {
+    resolvedBenefits = [
+      {
+        icon: "MessageSquare",
+        title: "Omnichannel Tek Panel",
+        description: "WhatsApp Business, Instagram DM, web canlı destek ve e-posta mesajlarını tek ekranda toplayın ve yönetin.",
+        badge: "Tüm Kanallar",
+      },
+      {
+        icon: "Bot",
+        title: "7/24 Kesintisiz AI Yanıtı",
+        description: "Müşterilerinize bekleme süresi olmadan, firmanızın kurumsal diliyle eğitilmiş yapay zeka ile anında yanıt verin.",
+        badge: "Midvem AI",
+      },
+      {
+        icon: "ShoppingCart",
+        title: "E-Ticaret & Canlı Sepet Takibi",
+        description: "İkas, Shopify ve WooCommerce ile sipariş sorgulama, kargo takibi ve terk edilmiş sepetleri anında görün.",
+        badge: "Entegrasyon",
+      },
+      {
+        icon: "Ticket",
+        title: "Bilet (Ticket) & Ekip Yönetimi",
+        description: "Gelen talepleri otomatik önceliklendirin, temsilcilerinize paylaştırın ve SLA performansını ölçümleyin.",
+        badge: "Yönetim",
+      },
+    ];
+  }
+
+  let resolvedSteps = asItems(plan.steps);
+  if (resolvedSteps.length === 0 && plan.slug.includes("midvem")) {
+    resolvedSteps = [
+      {
+        title: "24 Saatte Hızlı Kurulum & API Entegrasyonu",
+        description: "Teknik ekibimiz WhatsApp Business API, web widget ve sosyal medya hesaplarınızı 24 saat içinde sisteme bağlar.",
+      },
+      {
+        title: "Kurumsal AI Modelinin Eğitilmesi",
+        description: "Ürün ve hizmet kataloglarınız, SSS belgeleriniz ve şirket kurallarınız sisteme yüklenerek AI asistanınız hazır hale getirilir.",
+      },
+      {
+        title: "Canlıya Geçiş & 7/24 Destek",
+        description: "Sisteminiz yayına alınır; dedike müşteri temsilciniz ve 7/24 teknik izleme ile kesintisiz çalışır.",
+      },
+    ];
+  }
+
+  // Generate complete Schema.org JSON-LD graph (SoftwareApplication, Product, Service, BreadcrumbList, FAQPage, Organization)
+  const fullPlanData = {
+    ...plan,
+    faqs: resolvedFaqs,
+    benefits: resolvedBenefits,
+    steps: resolvedSteps,
   };
-  const faqJsonLd = faqs.length
-    ? {
-        "@context": "https://schema.org",
-        "@type": "FAQPage",
-        mainEntity: faqs.map((faq) => ({
-          "@type": "Question",
-          name: faq.question,
-          acceptedAnswer: { "@type": "Answer", text: faq.answer },
-        })),
-      }
-    : null;
-  const jsonLd = JSON.stringify(faqJsonLd ? [productJsonLd, faqJsonLd] : productJsonLd).replace(/</g, "\\u003c");
+  const jsonLd = buildPlanJsonLd(fullPlanData, DEFAULT_SITE_URL);
+  const jsonLdString = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
+
   const recommendedTier = tiers.find((tier) => tier.isRecommended) || tiers[0];
 
   if (useNewPages) {
     return (
       <>
         <SubscriptionSuccessBanner paymentStatus={paymentStatus} subId={subId} token={token} slug={plan.slug} />
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString }} />
         <NewAIAutomationDetail
-          plan={plan as any}
-          activeSubscriptions={activeSubscriptions}
+          plan={fullPlanData as any}
+          activeSubscriptions={activeSubscriptions.filter((s): s is { planTierId: string } => typeof s.planTierId === "string")}
           preview={preview}
         />
       </>
@@ -209,7 +280,7 @@ export default async function AIAutomationPlanPage({
       ) : null}
       <Header />
       <SubscriptionSuccessBanner paymentStatus={paymentStatus} subId={subId} token={token} slug={plan.slug} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString }} />
 
       {/* Hero Section */}
       {visibility.hero !== false && (
@@ -351,10 +422,10 @@ export default async function AIAutomationPlanPage({
       <StorySections
         name={plan.name}
         stats={stats}
-        benefits={benefits}
+        benefits={resolvedBenefits}
         highlights={highlights}
-        steps={steps}
-        faqs={faqs}
+        steps={resolvedSteps}
+        faqs={resolvedFaqs}
         demoScreenshots={demoScreenshots}
         trustBlocks={trustBlocks}
         whatsappNumber={plan.whatsappNumber}

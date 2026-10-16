@@ -18,6 +18,18 @@ const SEARCH_BOT_PATTERNS = [
   "feedfetcher-google",
   "google-read-aloud",
   "bingbot",
+  "gptbot",
+  "chatgpt-user",
+  "oai-searchbot",
+  "perplexitybot",
+  "claudebot",
+  "anthropic-ai",
+  "applebot",
+  "meta-externalagent",
+  "cohere-ai",
+  "facebookexternalhit",
+  "twitterbot",
+  "linkedinbot",
 ];
 
 export function isSearchBotOrAdsBot(userAgent: string | null): boolean {
