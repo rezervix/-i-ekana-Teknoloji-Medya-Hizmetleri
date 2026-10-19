@@ -28,6 +28,7 @@ import {
 } from '@/lib/analytics';
 import PlanComparisonMatrix from '../../components/PlanComparisonMatrix';
 import MobileStickyCtaBar from '../../components/MobileStickyCtaBar';
+import AISalesAssistantWidget from '../../components/AISalesAssistantWidget';
 
 interface Tier {
   id: string;
@@ -855,6 +856,16 @@ export default function NewAIAutomationDetail({
           recommendedTier ? () => handleSelectTier(recommendedTier) : undefined
         }
         recommendedTierName={recommendedTier?.name}
+      />
+
+      {/* CANLI ZİYARETÇİ ETKİLEŞİMİ: AI Satış Asistanı (Scroll derinliği & zamanlayıcı tetiklemeli) */}
+      <AISalesAssistantWidget
+        planName={plan.name}
+        planSlug={plan.slug}
+        whatsappUrl={waUrl}
+        whatsappNumber={plan.whatsappNumber}
+        whatsappTemplate={plan.whatsappTemplate}
+        startingPriceFormatted={startingPrice !== null ? formatTryPrice(startingPrice) : undefined}
       />
     </div>
   );

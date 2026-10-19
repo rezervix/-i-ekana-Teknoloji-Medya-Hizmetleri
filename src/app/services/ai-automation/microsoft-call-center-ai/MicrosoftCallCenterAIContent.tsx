@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useCartStore } from '@/store/useCartStore';
 import { toast } from 'sonner';
+import AISalesAssistantWidget from '../components/AISalesAssistantWidget';
 
 type BillingPeriod = 'monthly' | 'yearly';
 
@@ -757,6 +758,15 @@ export default function MicrosoftCallCenterAIContent() {
           </a>
         </div>
       </section>
+
+      {/* CANLI ZİYARETÇİ ETKİLEŞİMİ: AI Satış Asistanı (Scroll derinliği & zamanlayıcı tetiklemeli) */}
+      <AISalesAssistantWidget
+        planName="Microsoft Call Center AI"
+        planSlug="microsoft-call-center-ai"
+        whatsappNumber="905303412156"
+        whatsappTemplate="Merhaba, Microsoft Call Center AI hakkında detaylı bilgi, sesli demo ve kurulum danışmanlığı almak istiyorum."
+        startingPriceFormatted="₺7.000 / Ay"
+      />
     </div>
   );
 }

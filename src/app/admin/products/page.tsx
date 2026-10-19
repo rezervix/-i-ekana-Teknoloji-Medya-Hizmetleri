@@ -29,6 +29,7 @@ import {
   Info,
 } from 'lucide-react';
 import { PLAN_ICON_NAMES, getPlanIcon } from '@/lib/plan-icons';
+import PlanDemoScreenshotsUploader from '@/components/admin/PlanDemoScreenshotsUploader';
 
 // ─── TİP TANIMLARI ────────────────────────────────────────────────────────────
 
@@ -1597,7 +1598,7 @@ export default function AdminProductsPage() {
         </section>
       )}
 
-      {/* ─── TAB 5: DEMO & EKRAN GÖRÜNTÜLERİ (0 - 6 ADET) ──────────────── */}
+      {/* ─── TAB 5: DEMO & EKRAN GÖRÜNTÜLERİ (0 - 8 ADET) ──────────────── */}
       {activeTab === 'screenshots' && (
         <section className="grid gap-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between border-b border-slate-100 pb-4">
@@ -1607,12 +1608,13 @@ export default function AdminProductsPage() {
                   Ürün Ekran Görüntüleri & Demo
                 </h2>
                 <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-slate-600">
-                  {form.demoScreenshots.length} / 6 Görsel
+                  {form.demoScreenshots.length} / 8 Görsel
                 </span>
               </div>
               <p className="text-xs text-slate-500">
-                0 ile 6 arasında ekran görüntüsü ekleyebilirsiniz. Eğer görsel eklemezseniz bu bölüm
-                sayfada otomatik olarak gizlenir.
+                0 ile 8 arasında ekran görüntüsü ekleyebilirsiniz. Sürükleyip bırakarak toplu dosya
+                yükleyebilir, sıralamayı değiştirebilir veya harici Cloudinary / CDN bağlantıları
+                ekleyebilirsiniz.
               </p>
             </div>
             <label className="inline-flex cursor-pointer items-center gap-2">
@@ -1626,117 +1628,11 @@ export default function AdminProductsPage() {
             </label>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {form.demoScreenshots.map((item, index) => (
-              <div
-                key={index}
-                className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50/50 p-4"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase tracking-wide text-corp-teal">
-                    Görsel #{index + 1}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      update(
-                        'demoScreenshots',
-                        form.demoScreenshots.filter((_, i) => i !== index)
-                      )
-                    }
-                    className="text-xs font-bold text-rose-600 hover:underline"
-                  >
-                    Sil
-                  </button>
-                </div>
-
-                {item.url ? (
-                  <div className="relative aspect-[16/10] w-full overflow-hidden rounded-xl border border-slate-200 bg-white">
-                    <Image
-                      src={item.url}
-                      alt="Önizleme"
-                      fill
-                      className="object-cover"
-                      unoptimized
-                    />
-                  </div>
-                ) : null}
-
-                <div>
-                  <label className="text-xs font-bold text-slate-600">Görsel URL veya Yükle</label>
-                  <input
-                    type="url"
-                    value={item.url}
-                    onChange={(e) =>
-                      update(
-                        'demoScreenshots',
-                        form.demoScreenshots.map((s, i) =>
-                          i === index ? { ...s, url: e.target.value } : s
-                        )
-                      )
-                    }
-                    placeholder="https://..."
-                    className="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2.5 text-sm outline-none"
-                  />
-                  <label className="mt-2 inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-slate-900 px-3 py-1.5 text-xs font-bold text-white hover:bg-slate-800">
-                    <ImagePlus size={13} />
-                    {uploadingField === `demo_${index}` ? 'Yükleniyor...' : 'Dosyadan Yükle'}
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="sr-only"
-                      disabled={uploadingField === `demo_${index}`}
-                      onChange={(e) =>
-                        e.target.files?.[0] &&
-                        void uploadImage(e.target.files[0], `demo_${index}`, (url) => {
-                          update(
-                            'demoScreenshots',
-                            form.demoScreenshots.map((s, i) => (i === index ? { ...s, url } : s))
-                          );
-                        })
-                      }
-                    />
-                  </label>
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold text-slate-600">
-                    Açıklama / Alt Başlık (Max 160 Karakter)
-                  </label>
-                  <input
-                    type="text"
-                    maxLength={160}
-                    value={item.caption}
-                    onChange={(e) =>
-                      update(
-                        'demoScreenshots',
-                        form.demoScreenshots.map((s, i) =>
-                          i === index ? { ...s, caption: e.target.value } : s
-                        )
-                      )
-                    }
-                    placeholder="Örn: Gerçek zamanlı arama analiz paneli"
-                    className="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2.5 text-sm outline-none"
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {form.demoScreenshots.length < 6 && (
-            <button
-              type="button"
-              onClick={() =>
-                update('demoScreenshots', [
-                  ...form.demoScreenshots,
-                  { url: '', caption: '', alt: '', order: form.demoScreenshots.length },
-                ])
-              }
-              className="inline-flex w-fit items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-xs font-bold text-corp-teal hover:bg-slate-50"
-            >
-              <Plus size={16} /> Yeni Demo Görseli Ekle
-            </button>
-          )}
+          <PlanDemoScreenshotsUploader
+            screenshots={form.demoScreenshots}
+            onChange={(newScreenshots) => update('demoScreenshots', newScreenshots)}
+            maxScreenshots={8}
+          />
         </section>
       )}
 
