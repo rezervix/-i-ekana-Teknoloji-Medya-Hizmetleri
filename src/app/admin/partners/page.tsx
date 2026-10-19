@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Plus, Edit, Trash2, Upload, X, GripVertical } from "lucide-react";
-import { UploadButton } from "@/components/admin/LocalUploadButton";
+import { Plus, Edit, Trash2, X, GripVertical } from "lucide-react";
+import { LogoUploader } from "@/components/admin/LogoUploader";
+import { toast } from "sonner";
 
 interface Partner {
   id: string;
@@ -13,7 +14,7 @@ interface Partner {
   isActive: boolean;
 }
 
-export default function AdminPage() {
+export default function AdminPartnersPage() {
   const [partners, setPartners] = useState<Partner[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -38,6 +39,15 @@ export default function AdminPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.name.trim()) {
+      toast.error("Lütfen iş ortağı adını giriniz.");
+      return;
+    }
+    if (!formData.logoUrl) {
+      toast.error("Lütfen bir iş ortağı logosu yükleyiniz.");
+      return;
+    }
+
     try {
       const url = editingPartner 
         ? `/api/admin/partners/${editingPartner.id}`
@@ -54,14 +64,19 @@ export default function AdminPage() {
         body: JSON.stringify(body),
       });
 
-      if (res.ok) {
-        await fetchPartners();
-        setShowModal(false);
-        setEditingPartner(null);
-        setFormData({ name: "", logoUrl: "", websiteUrl: "" });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "İşlem sırasında bir hata oluştu.");
       }
-    } catch (error) {
+
+      toast.success(editingPartner ? "İş ortağı güncellendi." : "Yeni iş ortağı eklendi.");
+      await fetchPartners();
+      setShowModal(false);
+      setEditingPartner(null);
+      setFormData({ name: "", logoUrl: "", websiteUrl: "" });
+    } catch (error: any) {
       console.error("Failed to save partner:", error);
+      toast.error(error.message || "İş ortağı kaydedilirken hata oluştu.");
     }
   };
 
@@ -69,9 +84,11 @@ export default function AdminPage() {
     if (!confirm("Bu iş ortağını silmek istediğinize emin misiniz?")) return;
     try {
       await fetch(`/api/admin/partners/${id}`, { method: "DELETE" });
+      toast.success("İş ortağı silindi.");
       await fetchPartners();
     } catch (error) {
       console.error("Failed to delete partner:", error);
+      toast.error("İş ortağı silinemedi.");
     }
   };
 
@@ -153,9 +170,11 @@ export default function AdminPage() {
                   </td>
                   <td className="p-4">
                     {partner.logoUrl ? (
-                      <img src={partner.logoUrl} alt={partner.name} className="h-8 w-auto object-contain" />
+                      <div className="h-10 w-24 bg-white border border-corp-border/80 rounded-lg p-1.5 flex items-center justify-center shadow-xs">
+                        <img src={partner.logoUrl} alt={partner.name} className="max-h-7 max-w-full object-contain mix-blend-multiply" />
+                      </div>
                     ) : (
-                      <div className="h-8 w-8 bg-corp-surface rounded flex items-center justify-center text-corp-gray text-xs">
+                      <div className="h-10 w-24 bg-corp-surface rounded flex items-center justify-center text-corp-gray text-xs">
                         Logo Yok
                       </div>
                     )}
@@ -206,13 +225,13 @@ export default function AdminPage() {
       </div>
 
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
-            <div className="flex items-center justify-between p-6 border-b border-corp-border">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+          <div className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full max-w-md max-h-[92vh] sm:max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-corp-border sticky top-0 bg-white z-10">
               <h3 className="font-display text-lg font-bold text-corp-charcoal">
                 {editingPartner ? "İş Ortağı Düzenle" : "Yeni İş Ortağı Ekle"}
               </h3>
-              <button onClick={closeModal} className="p-2 hover:bg-corp-surface rounded-lg transition-colors">
+              <button onClick={closeModal} className="p-2 hover:bg-corp-surface rounded-lg transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center">
                 <X size={20} />
               </button>
             </div>
@@ -229,32 +248,13 @@ export default function AdminPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-corp-gray mb-2">Logo URL *</label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    required
-                    value={formData.logoUrl}
-                    onChange={(e) => setFormData({ ...formData, logoUrl: e.target.value })}
-                    className="flex-1 px-4 py-2 border border-corp-border rounded-lg focus:outline-none focus:ring-2 focus:ring-corp-teal/20 focus:border-corp-teal"
-                    placeholder="https://..."
-                  />
-                  <UploadButton<"logoUploader">
-                    endpoint="logoUploader"
-                    onClientUploadComplete={(res) => {
-                      if (res?.[0]?.url) {
-                        setFormData({ ...formData, logoUrl: res[0].url });
-                      }
-                    }}
-                    onUploadError={(error) => {
-                      console.error("Upload error:", error);
-                    }}
-                    className="px-4 py-2 bg-corp-surface border border-corp-border rounded-lg hover:bg-corp-teal hover:text-white hover:border-corp-teal transition-colors"
-                  />
-                </div>
-                {formData.logoUrl && (
-                  <img src={formData.logoUrl} alt="Logo preview" className="mt-2 h-12 w-auto object-contain" />
-                )}
+                <label className="block text-sm font-medium text-corp-charcoal mb-1.5">
+                  İş Ortağı Logosu <span className="text-red-500">*</span>
+                </label>
+                <LogoUploader
+                  value={formData.logoUrl}
+                  onChange={(url) => setFormData({ ...formData, logoUrl: url })}
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-corp-gray mb-2">Web Sitesi</label>

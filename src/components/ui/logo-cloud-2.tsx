@@ -178,10 +178,9 @@ function LogoCardWrapper({ logo, className, children, ...props }: LogoCardWrappe
           alt={logo.alt || "Marka"}
           className={cn(
             "pointer-events-none select-none object-contain transition-all duration-300",
-            "max-h-7 md:max-h-9 w-auto max-w-[70%]",
-            // Supports both pure transparent and white backgrounds seamlessly
-            "mix-blend-multiply dark:mix-blend-normal dark:brightness-0 dark:invert",
-            "opacity-75 group-hover:opacity-100 group-hover:scale-105"
+            "max-h-8 md:max-h-10 w-auto max-w-[75%]",
+            "mix-blend-multiply dark:mix-blend-normal",
+            "opacity-85 group-hover:opacity-100 group-hover:scale-105"
           )}
           height={logo.height || "auto"}
           src={logo.src}

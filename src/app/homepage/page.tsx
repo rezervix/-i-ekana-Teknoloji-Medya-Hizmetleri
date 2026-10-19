@@ -10,6 +10,9 @@ import TestimonialsSection from "./components/TestimonialsSection";
 import ContactSection from "./components/ContactSection";
 import { Toaster } from "sonner";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default function HomepagePage() {
   return (
     <main className="min-h-screen bg-background">
