@@ -297,7 +297,11 @@ export async function trackFunnelEvent(payload: FunnelPayload): Promise<void> {
       }));
 
       const transactionId =
-        payload.metadata?.transaction_id || payload.metadata?.transactionId;
+        payload.metadata?.transaction_id ||
+        payload.metadata?.transactionId ||
+        payload.metadata?.lead_id ||
+        payload.metadata?.leadId ||
+        payload.metadata?.applicationNumber;
 
       // Google Ads doğrudan dönüşüm etiketi desteği (Ortam değişkeninde tanımlıysa)
       const adsId = process.env.NEXT_PUBLIC_GOOGLE_ADS_ID || "AW-18495983175";
@@ -461,13 +465,33 @@ export function trackPurchase(orderNumber: string, items: AnalyticsItem[], total
   });
 }
 
-export function trackGenerateLead(params?: { leadId?: string; sector?: string; value?: number }) {
+export function trackGenerateLead(params?: {
+  leadId?: string;
+  sector?: string;
+  value?: number;
+  currency?: string;
+  metadata?: Record<string, any>;
+}): Promise<void> {
+  const leadId = params?.leadId;
+  if (typeof window !== "undefined" && leadId) {
+    const trackedKey = `cicekana_tracked_lead_${leadId}`;
+    try {
+      if (sessionStorage.getItem(trackedKey)) {
+        return Promise.resolve();
+      }
+      sessionStorage.setItem(trackedKey, "1");
+    } catch {}
+  }
+
   return trackFunnelEvent({
     event: GA4_EVENTS.GENERATE_LEAD,
     value: params?.value,
+    currency: params?.currency || "TRY",
     metadata: {
-      lead_id: params?.leadId,
+      lead_id: leadId,
+      transaction_id: leadId,
       sector: params?.sector,
+      ...(params?.metadata || {}),
     },
   });
 }

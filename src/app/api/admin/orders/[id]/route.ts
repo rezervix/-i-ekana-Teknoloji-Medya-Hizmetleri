@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { z } from "zod";
 import { sendOrderConfirmationEmail } from "@/lib/email";
+import { notifyOrderPaymentSuccess } from "@/lib/order-notifications";
 
 // ── Zod schema for status, paymentStatus & archive update ───────────────────
 const PatchSchema = z
@@ -107,6 +108,11 @@ export async function PATCH(
         parsed.data.status === "PROCESSING");
 
     if (isBecomingConfirmedOrPaid) {
+      // Yönetici Satış Bildirimi (cicekanareklam@gmail.com - Manuel EFT Onayı İçin)
+      notifyOrderPaymentSuccess(existing.id, "ADMIN_MANUAL_VERIFIED").catch((notifErr) => {
+        console.error("[orders/PATCH] notifyOrderPaymentSuccess error:", notifErr);
+      });
+
       dataToUpdate.paymentStatus = "COMPLETED";
       if (!dataToUpdate.status && existing.status === "PENDING") {
         dataToUpdate.status = "CONFIRMED";

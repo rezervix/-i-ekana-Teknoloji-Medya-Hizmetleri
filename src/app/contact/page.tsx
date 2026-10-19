@@ -9,6 +9,7 @@ import { z } from "zod";
 import { Mail, Phone, MapPin, CheckCircle2, Loader2, ArrowRight, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { Toaster } from "sonner";
+import { trackGenerateLead } from "@/lib/analytics";
 
 const interests = [
   { value: "yazilim-ai", label: "Yazılım & AI" },
@@ -33,7 +34,10 @@ type FormData = z.infer<typeof schema>;
 
 function ContactForm() {
   const [submitted, setSubmitted] = useState(false);
-  const { register, handleSubmit, control, watch, formState: { errors, isSubmitting } } = useForm<FormData>({
+  const [createdLeadId, setCreatedLeadId] = useState<string | null>(null);
+  const [submissionKey, setSubmissionKey] = useState<string>(() => "cp_" + Math.random().toString(36).substring(2, 9) + "_" + Date.now());
+
+  const { register, handleSubmit, control, watch, reset, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: { solutionType: [] },
   });
@@ -41,23 +45,73 @@ function ContactForm() {
 
   const onSubmit = async (data: FormData) => {
     try {
-      const res = await fetch("/api/leads", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
-      if (!res.ok) { const e = await res.json(); throw new Error(e.error || "Hata"); }
+      const res = await fetch("/api/leads", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-idempotency-key": submissionKey,
+        },
+        body: JSON.stringify({
+          ...data,
+          idempotencyKey: submissionKey,
+        }),
+      });
+
+      const json = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(json.error || "Başvurunuz kaydedilirken bir hata oluştu. Lütfen tekrar deneyiniz.");
+      }
+
+      const leadId = json?.id || `lead_${Date.now()}`;
+      setCreatedLeadId(leadId);
       setSubmitted(true);
-    } catch (e: any) { toast.error(e.message); }
+
+      // Google Ads & GA4: Güvenli lead dönüşümü
+      try {
+        await trackGenerateLead({
+          leadId,
+          sector: data.sector,
+        });
+      } catch (analyticsErr) {
+        console.warn("[analytics] trackGenerateLead uyarısı:", analyticsErr);
+      }
+    } catch (e: any) {
+      toast.error(e.message || "Gönderim başarısız. Lütfen bilgilerinizi kontrol edip tekrar deneyiniz.");
+    }
+  };
+
+  const handleReset = () => {
+    reset();
+    setSubmitted(false);
+    setCreatedLeadId(null);
+    setSubmissionKey("cp_" + Math.random().toString(36).substring(2, 9) + "_" + Date.now());
   };
 
   const inp = "w-full bg-corp-surface border border-corp-border rounded-xl px-4 py-3.5 font-body text-[14px] text-corp-charcoal placeholder-corp-gray-light focus:outline-none focus:border-corp-teal/60 transition-all";
 
   if (submitted) return (
-    <div className="text-center py-20 rounded-2xl border border-corp-border bg-corp-surface">
-      <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-5 bg-corp-teal">
-        <CheckCircle2 size={28} className="text-white" />
+    <div className="text-center py-16 px-6 rounded-2xl border border-corp-border bg-corp-surface">
+      <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-5 bg-corp-teal text-white">
+        <CheckCircle2 size={32} />
       </div>
-      <h3 className="font-display text-2xl text-corp-charcoal mb-3">Talebiniz Alındı</h3>
-      <p className="font-body text-corp-gray text-sm max-w-xs mx-auto">
+      <h3 className="font-display text-2xl text-corp-charcoal mb-2">Talebiniz Alındı</h3>
+      {createdLeadId && (
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-white border border-corp-border text-[12px] font-mono text-corp-charcoal mb-3">
+          <span>Takip Kodu:</span>
+          <strong className="text-corp-teal">{createdLeadId}</strong>
+        </div>
+      )}
+      <p className="font-body text-corp-gray text-sm max-w-sm mx-auto mb-6 leading-relaxed">
         Strateji ekibimiz 24 saat içinde sizinle iletişime geçecek.
       </p>
+      <button
+        type="button"
+        onClick={handleReset}
+        className="inline-flex items-center justify-center px-5 py-2.5 rounded-lg border border-corp-border font-body text-[13px] font-semibold text-corp-charcoal hover:bg-white transition-colors"
+      >
+        Farklı bir talep için yeni form doldur
+      </button>
     </div>
   );
 

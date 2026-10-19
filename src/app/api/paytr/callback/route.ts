@@ -3,6 +3,10 @@ import crypto from 'node:crypto';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import {
+  notifyOrderPaymentSuccess,
+  notifySubscriptionPaymentSuccess,
+} from '@/lib/order-notifications';
+import {
   sendSubscriptionStartedEmail,
   sendAdminSubscriptionAlertEmail,
   sendOrderConfirmationEmail,
@@ -228,6 +232,14 @@ export async function POST(request: NextRequest) {
               amountTL: subscription.priceAtPurchase / 100,
               subscriptionId: subscription.id,
             }).catch((e) => console.error('Subscription admin email error:', e));
+
+            // cicekanareklam@gmail.com kişisel iş bildirim adresine satış bildirimi
+            notifySubscriptionPaymentSuccess(subscription.id, merchantOid).catch((err) => {
+              logger.warn({
+                event: 'SUBSCRIPTION_PAYMENT_NOTIFICATION_ERROR',
+                details: { subscriptionId: subscription.id, error: String(err) },
+              });
+            });
           } catch (mailErr) {
             logger.warn({
               event: 'SUBSCRIPTION_NOTIFICATION_ERROR',
@@ -392,6 +404,18 @@ export async function POST(request: NextRequest) {
               },
             });
           }
+
+        // ── Yönetici Satış Bildirimi (cicekanareklam@gmail.com - Asenkron & İdempotent) ──
+        notifyOrderPaymentSuccess(order.id, merchantOid).catch((notifErr) => {
+          logger.error({
+            event: 'ORDER_PAYMENT_NOTIFICATION_ERROR',
+            details: {
+              orderId: order.id,
+              orderNumber: order.orderNumber,
+              error: notifErr instanceof Error ? notifErr.message : String(notifErr),
+            },
+          });
+        });
         }
 
         // Terk edilen sepet dönüşümü (Gerçekleşen başarılı ödeme anında)

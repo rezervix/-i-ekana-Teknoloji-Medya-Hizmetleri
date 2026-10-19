@@ -54,7 +54,7 @@ import {
   START_PERIOD_OPTIONS,
   CONTACT_METHOD_OPTIONS,
 } from "@/types/social-application";
-import { trackFunnelEvent } from "@/lib/analytics";
+import { trackGenerateLead } from "@/lib/analytics";
 
 interface Props {
   initialService?: string;
@@ -64,6 +64,7 @@ export default function SocialApplicationForm({ initialService }: Props) {
   const [submitted, setSubmitted] = useState(false);
   const [applicationNumber, setApplicationNumber] = useState<string>("");
   const [serverError, setServerError] = useState<string | null>(null);
+  const [submissionKey, setSubmissionKey] = useState<string>(() => "sma_d_" + Math.random().toString(36).substring(2, 9) + "_" + Date.now());
 
   const defaultServices = initialService ? [initialService] : [];
 
@@ -73,6 +74,7 @@ export default function SocialApplicationForm({ initialService }: Props) {
     control,
     watch,
     formState: { errors, isSubmitting },
+    reset,
   } = useForm<SocialApplicationFormData>({
     resolver: zodResolver(socialApplicationSchema as any),
     defaultValues: {
@@ -111,8 +113,14 @@ export default function SocialApplicationForm({ initialService }: Props) {
     try {
       const response = await fetch("/api/social-applications", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        headers: {
+          "Content-Type": "application/json",
+          "x-idempotency-key": submissionKey,
+        },
+        body: JSON.stringify({
+          ...data,
+          idempotencyKey: submissionKey,
+        }),
       });
 
       const result = await response.json();
@@ -121,13 +129,15 @@ export default function SocialApplicationForm({ initialService }: Props) {
         throw new Error(result.error || "Başvuru gönderilirken bir hata oluştu.");
       }
 
-      setApplicationNumber(result.applicationNumber || "SMA-KAYIT-OK");
+      const appNum = result.applicationNumber || "SMA-KAYIT-OK";
+      setApplicationNumber(appNum);
       setSubmitted(true);
 
-      // Reklam ve analitik dönüşüm ölçümü (Kullanıcı kişisel verileri içermez)
+      // Google Ads & GA4 Dönüşüm Ölçümü (Deduplication korumalı trackGenerateLead)
       try {
-        await trackFunnelEvent({
-          event: "generate_lead",
+        await trackGenerateLead({
+          leadId: appNum,
+          sector: data.sector,
           value: 15000,
           currency: "TRY",
           metadata: {
@@ -143,6 +153,14 @@ export default function SocialApplicationForm({ initialService }: Props) {
     } catch (err: any) {
       setServerError(err.message || "İşlem sırasında beklenmedik bir hata oluştu.");
     }
+  };
+
+  const handleResetForNewApplication = () => {
+    reset();
+    setSubmitted(false);
+    setServerError(null);
+    setApplicationNumber("");
+    setSubmissionKey("sma_d_" + Math.random().toString(36).substring(2, 9) + "_" + Date.now());
   };
 
   if (submitted) {
@@ -192,6 +210,13 @@ export default function SocialApplicationForm({ initialService }: Props) {
           >
             Ana Sayfaya Dön
           </Link>
+          <button
+            type="button"
+            onClick={handleResetForNewApplication}
+            className="w-full sm:w-auto px-5 py-2.5 rounded-lg border border-corp-border font-body text-[13px] font-semibold text-corp-charcoal hover:bg-corp-surface transition-colors"
+          >
+            Farklı Bir Talep Oluştur
+          </button>
         </div>
       </div>
     );

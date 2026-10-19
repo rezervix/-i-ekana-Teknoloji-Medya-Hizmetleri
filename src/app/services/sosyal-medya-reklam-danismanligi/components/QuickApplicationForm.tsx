@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { trackGenerateLead } from "@/lib/analytics";
 import {
   Phone,
   ShieldCheck,
@@ -32,6 +33,7 @@ export default function QuickApplicationForm({ className = "" }: Props) {
 
   const [submitted, setSubmitted] = useState(false);
   const [applicationNumber, setApplicationNumber] = useState<string>("");
+  const [submissionKey, setSubmissionKey] = useState<string>(() => "sma_q_" + Math.random().toString(36).substring(2, 9) + "_" + Date.now());
 
   // Format Turkish phone number as user types: 05XX XXX XX XX
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -104,12 +106,14 @@ export default function QuickApplicationForm({ className = "" }: Props) {
         budgetConfirmed: true,
         applicationType: "quick",
         honeypot,
+        idempotencyKey: submissionKey,
       };
 
       const res = await fetch("/api/social-applications", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "x-idempotency-key": submissionKey,
         },
         body: JSON.stringify(payload),
       });
@@ -123,8 +127,24 @@ export default function QuickApplicationForm({ className = "" }: Props) {
         );
       }
 
-      setApplicationNumber(data.applicationNumber || "SMA-TAMAMLANDI");
+      const appNum = data.applicationNumber || "SMA-TAMAMLANDI";
+      setApplicationNumber(appNum);
       setSubmitted(true);
+
+      // Google Ads & GA4: Hızlı başvuru dönüşüm ölçümü (Deduplication korumalı)
+      try {
+        await trackGenerateLead({
+          leadId: appNum,
+          value: 15000,
+          currency: "TRY",
+          metadata: {
+            service: "sosyal-medya-hizli-basvuru",
+            phone: norm.formatted,
+          },
+        });
+      } catch (analyticsErr) {
+        console.warn("[analytics] Hızlı başvuru dönüşüm uyarısı:", analyticsErr);
+      }
     } catch (err: any) {
       setServerError(err.message || "Beklenmeyen bir hata oluştu.");
     } finally {
@@ -140,6 +160,7 @@ export default function QuickApplicationForm({ className = "" }: Props) {
     setServerError(null);
     setSubmitted(false);
     setApplicationNumber("");
+    setSubmissionKey("sma_q_" + Math.random().toString(36).substring(2, 9) + "_" + Date.now());
   };
 
   return (

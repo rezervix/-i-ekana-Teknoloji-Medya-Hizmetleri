@@ -240,7 +240,7 @@ async function runTestSuite() {
   };
 
   // UI Helper fonksiyonunun null-safe davranışı
-  function renderCustomerDetails(item: typeof guestSubscriptionItem) {
+  function renderCustomerDetails(item: any) {
     const name = item.user?.name || item.pendingName || (item.pendingPhone ? `Misafir (${item.pendingPhone})` : "Kullanıcı henüz eşleştirilmedi");
     const email = item.user?.email || item.pendingEmail || "—";
     const phone = item.user?.phone || item.pendingPhone || null;

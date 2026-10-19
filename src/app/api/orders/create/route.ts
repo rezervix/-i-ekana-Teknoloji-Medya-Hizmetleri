@@ -4,6 +4,7 @@ import { auth } from '@/lib/auth';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
 import { sendOrderPendingPaymentEmail } from '@/lib/email';
+import { notifyNewOrderPending } from '@/lib/order-notifications';
 
 const ProductCategory = {
   Medya: 'Medya',
@@ -323,6 +324,14 @@ export async function POST(req: NextRequest) {
         console.warn('[ORDER_PENDING_EMAIL_WARNING] Could not send pending payment email:', mailErr);
       }
     }
+
+    // ── Yönetici Sipariş Bildirimi (cicekanareklam@gmail.com - Asenkron & Hata Fırlatmaz) ──
+    notifyNewOrderPending(order.id).catch((notifErr) => {
+      logger.error({
+        event: 'ORDER_NOTIFICATION_PENDING_ERROR',
+        details: { orderId: order.id, error: String(notifErr) },
+      });
+    });
 
     logger.info({
       event: 'ORDER_CREATED',

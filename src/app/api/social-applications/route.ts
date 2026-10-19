@@ -2,12 +2,13 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { Resend } from "resend";
 import {
   socialApplicationSchema,
   quickApplicationSchema,
   normalizeTurkishPhone,
 } from "@/types/social-application";
+import { idempotencyService } from "@/lib/idempotency";
+import { dispatchSocialApplicationNotifications } from "@/lib/lead-notifications";
 
 // In-memory rate limiter: { ip -> [timestamps] }
 const rateLimitMap = new Map<string, number[]>();
@@ -59,6 +60,15 @@ export async function POST(req: NextRequest) {
   const isQuick = body?.applicationType === "quick";
   const userAgent = req.headers.get("user-agent") || undefined;
   const referer = req.headers.get("referer") || undefined;
+  const idempotencyKey =
+    body?.idempotencyKey ||
+    req.headers.get("x-idempotency-key") ||
+    undefined;
+
+  const siteUrl =
+    process.env.NEXTAUTH_URL ||
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    "https://cicekanatechmedia.com";
 
   // ── BRANCH A: HIZLI BAŞVURU (HERO FORM) ──
   if (isQuick) {
@@ -87,10 +97,27 @@ export async function POST(req: NextRequest) {
 
     const phoneNorm = normalizeTurkishPhone(parsedQuick.data.phone);
     const cleanPhone = phoneNorm.isValid ? phoneNorm.formatted : parsedQuick.data.phone;
+
+    // Idempotency kontrolü
+    if (idempotencyKey) {
+      const cached = idempotencyService.getByKey(idempotencyKey);
+      if (cached) {
+        return NextResponse.json(cached.response, { status: cached.status || 200 });
+      }
+    }
+
+    // Burst tekilleştirme (aynı telefon ve IP'den kısa süreli mükerrer istek)
+    const burstFingerprint = `${ip}_${cleanPhone.replace(/\s+/g, "")}_quick`;
+    const burstCheck = idempotencyService.checkBurst(burstFingerprint);
+    if (burstCheck.duplicate && burstCheck.response) {
+      return NextResponse.json(burstCheck.response, { status: 200 });
+    }
+
     const applicationNumber = generateApplicationNumber();
 
+    let application: any;
     try {
-      const application = await prisma.socialMediaApplication.create({
+      application = await prisma.socialMediaApplication.create({
         data: {
           applicationNumber,
           applicationType: "quick",
@@ -114,44 +141,6 @@ export async function POST(req: NextRequest) {
           landingPage: referer ? referer.slice(0, 500) : "/services/sosyal-medya-reklam-danismanligi#hizli-basvuru",
         },
       });
-
-      // Internal admin notification email
-      if (process.env.RESEND_API_KEY) {
-        try {
-          const resend = new Resend(process.env.RESEND_API_KEY);
-          await resend.emails.send({
-            from: "Çiçekana Bildirim <info@cicekanatechmedia.com>",
-            to: "info@cicekanatechmedia.com",
-            subject: `⚡ Yeni Hızlı Başvuru: ${cleanPhone} (${application.applicationNumber})`,
-            html: `
-              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;">
-                <h2 style="color: #263d4a; margin-top: 0;">⚡ Yeni Hızlı Başvuru (Hero Section)</h2>
-                <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
-                  <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold; width: 35%;">Başvuru No</td><td style="padding: 8px; border: 1px solid #ddd;">${application.applicationNumber}</td></tr>
-                  <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Başvuru Türü</td><td style="padding: 8px; border: 1px solid #ddd; color: #0284C7; font-weight: bold;">Hızlı Başvuru (Telefon Talebi)</td></tr>
-                  <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Telefon</td><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold; font-size: 15px;">${cleanPhone}</td></tr>
-                  <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">15.000 TL Bütçe Teyidi</td><td style="padding: 8px; border: 1px solid #ddd; color: green; font-weight: bold;">ONAYLANDI (Zorunlu)</td></tr>
-                  <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Tarih / Saat</td><td style="padding: 8px; border: 1px solid #ddd;">${new Date().toLocaleString("tr-TR")}</td></tr>
-                </table>
-                <div style="margin-top: 24px;">
-                  <a href="https://cicekanatechmedia.com/admin/social-applications" style="background: #263d4a; color: #ffffff; padding: 10px 18px; border-radius: 6px; text-decoration: none; font-size: 13px; font-weight: bold; display: inline-block;">
-                    Admin Panelinde İncele
-                  </a>
-                </div>
-              </div>
-            `,
-          });
-        } catch (emailErr) {
-          console.error("[Quick Application Email Error]:", emailErr);
-        }
-      }
-
-      return NextResponse.json({
-        success: true,
-        applicationNumber: application.applicationNumber,
-        message:
-          "İletişim talebiniz alındı. Başvurunuzu değerlendirdikten sonra sizinle iletişime geçeceğiz.",
-      });
     } catch (dbErr: any) {
       console.error("[Quick Application DB Error]:", dbErr);
       return NextResponse.json(
@@ -162,6 +151,36 @@ export async function POST(req: NextRequest) {
         { status: 500 }
       );
     }
+
+    const quickSuccessResponse = {
+      success: true,
+      applicationNumber: application.applicationNumber,
+      message:
+        "İletişim talebiniz alındı. Başvurunuzu değerlendirdikten sonra sizinle iletişime geçeceğiz.",
+    };
+
+    if (idempotencyKey) {
+      idempotencyService.setByKey(idempotencyKey, application.applicationNumber, quickSuccessResponse, 201);
+    }
+    idempotencyService.registerBurst(burstFingerprint, application.applicationNumber, quickSuccessResponse);
+
+    // Bildirimleri arka planda güvenle dağıt
+    dispatchSocialApplicationNotifications(
+      {
+        id: application.id,
+        applicationNumber: application.applicationNumber,
+        applicationType: "quick",
+        phone: cleanPhone,
+        services: ["Hızlı Başvuru - Ön Görüşme Talebi"],
+        platforms: [],
+        monthlyServiceBudget: "15.000 TL ve üzeri (Hızlı Başvuru Teyitli)",
+      },
+      siteUrl
+    ).catch((err) => {
+      console.error("[Quick Application Notification Error]:", err);
+    });
+
+    return NextResponse.json(quickSuccessResponse, { status: 201 });
   }
 
   // ── BRANCH B: MEVCUT DETAYLI BAŞVURU (UZUN FORM) ──
@@ -214,18 +233,35 @@ export async function POST(req: NextRequest) {
 
   const phoneNorm = normalizeTurkishPhone(phone);
   const cleanPhone = phoneNorm.isValid ? phoneNorm.formatted : phone;
+
+  // Idempotency kontrolü
+  if (idempotencyKey) {
+    const cached = idempotencyService.getByKey(idempotencyKey);
+    if (cached) {
+      return NextResponse.json(cached.response, { status: cached.status || 200 });
+    }
+  }
+
+  // Burst tekilleştirme (aynı email, telefon ve IP'den kısa süreli mükerrer istek)
+  const burstFingerprint = `${ip}_${email.trim().toLowerCase()}_${cleanPhone.replace(/\s+/g, "")}_detailed`;
+  const burstCheck = idempotencyService.checkBurst(burstFingerprint);
+  if (burstCheck.duplicate && burstCheck.response) {
+    return NextResponse.json(burstCheck.response, { status: 200 });
+  }
+
   const applicationNumber = generateApplicationNumber();
 
   // 5. Database persistence
+  let application: any;
   try {
-    const application = await prisma.socialMediaApplication.create({
+    application = await prisma.socialMediaApplication.create({
       data: {
         applicationNumber,
         applicationType: "detailed",
         fullName,
         companyName,
         title: title || null,
-        email,
+        email: email.trim().toLowerCase(),
         phone: cleanPhone,
         website: website || null,
         socialMediaUrl: socialMediaUrl || null,
@@ -251,87 +287,6 @@ export async function POST(req: NextRequest) {
         landingPage: referer ? referer.slice(0, 500) : "/services/sosyal-medya-reklam-danismanligi",
       },
     });
-
-    // 6. Email notifications (Resend - non-blocking error handling)
-    if (process.env.RESEND_API_KEY) {
-      try {
-        const resend = new Resend(process.env.RESEND_API_KEY);
-
-        // A. Confirmation email to client
-        await resend.emails.send({
-          from: "Çiçekana Danışmanlık <info@cicekanatechmedia.com>",
-          to: email,
-          subject: `Başvurunuz Alındı [${application.applicationNumber}] — Çiçekana Teknoloji & Medya`,
-          html: `
-            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; color: #1C1F22; padding: 32px; border: 1px solid #E8E8EE; border-radius: 12px;">
-              <div style="border-bottom: 2px solid #263d4a; padding-bottom: 16px; margin-bottom: 24px;">
-                <span style="font-size: 16px; font-weight: bold; color: #263d4a; letter-spacing: 1px;">ÇİÇEKANA TEKNOLOJİ & MEDYA</span>
-              </div>
-              <h1 style="font-size: 20px; color: #0b161d; margin-top: 0;">Başvurunuz Başarıyla Alındı</h1>
-              <p style="font-size: 14px; line-height: 1.6; color: #525558;">
-                Sayın <strong>${fullName}</strong> (${companyName}),
-              </p>
-              <p style="font-size: 14px; line-height: 1.6; color: #525558;">
-                Sosyal Medya & Reklam Danışmanlığı hizmetimize ilettiğiniz başvurunuz sisteme kaydedilmiştir.
-                Uzman danışmanlık ekibimiz başvurunuzu, marka profilinizi ve paylaştığınız hedefleri titizlikle incelemektedir.
-              </p>
-              <div style="background: #F0F4F6; border-radius: 8px; padding: 16px; margin: 20px 0;">
-                <p style="margin: 0 0 8px 0; font-size: 13px; color: #263d4a;"><strong>Başvuru Takip No:</strong> ${application.applicationNumber}</p>
-                <p style="margin: 0 0 8px 0; font-size: 13px; color: #525558;"><strong>Seçilen Hizmetler:</strong> ${services.join(", ")}</p>
-                <p style="margin: 0; font-size: 13px; color: #525558;"><strong>Aylık Hizmet Bütçesi:</strong> ${monthlyServiceBudget}</p>
-              </div>
-              <p style="font-size: 13px; line-height: 1.5; color: #7e858d;">
-                Değerlendirme sonucunda işletmenize uygun çalışma kapsamı ve strateji teklifi ile ilgili belirttiğiniz iletişim kanalı üzerinden iletişime geçilecektir.
-              </p>
-              <hr style="border: none; border-top: 1px solid #E8E8EE; margin: 24px 0;" />
-              <p style="font-size: 11px; color: #A5AAAD; margin: 0;">
-                Çiçekana Teknoloji ve Medya Hizmetleri • 13 Mart Mah. M. Remzi Yersel Cad. Artuklu / Mardin
-              </p>
-            </div>
-          `,
-        });
-
-        // B. Notification to internal admin team
-        await resend.emails.send({
-          from: "Çiçekana Bildirim <info@cicekanatechmedia.com>",
-          to: "info@cicekanatechmedia.com",
-          subject: `Yeni Sosyal Medya Başvurusu: ${companyName} (${application.applicationNumber})`,
-          html: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;">
-              <h2 style="color: #263d4a; margin-top: 0;">Yeni Sosyal Medya & Reklam Başvurusu</h2>
-              <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
-                <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold; width: 35%;">Başvuru No</td><td style="padding: 8px; border: 1px solid #ddd;">${application.applicationNumber}</td></tr>
-                <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">İşletme Adı</td><td style="padding: 8px; border: 1px solid #ddd;">${companyName}</td></tr>
-                <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Yetkili</td><td style="padding: 8px; border: 1px solid #ddd;">${fullName} (${title || "-"})</td></tr>
-                <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">E-posta</td><td style="padding: 8px; border: 1px solid #ddd;">${email}</td></tr>
-                <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Telefon</td><td style="padding: 8px; border: 1px solid #ddd;">${phone}</td></tr>
-                <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Sektör / Şehir</td><td style="padding: 8px; border: 1px solid #ddd;">${sector} / ${city || "-"}</td></tr>
-                <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Hizmet Bütçesi</td><td style="padding: 8px; border: 1px solid #ddd; color: #263d4a; font-weight: bold;">${monthlyServiceBudget}</td></tr>
-                <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Reklam Harcaması</td><td style="padding: 8px; border: 1px solid #ddd;">${monthlyAdSpendBudget}</td></tr>
-                <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Hizmetler</td><td style="padding: 8px; border: 1px solid #ddd;">${services.join(", ")}</td></tr>
-                <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Platformlar</td><td style="padding: 8px; border: 1px solid #ddd;">${platforms.join(", ")}</td></tr>
-                <tr><td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">15.000 TL Teyidi</td><td style="padding: 8px; border: 1px solid #ddd; color: green; font-weight: bold;">ONAYLANDI (Zorunlu)</td></tr>
-              </table>
-              <div style="margin-top: 24px;">
-                <a href="https://cicekanatechmedia.com/admin/social-applications" style="background: #263d4a; color: #ffffff; padding: 10px 18px; border-radius: 6px; text-decoration: none; font-size: 13px; font-weight: bold; display: inline-block;">
-                  Admin Panelinde İncele
-                </a>
-              </div>
-            </div>
-          `,
-        });
-      } catch (emailErr) {
-        console.error("[Email Notification Error]:", emailErr);
-        // Do not fail the client response if email service has a temporary issue
-      }
-    }
-
-    return NextResponse.json({
-      success: true,
-      applicationNumber: application.applicationNumber,
-      message:
-        "Başvurunuz başarıyla alındı. Paylaştığınız bilgileri değerlendirdikten sonra uygun başvurular için iletişim sürecini başlatacağız.",
-    });
   } catch (dbErr: any) {
     console.error("[Social Application DB Error]:", dbErr);
     return NextResponse.json(
@@ -342,4 +297,40 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
+
+  const detailedSuccessResponse = {
+    success: true,
+    applicationNumber: application.applicationNumber,
+    message:
+      "Başvurunuz başarıyla alındı. Paylaştığınız bilgileri değerlendirdikten sonra uygun başvurular için iletişim sürecini başlatacağız.",
+  };
+
+  if (idempotencyKey) {
+    idempotencyService.setByKey(idempotencyKey, application.applicationNumber, detailedSuccessResponse, 201);
+  }
+  idempotencyService.registerBurst(burstFingerprint, application.applicationNumber, detailedSuccessResponse);
+
+  // 6. E-posta bildirimlerinin bağımsız dağıtımı
+  dispatchSocialApplicationNotifications(
+    {
+      id: application.id,
+      applicationNumber: application.applicationNumber,
+      applicationType: "detailed",
+      fullName,
+      companyName,
+      email: email.trim().toLowerCase(),
+      phone: cleanPhone,
+      sector,
+      city,
+      services,
+      platforms,
+      monthlyServiceBudget,
+      monthlyAdSpendBudget,
+    },
+    siteUrl
+  ).catch((notifyErr) => {
+    console.error("[Social Application Notification Error]:", notifyErr);
+  });
+
+  return NextResponse.json(detailedSuccessResponse, { status: 201 });
 }

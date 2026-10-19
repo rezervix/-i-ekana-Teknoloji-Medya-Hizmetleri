@@ -41,6 +41,8 @@ const errorCls = "mt-1 font-body text-[11px] text-error";
 
 export default function ContactSection() {
   const [submitted, setSubmitted] = useState(false);
+  const [createdLeadId, setCreatedLeadId] = useState<string | null>(null);
+  const [submissionKey, setSubmissionKey] = useState<string>(() => "cs_" + Math.random().toString(36).substring(2, 9) + "_" + Date.now());
 
   const {
     register,
@@ -48,6 +50,7 @@ export default function ContactSection() {
     control,
     watch,
     formState: { errors, isSubmitting },
+    reset,
   } = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: { solutionType: [] },
@@ -59,25 +62,45 @@ export default function ContactSection() {
     try {
       const res = await fetch("/api/leads", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        headers: {
+          "Content-Type": "application/json",
+          "x-idempotency-key": submissionKey,
+        },
+        body: JSON.stringify({
+          ...data,
+          idempotencyKey: submissionKey,
+        }),
       });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Bir hata oluştu");
-      }
+
       const json = await res.json().catch(() => ({}));
 
-      // Google Ads & GA4: Başarılı müşteri adayı oluşturma dönüşümü
-      trackGenerateLead({
-        leadId: json?.id,
-        sector: data.sector,
-      });
+      if (!res.ok) {
+        throw new Error(json.error || "Başvurunuz kaydedilirken bir hata oluştu. Lütfen tekrar deneyiniz.");
+      }
 
+      const leadId = json?.id || `lead_${Date.now()}`;
+      setCreatedLeadId(leadId);
       setSubmitted(true);
+
+      // Google Ads & GA4: Güvenli dönüşüm ölçümü (leadId tekilleştirmeli)
+      try {
+        await trackGenerateLead({
+          leadId,
+          sector: data.sector,
+        });
+      } catch (analyticsErr) {
+        console.warn("[analytics] generate_lead ölçümleme uyarısı:", analyticsErr);
+      }
     } catch (e: any) {
       toast.error(e.message || "Gönderim başarısız. Lütfen tekrar deneyin.");
     }
+  };
+
+  const handleResetForNewSubmission = () => {
+    reset();
+    setSubmitted(false);
+    setCreatedLeadId(null);
+    setSubmissionKey("cs_" + Math.random().toString(36).substring(2, 9) + "_" + Date.now());
   };
 
   return (
@@ -150,18 +173,30 @@ export default function ContactSection() {
               <motion.div
                 initial={{ opacity: 0, scale: 0.97 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="text-center py-20 rounded-2xl border border-corp-border bg-corp-surface"
+                className="text-center py-16 px-6 rounded-2xl border border-corp-border bg-corp-surface"
               >
-                <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 bg-corp-teal">
-                  <CheckCircle2 size={28} className="text-white" />
+                <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 bg-corp-teal text-white">
+                  <CheckCircle2 size={32} />
                 </div>
-                <h3 className="font-display font-bold text-[22px] text-corp-charcoal mb-3">
+                <h3 className="font-display font-bold text-[24px] text-corp-charcoal mb-3">
                   Talebiniz Alındı
                 </h3>
-                <p className="font-body text-corp-gray text-[14px] max-w-xs mx-auto">
-                  Strateji ekibimiz en kısa sürede sizinle operasyonel değerlendirme
-                  için iletişime geçecek.
+                {createdLeadId && (
+                  <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-white border border-corp-border text-[12px] font-mono text-corp-charcoal mb-4">
+                    <span>Başvuru Takip Kodu:</span>
+                    <strong className="text-corp-teal">{createdLeadId}</strong>
+                  </div>
+                )}
+                <p className="font-body text-corp-gray text-[14px] max-w-sm mx-auto mb-6 leading-relaxed">
+                  Strateji ekibimiz en kısa sürede sizinle operasyonel değerlendirme için iletişime geçecek.
                 </p>
+                <button
+                  type="button"
+                  onClick={handleResetForNewSubmission}
+                  className="inline-flex items-center justify-center px-5 py-2.5 rounded-lg border border-corp-border font-body text-[13px] font-semibold text-corp-charcoal hover:bg-white transition-colors"
+                >
+                  Farklı bir talep için yeni form doldur
+                </button>
               </motion.div>
             ) : (
               <motion.form
@@ -347,7 +382,10 @@ export default function ContactSection() {
                   className="w-full flex items-center justify-center gap-2.5 py-4 rounded-md font-body font-semibold text-[14px] text-white bg-corp-teal hover:bg-corp-teal-600 transition-all duration-200 hover:-translate-y-0.5 disabled:opacity-60 disabled:cursor-not-allowed shadow-[0_4px_20px_rgba(10,77,104,0.25)]"
                 >
                   {isSubmitting ? (
-                    <Loader2 size={16} className="animate-spin" aria-hidden="true" />
+                    <>
+                      <Loader2 size={16} className="animate-spin" aria-hidden="true" />
+                      <span>Görüşme Kaydı Oluşturuluyor...</span>
+                    </>
                   ) : (
                     <>
                       Stratejik Görüşme Kaydı Oluştur

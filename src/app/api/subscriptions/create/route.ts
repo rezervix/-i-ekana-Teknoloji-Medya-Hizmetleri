@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import bcrypt from "bcryptjs";
 import crypto from "node:crypto";
+import { notifyNewSubscriptionPending } from "@/lib/order-notifications";
 import {
   normalizePhoneNumber,
   isValidTurkishPhone,
@@ -84,6 +85,10 @@ export async function POST(request: NextRequest) {
           claimTokenExpiresAt: claimExpires,
         },
         select: { id: true },
+      });
+
+      notifyNewSubscriptionPending(subscription.id).catch((err) => {
+        console.error("[subscriptions/create] notifyNewSubscriptionPending error:", err);
       });
 
       return NextResponse.json({ success: true, subscriptionId: subscription.id });
@@ -209,6 +214,10 @@ export async function POST(request: NextRequest) {
         select: { id: true },
       });
 
+      notifyNewSubscriptionPending(subscription.id).catch((err) => {
+        console.error("[subscriptions/create] notifyNewSubscriptionPending error:", err);
+      });
+
       return NextResponse.json({ success: true, subscriptionId: subscription.id });
     }
 
@@ -259,6 +268,10 @@ export async function POST(request: NextRequest) {
         claimTokenExpiresAt: claimExpires,
       },
       select: { id: true },
+    });
+
+    notifyNewSubscriptionPending(subscription.id).catch((err) => {
+      console.error("[subscriptions/create] notifyNewSubscriptionPending error:", err);
     });
 
     return NextResponse.json({ success: true, subscriptionId: subscription.id });
