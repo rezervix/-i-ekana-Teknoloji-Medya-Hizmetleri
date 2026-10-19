@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Plus, Edit, Trash2, Upload, X, GripVertical } from "lucide-react";
-import { UploadButton } from "@/components/admin/LocalUploadButton";
+import { Plus, Edit, Trash2, X, GripVertical } from "lucide-react";
+import { LogoUploader } from "@/components/admin/LogoUploader";
+import { toast } from "sonner";
 
 interface Client {
   id: string;
@@ -38,6 +39,15 @@ export default function AdminPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.name.trim()) {
+      toast.error("Lütfen marka adını giriniz.");
+      return;
+    }
+    if (!formData.logoUrl) {
+      toast.error("Lütfen bir marka logosu yükleyiniz.");
+      return;
+    }
+
     try {
       const url = editingClient 
         ? `/api/admin/clients/${editingClient.id}`
@@ -54,14 +64,19 @@ export default function AdminPage() {
         body: JSON.stringify(body),
       });
 
-      if (res.ok) {
-        await fetchClients();
-        setShowModal(false);
-        setEditingClient(null);
-        setFormData({ name: "", logoUrl: "", websiteUrl: "" });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "İşlem sırasında bir hata oluştu.");
       }
-    } catch (error) {
+
+      toast.success(editingClient ? "Marka başarıyla güncellendi." : "Yeni marka eklendi.");
+      await fetchClients();
+      setShowModal(false);
+      setEditingClient(null);
+      setFormData({ name: "", logoUrl: "", websiteUrl: "" });
+    } catch (error: any) {
       console.error("Failed to save client:", error);
+      toast.error(error.message || "Marka kaydedilirken bir hata oluştu.");
     }
   };
 
@@ -154,9 +169,11 @@ export default function AdminPage() {
                   </td>
                   <td className="p-4">
                     {client.logoUrl ? (
-                      <img src={client.logoUrl} alt={client.name} className="h-8 w-auto object-contain" />
+                      <div className="h-10 w-24 bg-white border border-corp-border/80 rounded-lg p-1.5 flex items-center justify-center shadow-xs">
+                        <img src={client.logoUrl} alt={client.name} className="max-h-7 max-w-full object-contain mix-blend-multiply" />
+                      </div>
                     ) : (
-                      <div className="h-8 w-8 bg-corp-surface rounded flex items-center justify-center text-corp-gray text-xs">
+                      <div className="h-10 w-24 bg-corp-surface rounded-lg flex items-center justify-center text-corp-gray text-xs">
                         Logo Yok
                       </div>
                     )}
@@ -216,9 +233,11 @@ export default function AdminPage() {
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-center gap-3 min-w-0">
                   {client.logoUrl ? (
-                    <img src={client.logoUrl} alt={client.name} className="h-10 w-10 object-contain rounded-lg border border-corp-border p-1 bg-white shrink-0" />
+                    <div className="h-12 w-16 bg-white rounded-lg border border-corp-border/80 p-1 flex items-center justify-center shrink-0 shadow-xs">
+                      <img src={client.logoUrl} alt={client.name} className="max-h-9 max-w-full object-contain mix-blend-multiply" />
+                    </div>
                   ) : (
-                    <div className="h-10 w-10 bg-corp-surface rounded-lg flex items-center justify-center text-corp-gray text-[10px] shrink-0 border border-corp-border">
+                    <div className="h-12 w-16 bg-corp-surface rounded-lg flex items-center justify-center text-corp-gray text-[10px] shrink-0 border border-corp-border">
                       Logo
                     </div>
                   )}
@@ -289,32 +308,13 @@ export default function AdminPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-corp-gray mb-2">Logo URL *</label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    required
-                    value={formData.logoUrl}
-                    onChange={(e) => setFormData({ ...formData, logoUrl: e.target.value })}
-                    className="flex-1 px-4 py-2 border border-corp-border rounded-lg focus:outline-none focus:ring-2 focus:ring-corp-teal/20 focus:border-corp-teal"
-                    placeholder="https://..."
-                  />
-                  <UploadButton<"logoUploader">
-                    endpoint="logoUploader"
-                    onClientUploadComplete={(res) => {
-                      if (res?.[0]?.url) {
-                        setFormData({ ...formData, logoUrl: res[0].url });
-                      }
-                    }}
-                    onUploadError={(error) => {
-                      console.error("Upload error:", error);
-                    }}
-                    className="px-4 py-2 bg-corp-surface border border-corp-border rounded-lg hover:bg-corp-teal hover:text-white hover:border-corp-teal transition-colors"
-                  />
-                </div>
-                {formData.logoUrl && (
-                  <img src={formData.logoUrl} alt="Logo preview" className="mt-2 h-12 w-auto object-contain" />
-                )}
+                <label className="block text-sm font-medium text-corp-charcoal mb-1.5">
+                  Marka Logosu <span className="text-red-500">*</span>
+                </label>
+                <LogoUploader
+                  value={formData.logoUrl}
+                  onChange={(url) => setFormData({ ...formData, logoUrl: url })}
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-corp-gray mb-2">Web Sitesi</label>

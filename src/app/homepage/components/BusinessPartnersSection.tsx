@@ -40,8 +40,8 @@ export default function BusinessPartnersSection() {
           Operasyonel İş Ortaklarımız
         </p>
       </div>
-      <div className="max-w-8xl mx-auto px-6 md:px-10 lg:px-16">
-        <LogoCloud logos={logos} className="grid-cols-2 md:grid-cols-4" />
+      <div className="max-w-4xl mx-auto px-4 sm:px-6">
+        <LogoCloud logos={logos} />
       </div>
     </section>
   );

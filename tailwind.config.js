@@ -58,6 +58,10 @@ module.exports = {
         ring:       'var(--ring)',
         background: 'var(--background)',
         foreground: 'var(--foreground)',
+        muted: {
+          DEFAULT: 'var(--muted)',
+          foreground: 'var(--muted-foreground)',
+        },
       },
       fontFamily: {
         display: ['var(--font-display)', 'Plus Jakarta Sans', 'sans-serif'],

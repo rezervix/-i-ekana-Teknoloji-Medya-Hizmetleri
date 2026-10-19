@@ -1,67 +1,119 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { InfiniteSlider } from "@/components/ui/infinite-slider";
-import { ProgressiveBlur } from "@/components/ui/progressive-blur";
+import { LogoCloud, Logo } from "@/components/ui/logo-cloud-2";
 
-interface LogoItem {
+interface ClientItem {
   id: string;
   name: string;
   logoUrl: string;
   websiteUrl?: string | null;
 }
 
-const FALLBACK_LOGOS: LogoItem[] = [
-  { id: "1", name: "Microsoft",         logoUrl: "" },
-  { id: "2", name: "Türk Hava Yolları", logoUrl: "" },
-  { id: "3", name: "Casper",            logoUrl: "" },
-  { id: "4", name: "Turkcell",          logoUrl: "" },
-  { id: "5", name: "Garanti BBVA",      logoUrl: "" },
-  { id: "6", name: "Sabancı Holding",   logoUrl: "" },
+const FALLBACK_CLIENTS: ClientItem[] = [
+  {
+    id: "1",
+    name: "Nvidia",
+    logoUrl: "https://cdn.21st.dev/assets/mirror/bd/bdf5f3ae72bcfda892a686c03b7932985c694e9a9828643c980601bbc9e53cb4.svg",
+    websiteUrl: "https://nvidia.com",
+  },
+  {
+    id: "2",
+    name: "Supabase",
+    logoUrl: "https://cdn.21st.dev/assets/mirror/31/319eeae853dd1af99d442b6c16b6c38dc52a66a719f8e502c65f85d26255cbd3.svg",
+    websiteUrl: "https://supabase.com",
+  },
+  {
+    id: "3",
+    name: "GitHub",
+    logoUrl: "https://cdn.21st.dev/assets/mirror/90/90f01a9537335666282ae5acc80bd4305f86d085a92d60904c3aa3ccc4414570.svg",
+    websiteUrl: "https://github.com",
+  },
+  {
+    id: "4",
+    name: "OpenAI",
+    logoUrl: "https://cdn.21st.dev/assets/mirror/2b/2bcdd4124223e3bf8e66bc08ce0ac32a6cc42ffe3584bbecfd377847176a188d.svg",
+    websiteUrl: "https://openai.com",
+  },
+  {
+    id: "5",
+    name: "Turso",
+    logoUrl: "https://cdn.21st.dev/assets/mirror/fc/fc7b090ebcfc468d24a1dc482b2db1fcbfd99ca14568552a30ce553d6dda7fcb.svg",
+    websiteUrl: "https://turso.tech",
+  },
+  {
+    id: "6",
+    name: "Clerk",
+    logoUrl: "https://cdn.21st.dev/assets/mirror/96/96517bce3574d648280ff639d01d9889f354b488b3f826db5df746d730232a0c.svg",
+    websiteUrl: "https://clerk.com",
+  },
+  {
+    id: "7",
+    name: "Claude AI",
+    logoUrl: "https://cdn.21st.dev/assets/mirror/e8/e8514b1206f79e1abdafcc1d2632393cc7cfbcbbe25426ac5143b17b184b56b8.svg",
+    websiteUrl: "https://anthropic.com",
+  },
+  {
+    id: "8",
+    name: "Vercel",
+    logoUrl: "https://cdn.21st.dev/assets/mirror/56/5624b7c243ac8d60e848fb5ea222ec932c1600df54a2762238b37498372fb0c8.svg",
+    websiteUrl: "https://vercel.com",
+  },
 ];
 
-function LogoMarquee({ logos }: { logos: LogoItem[] }) {
-  return (
-    <div className="relative overflow-hidden">
-      <ProgressiveBlur direction="left" className="absolute left-0 top-0 bottom-0 w-24 md:w-40 z-10" />
-      <ProgressiveBlur direction="right" className="absolute right-0 top-0 bottom-0 w-24 md:w-40 z-10" />
-
-      <InfiniteSlider duration={30} durationOnHover={15} gap={40}>
-        {logos.map((logo) => (
-          <div
-            key={logo.id}
-            className="flex-shrink-0 flex items-center justify-center h-12 px-6 grayscale hover:grayscale-0 opacity-50 hover:opacity-90 transition-all duration-500 cursor-default"
-          >
-            <span className="font-display font-semibold text-[15px] text-corp-charcoal tracking-wide whitespace-nowrap">
-              {logo.name}
-            </span>
-          </div>
-        ))}
-      </InfiniteSlider>
-    </div>
-  );
-}
-
 export default function PartnersSection() {
-  const [logos, setLogos] = useState<LogoItem[]>(FALLBACK_LOGOS);
+  const [clients, setClients] = useState<ClientItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetch("/api/clients")
       .then((r) => r.json())
-      .then((data: LogoItem[]) => {
-        if (Array.isArray(data) && data.length > 0) setLogos(data);
+      .then((data: ClientItem[]) => {
+        if (Array.isArray(data) && data.length > 0) {
+          setClients(data);
+        } else {
+          setClients(FALLBACK_CLIENTS);
+        }
       })
-      .catch(() => {});
+      .catch(() => {
+        setClients(FALLBACK_CLIENTS);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   }, []);
 
+  const logos: Logo[] = (clients.length > 0 ? clients : FALLBACK_CLIENTS).map((c) => ({
+    id: c.id,
+    name: c.name,
+    logoUrl: c.logoUrl,
+    websiteUrl: c.websiteUrl,
+    alt: c.name,
+    src: c.logoUrl,
+  }));
+
   return (
-    <section className="py-14 bg-corp-surface relative overflow-hidden" aria-label="İş ortakları">
-      <div className="max-w-8xl mx-auto px-6 md:px-10 lg:px-16 mb-8">
-        <p className="font-body text-[11px] text-corp-gray tracking-widest uppercase font-semibold text-center">
-          Birlikte Çalıştığımız Markalar
-        </p>
+    <section
+      className="py-16 md:py-24 bg-background relative overflow-hidden"
+      aria-label="Birlikte Çalıştığımız Markalar"
+    >
+      <div className="relative mx-auto grid max-w-4xl px-4 sm:px-6">
+        <div className="text-center mb-8 md:mb-12">
+          <p className="font-body text-xs font-semibold uppercase tracking-wider text-corp-coral mb-2">
+            Referanslarımız
+          </p>
+          <h2 className="font-display font-medium text-xl md:text-3xl text-foreground tracking-tight">
+            Birlikte{" "}
+            <span className="font-semibold text-corp-teal">çalıştığımız</span>{" "}
+            markalar.
+          </h2>
+          <p className="mt-2 text-xs md:text-sm text-corp-gray max-w-md mx-auto">
+            Teknoloji ve dijital medya alanında başarı hikayelerini birlikte yazdığımız iş ortaklarımız.
+          </p>
+        </div>
+
+        <LogoCloud logos={logos} />
       </div>
-      <LogoMarquee logos={logos} />
     </section>
   );
 }
