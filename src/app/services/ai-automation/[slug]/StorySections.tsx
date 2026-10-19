@@ -1,10 +1,10 @@
-"use client";
+'use client';
 
-import { useEffect, useRef, useState } from "react";
-import Image from "next/image";
-import Link from "next/link";
-import { ChevronDown, MessageCircle, ArrowRight } from "lucide-react";
-import { getPlanIcon } from "@/lib/plan-icons";
+import { useEffect, useRef, useState } from 'react';
+import Image from 'next/image';
+import Link from 'next/link';
+import { ChevronDown, MessageCircle, ArrowRight } from 'lucide-react';
+import { getPlanIcon } from '@/lib/plan-icons';
 
 type Stat = { value: string; label: string };
 type Item = { icon?: string; title: string; description: string; badge?: string };
@@ -18,22 +18,33 @@ function useCountUp(value: string) {
   useEffect(() => {
     const match = value.match(/^(\d[\d.,]*)/);
     if (!match || !ref.current) return;
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const target = Number(match[1].replace(/\./g, "").replace(",", "."));
-    if (!Number.isFinite(target) || !/^\d+$/.test(match[1].replace(/\./g, "")) || reduced) return;
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const target = Number(match[1].replace(/\./g, '').replace(',', '.'));
+    if (!Number.isFinite(target) || !/^\d+$/.test(match[1].replace(/\./g, '')) || reduced) return;
     const suffix = value.slice(match[0].length);
     const started = performance.now();
     let frame = 0;
     const tick = (now: number) => {
       const progress = Math.min((now - started) / 700, 1);
-      setDisplay(`${Math.round(target * (1 - Math.pow(1 - progress, 3))).toLocaleString("tr-TR")}${suffix}`);
+      setDisplay(
+        `${Math.round(target * (1 - Math.pow(1 - progress, 3))).toLocaleString('tr-TR')}${suffix}`
+      );
       if (progress < 1) frame = requestAnimationFrame(tick);
     };
-    const observer = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting) { frame = requestAnimationFrame(tick); observer.disconnect(); }
-    }, { threshold: 0.4 });
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          frame = requestAnimationFrame(tick);
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.4 }
+    );
     observer.observe(ref.current);
-    return () => { observer.disconnect(); cancelAnimationFrame(frame); };
+    return () => {
+      observer.disconnect();
+      cancelAnimationFrame(frame);
+    };
   }, [value]);
   return { ref, display };
 }
@@ -43,7 +54,15 @@ function StatValue({ value }: { value: string }) {
   return <span ref={count.ref}>{count.display}</span>;
 }
 
-function SectionHeading({ eyebrow, title, description }: { eyebrow: string; title: string; description: string }) {
+function SectionHeading({
+  eyebrow,
+  title,
+  description,
+}: {
+  eyebrow: string;
+  title: string;
+  description: string;
+}) {
   return (
     <div className="max-w-2xl">
       <p className="text-xs font-bold uppercase tracking-ultra text-corp-coral">{eyebrow}</p>
@@ -90,8 +109,13 @@ export default function StorySections({
   sectionVisibility?: Record<string, boolean>;
 }) {
   const activeTrustBlocks = trustBlocks.filter((b) => b.isEnabled !== false);
-  const cleanPhone = (whatsappNumber || "").replace(/[^0-9]/g, "");
-  const waText = encodeURIComponent((whatsappTemplate || `Merhaba, ${name} hakkında bilgi ve canlı demo almak istiyorum.`).replace("{ürün}", name));
+  const cleanPhone = (whatsappNumber || '').replace(/[^0-9]/g, '');
+  const waText = encodeURIComponent(
+    (whatsappTemplate || `Merhaba, ${name} hakkında bilgi ve canlı demo almak istiyorum.`).replace(
+      '{ürün}',
+      name
+    )
+  );
   const waUrl = cleanPhone ? `https://wa.me/${cleanPhone}?text=${waText}` : null;
 
   return (
@@ -156,7 +180,8 @@ export default function StorySections({
             <div className="mt-7 grid gap-3 sm:mt-10 sm:gap-4 md:grid-cols-2 lg:grid-cols-12">
               {highlights.map((item, index) => {
                 const Icon = getPlanIcon(item.icon);
-                const span = index === 0 ? "lg:col-span-7" : index === 1 ? "lg:col-span-5" : "lg:col-span-4";
+                const span =
+                  index === 0 ? 'lg:col-span-7' : index === 1 ? 'lg:col-span-5' : 'lg:col-span-4';
                 return (
                   <article
                     key={`${item.title}-${index}`}
@@ -171,7 +196,9 @@ export default function StorySections({
                         </span>
                       ) : null}
                       <h3 className="text-xl font-bold text-corp-teal">{item.title}</h3>
-                      <p className="mt-2 max-w-xl text-sm leading-6 text-corp-gray">{item.description}</p>
+                      <p className="mt-2 max-w-xl text-sm leading-6 text-corp-gray">
+                        {item.description}
+                      </p>
                     </div>
                   </article>
                 );
@@ -206,7 +233,9 @@ export default function StorySections({
                     ) : null}
                     <Icon aria-hidden="true" className="mx-auto mt-5 text-corp-coral" size={21} />
                     <h3 className="mt-3 text-lg font-bold text-corp-teal">{item.title}</h3>
-                    <p className="mx-auto mt-2 max-w-xs text-sm leading-6 text-corp-gray">{item.description}</p>
+                    <p className="mx-auto mt-2 max-w-xs text-sm leading-6 text-corp-gray">
+                      {item.description}
+                    </p>
                   </article>
                 );
               })}
@@ -257,12 +286,15 @@ export default function StorySections({
         <section className="border-t border-border-light bg-bg-soft px-4 py-12 sm:px-6 lg:px-8 lg:py-20">
           <div className="mx-auto max-w-8xl">
             <div className="mx-auto max-w-2xl text-center">
-              <p className="text-xs font-bold uppercase tracking-ultra text-corp-coral">Güvenilir Altyapı</p>
+              <p className="text-xs font-bold uppercase tracking-ultra text-corp-coral">
+                Güvenilir Altyapı
+              </p>
               <h2 className="mt-3 text-3xl font-bold tracking-tight text-corp-teal sm:text-4xl">
                 Süreciniz Tam Güvence Altında
               </h2>
               <p className="mt-3 text-sm text-corp-gray">
-                Kurulumdan desteğe, veri güvenliğinden iptal hakkına kadar her detay sizin için güvence altına alındı.
+                Kurulumdan desteğe, veri güvenliğinden iptal hakkına kadar her detay sizin için
+                güvence altına alındı.
               </p>
             </div>
             <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -323,9 +355,12 @@ export default function StorySections({
                 <MessageCircle size={28} />
               </div>
               <div>
-                <h3 className="text-xl font-bold text-corp-teal">Canlı Demo veya Sorularınız mı Var?</h3>
+                <h3 className="text-xl font-bold text-corp-teal">
+                  Canlı Demo veya Sorularınız mı Var?
+                </h3>
                 <p className="mt-1 text-sm text-corp-gray">
-                  Uzman ekibimizle WhatsApp üzerinden anında görüşün, sistemin çalışma demosunu birlikte inceleyelim.
+                  Uzman ekibimizle WhatsApp üzerinden anında görüşün, sistemin çalışma demosunu
+                  birlikte inceleyelim.
                 </p>
               </div>
             </div>

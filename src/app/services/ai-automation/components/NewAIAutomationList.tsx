@@ -1,13 +1,23 @@
-"use client";
+'use client';
 
-import React, { useState, useEffect, useMemo } from "react";
-import Image from "next/image";
-import Link from "next/link";
-import { ArrowRight, Bot, MessageCircle } from "lucide-react";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
-import { formatStartingPrice } from "@/lib/plan-pricing";
-import { trackViewItemList, trackFunnelEvent } from "@/lib/analytics";
+import React, { useState, useEffect, useMemo } from 'react';
+import Image from 'next/image';
+import Link from 'next/link';
+import {
+  ArrowLeft,
+  ArrowRight,
+  Bot,
+  CheckCircle2,
+  Headphones,
+  MessageCircle,
+  ShieldCheck,
+  Sparkles,
+  Zap,
+} from 'lucide-react';
+import Header from '@/components/Header';
+import Footer from '@/components/Footer';
+import { formatStartingPrice } from '@/lib/plan-pricing';
+import { trackViewItemList, trackFunnelEvent } from '@/lib/analytics';
 
 interface PlanItem {
   id: string;
@@ -22,9 +32,9 @@ interface PlanItem {
 }
 
 export default function NewAIAutomationList({ plans }: { plans: PlanItem[] }) {
-  const [selectedCategory, setSelectedCategory] = useState<string>("ALL");
+  const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
 
-  // Kategorileri dinamik olarak çıkar
+  // Kategorileri dinamik olarak çıkar + Call Center AI kategorisini de dahil et
   const categories = useMemo(() => {
     const set = new Set<string>();
     plans.forEach((p) => {
@@ -32,14 +42,18 @@ export default function NewAIAutomationList({ plans }: { plans: PlanItem[] }) {
         set.add(p.category.trim());
       }
     });
+    set.add('Sesli AI & Çağrı Merkezi');
     return Array.from(set);
   }, [plans]);
 
   // Filtrelenmiş hizmetler
   const filteredPlans = useMemo(() => {
-    if (selectedCategory === "ALL") return plans;
+    if (selectedCategory === 'ALL') return plans;
     return plans.filter((p) => p.category?.trim() === selectedCategory);
   }, [plans, selectedCategory]);
+
+  const showCallCenterCard =
+    selectedCategory === 'ALL' || selectedCategory === 'Sesli AI & Çağrı Merkezi';
 
   // GA4 & Analytics: view_item_list olayı
   useEffect(() => {
@@ -48,202 +62,307 @@ export default function NewAIAutomationList({ plans }: { plans: PlanItem[] }) {
         id: p.id,
         name: p.name,
         price: p.tiers?.[0]?.priceMonthly ? p.tiers[0].priceMonthly / 100 : 0,
-        category: p.category || "AI Otomasyon",
+        category: p.category || 'AI Otomasyon',
       }));
-      trackViewItemList(items, "AI Otomasyon Hizmetleri Listesi");
+      items.push({
+        id: 'microsoft-call-center-ai',
+        name: 'Microsoft Call Center AI',
+        price: 0,
+        category: 'Sesli AI & Çağrı Merkezi',
+      });
+      trackViewItemList(items, 'AI Otomasyon Hizmetleri Listesi');
     }
   }, [plans]);
 
-  const handleWhatsAppConsultation = () => {
+  const handleWhatsAppConsultation = (source: string) => {
     trackFunnelEvent({
-      event: "whatsapp_click",
-      metadata: { source: "ai_list_consultation_banner" },
+      event: 'whatsapp_click',
+      metadata: { source },
     });
   };
+
+  const defaultWaUrl =
+    'https://wa.me/905303412156?text=' +
+    encodeURIComponent(
+      'Merhaba, Çiçekana AI Otomasyon çözümleri hakkında bilgi ve danışmanlık almak istiyorum.'
+    );
 
   return (
     <div className="min-h-screen bg-bg-soft text-corp-charcoal overflow-x-clip selection:bg-corp-coral-light selection:text-corp-coral">
       <Header />
 
-      <main className="mx-auto w-full max-w-7xl px-4 pt-24 pb-16 sm:px-6 sm:pt-28 md:py-20 lg:px-8">
-        {/* Kısa Hero: Başlık + Tek Cümle */}
-        <section className="mb-8 md:mb-12">
-          <div className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-corp-border bg-white px-3 py-1 text-xs font-semibold uppercase tracking-wider text-corp-teal">
-            <span>Kurumsal AI Çözümleri</span>
+      <main className="mx-auto w-full max-w-7xl px-4 pt-28 pb-16 sm:px-6 sm:pt-32 md:py-24 lg:px-8">
+        {/* Üst Navigasyon & Breadcrumb */}
+        <div className="mb-6">
+          <Link
+            href="/homepage"
+            className="inline-flex min-h-[44px] items-center gap-2 text-sm font-semibold text-corp-teal hover:text-corp-coral transition-colors"
+          >
+            <ArrowLeft size={16} aria-hidden="true" /> Ana Sayfa
+          </Link>
+        </div>
+
+        {/* Hero Bölümü: Değer Önerisi & Kurumsal Güvence */}
+        <header className="mb-10 lg:mb-14">
+          <div className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-corp-border bg-white px-3.5 py-1 text-xs font-bold uppercase tracking-wider text-corp-teal shadow-xs">
+            <Sparkles size={14} className="text-corp-coral" aria-hidden="true" />
+            <span>Yapay Zekâ ve Otomasyon Çözümleri</span>
           </div>
-          <h1 className="font-display text-3xl font-extrabold tracking-tight text-corp-teal sm:text-4xl md:text-5xl">
-            AI Otomasyon Hizmetlerimiz
+          <h1 className="font-display text-3xl font-extrabold tracking-tight text-corp-teal sm:text-4xl md:text-5xl lg:text-6xl leading-[1.15]">
+            İşletmenizi 7/24 Kesintisiz Büyüten Kurumsal AI Sistemleri
           </h1>
-          <p className="mt-3 max-w-2xl text-base leading-relaxed text-corp-gray sm:text-lg">
-            İş süreçlerinizi 7/24 kesintisiz çalıştıran, ölçeklenebilir ve güvenli kurumsal yapay zeka sistemleri.
+          <p className="mt-4 max-w-3xl text-base leading-relaxed text-corp-gray sm:text-lg lg:text-xl">
+            Müşteri desteğinden finans yönetimine, itibar takibinden sesli çağrı merkezine kadar tüm
+            süreçlerinizi insan hatasından arındırın, otomatikleştirin ve ölçeklendirin.
           </p>
 
-          {/* Yatay Kaydırılabilir Kategori Çipleri (Mobilde kaydırılabilir, masaüstünde esnek) */}
-          {categories.length > 0 && (
-            <div
-              className="mt-6 -mx-4 flex items-center gap-2 overflow-x-auto px-4 pb-2 pt-1 no-scrollbar sm:mx-0 sm:flex-wrap sm:px-0"
-              role="tablist"
-              aria-label="Hizmet Kategorileri"
+          {/* Hızlı Güven Rozetleri */}
+          <div className="mt-6 flex flex-wrap items-center gap-y-2 gap-x-6 text-xs sm:text-sm font-semibold text-corp-gray">
+            <span className="flex items-center gap-1.5 text-corp-teal">
+              <ShieldCheck size={16} className="text-emerald-600" /> 256-bit SSL & PayTR Koruması
+            </span>
+            <span className="flex items-center gap-1.5 text-corp-teal">
+              <CheckCircle2 size={16} className="text-corp-coral" /> Dilediğiniz An İptal
+              (Taahhütsüz)
+            </span>
+            <span className="flex items-center gap-1.5 text-corp-teal">
+              <Zap size={16} className="text-amber-500" /> 24-48 Saatte Hızlı Canlıya Geçiş
+            </span>
+          </div>
+
+          {/* Yatay Kategori Çipleri */}
+          <div
+            className="mt-8 -mx-4 flex items-center gap-2 overflow-x-auto px-4 pb-2 pt-1 no-scrollbar sm:mx-0 sm:flex-wrap sm:px-0"
+            role="tablist"
+            aria-label="Hizmet Kategorileri"
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={selectedCategory === 'ALL'}
+              onClick={() => setSelectedCategory('ALL')}
+              className={`inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-xl px-4 py-2 text-xs sm:text-sm font-bold transition active:scale-[0.98] ${
+                selectedCategory === 'ALL'
+                  ? 'bg-corp-teal text-white shadow-sm'
+                  : 'border border-corp-border bg-white text-corp-gray hover:border-corp-teal hover:text-corp-teal'
+              }`}
             >
+              Tüm Çözümler ({plans.length + 1})
+            </button>
+            {categories.map((cat) => (
               <button
+                key={cat}
                 type="button"
                 role="tab"
-                aria-selected={selectedCategory === "ALL"}
-                onClick={() => setSelectedCategory("ALL")}
-                className={`inline-flex min-h-[48px] shrink-0 items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold transition active:scale-[0.98] ${
-                  selectedCategory === "ALL"
-                    ? "bg-corp-teal text-white shadow-sm"
-                    : "border border-corp-border bg-white text-corp-gray hover:border-corp-teal hover:text-corp-teal"
+                aria-selected={selectedCategory === cat}
+                onClick={() => setSelectedCategory(cat)}
+                className={`inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-xl px-4 py-2 text-xs sm:text-sm font-bold transition active:scale-[0.98] ${
+                  selectedCategory === cat
+                    ? 'bg-corp-teal text-white shadow-sm'
+                    : 'border border-corp-border bg-white text-corp-gray hover:border-corp-teal hover:text-corp-teal'
                 }`}
               >
-                Tüm Hizmetler ({plans.length})
+                {cat}
               </button>
-              {categories.map((cat) => (
-                <button
-                  key={cat}
-                  type="button"
-                  role="tab"
-                  aria-selected={selectedCategory === cat}
-                  onClick={() => setSelectedCategory(cat)}
-                  className={`inline-flex min-h-[48px] shrink-0 items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold transition active:scale-[0.98] ${
-                    selectedCategory === cat
-                      ? "bg-corp-teal text-white shadow-sm"
-                      : "border border-corp-border bg-white text-corp-gray hover:border-corp-teal hover:text-corp-teal"
-                  }`}
-                >
-                  {cat}
-                </button>
-              ))}
-            </div>
-          )}
-        </section>
+            ))}
+          </div>
+        </header>
 
-        {/* Kart Izgarası: Mobil 1, Tablet 2, Masaüstü 3 Sütun */}
-        <section aria-label="AI Hizmet Kartları">
-          {filteredPlans.length === 0 ? (
-            <div className="flex min-h-60 flex-col items-center justify-center rounded-2xl border border-dashed border-corp-border bg-white p-8 text-center shadow-sm">
-              <Bot className="mb-3 text-corp-gray" size={40} />
-              <h2 className="text-lg font-bold text-corp-teal">Bu kategoride henüz hizmet bulunmuyor</h2>
-              <p className="mt-1 text-sm text-corp-gray">Tüm hizmetleri görüntülemek için filtreyi temizleyin.</p>
-              <button
-                type="button"
-                onClick={() => setSelectedCategory("ALL")}
-                className="mt-4 inline-flex min-h-[48px] items-center justify-center rounded-xl bg-corp-teal px-5 text-sm font-bold text-white transition hover:bg-corp-teal/90"
-              >
-                Tüm Hizmetleri Göster
-              </button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {filteredPlans.map((plan) => {
-                const singleSentence = plan.cardSummary?.trim() || plan.shortDescription?.trim() || plan.name;
-                const startingPriceText = formatStartingPrice(plan);
-                const displayImage = plan.heroMockupUrl || plan.imageUrl;
+        {/* Ürün & Hizmet Kartları Izgarası */}
+        <section aria-label="AI Hizmet ve Ürün Kartları">
+          <div className="grid grid-cols-1 gap-7 sm:grid-cols-2 lg:grid-cols-3">
+            {/* 1. ÖNE ÇIKAN ÇÖZÜM: Microsoft Call Center AI */}
+            {showCallCenterCard && (
+              <article className="group relative flex h-full flex-col overflow-hidden rounded-3xl border-2 border-[#00b2c9]/40 bg-gradient-to-b from-white via-white to-[#f0f9fa] p-6 shadow-sm transition-all duration-300 hover:border-corp-teal hover:shadow-card-hover">
+                <div className="relative mb-5 flex h-48 w-full items-center justify-center overflow-hidden rounded-2xl bg-corp-teal-50">
+                  <Headphones
+                    size={54}
+                    className="text-[#00b2c9] transition-transform duration-300 group-hover:scale-110"
+                  />
+                  <span className="absolute top-3 left-3 rounded-full bg-corp-coral px-3 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-white shadow-xs">
+                    Öne Çıkan Sesli AI
+                  </span>
+                </div>
 
-                return (
-                  <article
-                    key={plan.id}
-                    className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-corp-border bg-white shadow-sm transition hover:border-corp-teal/40 hover:shadow-card-hover"
+                <div className="mb-2 inline-flex items-center gap-1.5 text-xs font-bold text-corp-teal">
+                  <Sparkles size={13} className="text-corp-coral" />
+                  <span>Sesli AI & Çağrı Merkezi</span>
+                </div>
+
+                <h2 className="font-display text-2xl font-bold leading-tight text-corp-teal group-hover:text-corp-coral transition-colors">
+                  Microsoft Call Center AI
+                </h2>
+
+                <p className="mt-2.5 flex-1 text-sm leading-relaxed text-corp-gray">
+                  Müşterilerinizin telefonlarını 7/24 bekletmeden karşılayan, 50+ dili anlayan ve
+                  insan doğallığında akıcı konuşan kurumsal sesli yapay zekâ çağrı merkezi.
+                </p>
+
+                {/* Fiyat Bilgisi */}
+                <div className="mt-5 border-t border-corp-border/60 pt-4">
+                  <div className="text-xs font-semibold text-corp-gray uppercase tracking-wider">
+                    Fiyatlandırma
+                  </div>
+                  <div className="mt-1 flex items-baseline gap-1">
+                    <span className="text-2xl font-extrabold text-corp-teal">Dinamik Kur</span>
+                    <span className="text-xs text-corp-gray">/ kurumsal ihtiyaca göre</span>
+                  </div>
+                  <p className="text-[11px] text-corp-gray mt-0.5">
+                    Canlı döviz kuru hesaplama & modüler eklentiler
+                  </p>
+                </div>
+
+                {/* Aksiyon Butonları */}
+                <div className="mt-5 flex flex-col gap-2">
+                  <Link
+                    href="/services/ai-automation/microsoft-call-center-ai"
+                    className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl bg-corp-teal px-4 text-xs sm:text-sm font-bold text-white shadow-xs transition hover:bg-corp-teal/90 active:scale-[0.98]"
                   >
-                    {/* Görsel: 16:10 En-Boy Oranı, Lazy Loaded */}
-                    <div className="relative aspect-[16/10] w-full overflow-hidden bg-slate-100">
-                      {displayImage ? (
-                        <Image
-                          src={displayImage}
-                          alt={`${plan.name} görseli`}
-                          fill
-                          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                          className="object-cover transition duration-300 group-hover:scale-105"
-                          loading="lazy"
-                          unoptimized
-                        />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center bg-corp-teal-50 text-corp-teal">
-                          <Bot size={44} />
-                        </div>
+                    <span>Çözümü & Paketleri İncele</span>
+                    <ArrowRight size={15} />
+                  </Link>
+                  <a
+                    href="https://wa.me/905303412156?text=Merhaba,%20Microsoft%20Call%20Center%20AI%20hakkında%20canlı%20demo%20almak%20istiyorum."
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => handleWhatsAppConsultation('card_call_center_demo')}
+                    className="inline-flex min-h-[40px] w-full items-center justify-center gap-1.5 rounded-xl border border-emerald-500 bg-emerald-50/50 px-3 text-xs font-bold text-emerald-800 transition hover:bg-emerald-100/60"
+                  >
+                    <MessageCircle size={15} />
+                    <span>WhatsApp Canlı Demo İste</span>
+                  </a>
+                </div>
+              </article>
+            )}
+
+            {/* 2. DİNAMİK VERİTABANI PLANLARI (Midvem, Faktura, ScoreForm, Kuşçu vb.) */}
+            {filteredPlans.map((plan) => {
+              const singleSentence =
+                plan.cardSummary?.trim() || plan.shortDescription?.trim() || plan.name;
+              const startingPriceText = formatStartingPrice(plan);
+              const displayImage = plan.heroMockupUrl || plan.imageUrl;
+              const cleanWaText = encodeURIComponent(
+                `Merhaba, ${plan.name} hakkında detaylı bilgi ve canlı demo almak istiyorum.`
+              );
+
+              return (
+                <article
+                  key={plan.id}
+                  className="group relative flex h-full flex-col overflow-hidden rounded-3xl border border-corp-border/80 bg-white p-6 shadow-sm transition-all duration-300 hover:border-corp-teal/50 hover:shadow-card-hover"
+                >
+                  {/* Görsel / Mockup / İkon Alanı */}
+                  <div className="relative mb-5 flex h-48 w-full items-center justify-center overflow-hidden rounded-2xl bg-bg-soft">
+                    {displayImage ? (
+                      <Image
+                        src={displayImage}
+                        alt={`${plan.name} arayüz görseli`}
+                        fill
+                        sizes="(max-width: 768px) 100vw, 33vw"
+                        className="object-contain p-4 transition-transform duration-300 group-hover:scale-105"
+                        unoptimized
+                      />
+                    ) : (
+                      <Bot
+                        size={54}
+                        className="text-corp-teal transition-transform duration-300 group-hover:scale-110"
+                      />
+                    )}
+                    {plan.category && (
+                      <span className="absolute top-3 left-3 rounded-full bg-corp-teal-50 border border-corp-border px-3 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-corp-teal shadow-xs">
+                        {plan.category}
+                      </span>
+                    )}
+                  </div>
+
+                  <h2 className="font-display text-2xl font-bold leading-tight text-corp-teal group-hover:text-corp-coral transition-colors">
+                    {plan.name}
+                  </h2>
+
+                  <p className="mt-2.5 flex-1 text-sm leading-relaxed text-corp-gray">
+                    {singleSentence}
+                  </p>
+
+                  {/* Fiyat Gösterimi */}
+                  <div className="mt-5 border-t border-corp-border/60 pt-4">
+                    <div className="text-xs font-semibold text-corp-gray uppercase tracking-wider">
+                      Başlangıç Fiyatı
+                    </div>
+                    <div className="mt-1 flex items-baseline gap-1">
+                      <span className="text-2xl font-extrabold text-corp-teal">
+                        {startingPriceText}
+                      </span>
+                      {startingPriceText.includes('₺') && (
+                        <span className="text-xs text-corp-gray">/ay</span>
                       )}
-                      {plan.category ? (
-                        <span className="absolute left-3 top-3 z-10 rounded-lg bg-corp-charcoal/85 px-2.5 py-1 text-xs font-bold text-white backdrop-blur-sm">
-                          {plan.category}
-                        </span>
-                      ) : null}
                     </div>
+                    <p className="text-[11px] text-corp-gray mt-0.5">
+                      {plan.tiers.length > 0
+                        ? `${plan.tiers.length} farklı paket seçeneği · Taahhütsüz`
+                        : 'Kurumsal teklif modeli'}
+                    </p>
+                  </div>
 
-                    {/* Kart Gövdesi */}
-                    <div className="flex flex-1 flex-col justify-between p-5 sm:p-6">
-                      <div>
-                        <h2 className="font-display text-xl font-bold tracking-tight text-corp-teal group-hover:text-corp-coral transition-colors">
-                          <Link href={`/services/ai-automation/${plan.slug}`} className="focus-visible:outline-none">
-                            <span className="absolute inset-0 z-10" aria-hidden="true" />
-                            {plan.name}
-                          </Link>
-                        </h2>
-                        {/* TEK Cümle Fayda */}
-                        <p className="mt-2.5 text-sm leading-relaxed text-corp-gray line-clamp-2">
-                          {singleSentence}
-                        </p>
-                      </div>
-
-                      <div className="mt-6 border-t border-corp-border/60 pt-4">
-                        <div className="mb-3">
-                          <span className="text-xs font-medium text-corp-gray">Başlangıç Fiyatı</span>
-                          <div className="text-lg font-bold text-corp-teal sm:text-xl">
-                            {startingPriceText}
-                            {startingPriceText !== "Fiyat bilgisi için iletişime geçin" && (
-                              <span className="ml-1 text-xs font-normal text-corp-gray">/ay</span>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Tek Düğme: İncele */}
-                        <div
-                          aria-hidden="true"
-                          className="inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl bg-corp-teal px-4 text-sm font-bold text-white transition group-hover:bg-corp-teal-600 pointer-events-none"
-                        >
-                          İncele <ArrowRight size={16} />
-                        </div>
-                      </div>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          )}
+                  {/* Aksiyon Butonları */}
+                  <div className="mt-5 flex flex-col gap-2">
+                    <Link
+                      href={`/services/ai-automation/${plan.slug}`}
+                      className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl bg-corp-teal px-4 text-xs sm:text-sm font-bold text-white shadow-xs transition hover:bg-corp-teal/90 active:scale-[0.98]"
+                    >
+                      <span>Paketleri & Özellikleri Gör</span>
+                      <ArrowRight size={15} />
+                    </Link>
+                    <a
+                      href={`https://wa.me/905303412156?text=${cleanWaText}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => handleWhatsAppConsultation(`card_${plan.slug}_demo`)}
+                      className="inline-flex min-h-[40px] w-full items-center justify-center gap-1.5 rounded-xl border border-emerald-500 bg-emerald-50/50 px-3 text-xs font-bold text-emerald-800 transition hover:bg-emerald-100/60"
+                    >
+                      <MessageCircle size={15} />
+                      <span>WhatsApp Canlı Demo</span>
+                    </a>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
         </section>
 
-        {/* Altta "Hangisini seçeceğinizi bilmiyor musunuz?" Bandı */}
+        {/* Alt Çağrı & Danışmanlık Bandı */}
         <section
-          aria-labelledby="consultation-banner-title"
-          className="mt-14 rounded-3xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50 via-teal-50 to-white p-6 shadow-sm sm:p-8 md:p-10"
+          aria-label="Özel AI Danışmanlık ve Destek"
+          className="mt-16 sm:mt-24 rounded-3xl bg-gradient-corp px-6 py-10 text-white shadow-luxury sm:px-10 lg:flex lg:items-center lg:justify-between lg:px-14"
         >
-          <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
-            <div className="max-w-2xl">
-              <div className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-800">
-                <MessageCircle size={14} aria-hidden="true" /> Canlı Danışmanlık
-              </div>
-              <h2
-                id="consultation-banner-title"
-                className="font-display text-2xl font-bold tracking-tight text-corp-teal sm:text-3xl"
-              >
-                Hangisini seçeceğinizi bilmiyor musunuz?
-              </h2>
-              <p className="mt-2 text-sm leading-relaxed text-corp-gray sm:text-base">
-                İşletmenizin hacmine, çağrı yoğunluğuna veya veri yapısına en uygun AI modelini birlikte belirleyelim. Uzman ekibimiz 10 dakika içinde işletmenize özel yol haritası sunsun.
-              </p>
-            </div>
-
-            <div className="w-full shrink-0 sm:w-auto">
-              <Link
-                href="https://wa.me/905303412156?text=Merhaba%2C%20i%C5%9Fletmem%20i%C3%A7in%20hangi%20AI%20otomasyon%20hizmetini%20se%C3%A7mem%20gerekti%C4%9Fi%20konusunda%20dan%C4%B1%C5%9Fmak%20istiyorum."
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={handleWhatsAppConsultation}
-                className="inline-flex min-h-[48px] w-full items-center justify-center gap-2.5 rounded-xl bg-emerald-600 px-6 text-sm font-bold text-white shadow-sm transition hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 sm:w-auto"
-              >
-                <MessageCircle size={18} aria-hidden="true" />
-                WhatsApp ile Danışın
-              </Link>
-            </div>
+          <div className="max-w-2xl">
+            <span className="inline-block rounded-full bg-white/15 px-3 py-1 text-xs font-bold uppercase tracking-wider text-white">
+              Kurumsal Çözüm Danışmanlığı
+            </span>
+            <h2 className="mt-3 font-display text-2xl font-bold sm:text-3xl lg:text-4xl">
+              Hangi AI Çözümünün İşinize Uygun Olduğundan Emin Değil misiniz?
+            </h2>
+            <p className="mt-3 text-sm sm:text-base leading-relaxed text-white/80">
+              Uzman mühendislerimiz işletmenizin mevcut yazılımlarını, müşteri hacmini ve iş akışını
+              analiz ederek en yüksek yatırım getirisi (ROI) sağlayacak otomasyonu 15 dakikada
+              planlasın.
+            </p>
+          </div>
+          <div className="mt-6 lg:mt-0 flex shrink-0 flex-col sm:flex-row gap-3">
+            <a
+              href={defaultWaUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => handleWhatsAppConsultation('footer_consultation_wa')}
+              className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl bg-corp-coral px-6 text-sm font-bold text-white shadow-sm transition hover:bg-corp-coral/90 active:scale-[0.98]"
+            >
+              <MessageCircle size={18} />
+              <span>Ücretsiz Danışmanlık Al</span>
+            </a>
+            <Link
+              href="/contact"
+              className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-white/40 bg-white/10 px-6 text-sm font-bold text-white transition hover:bg-white/20 active:scale-[0.98]"
+            >
+              Bize Ulaşın
+            </Link>
           </div>
         </section>
       </main>

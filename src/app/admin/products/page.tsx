@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import React, { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import Image from "next/image";
+import React, { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
+import Image from 'next/image';
 import {
   ArrowLeft,
   Check,
@@ -27,8 +27,8 @@ import {
   X,
   AlertTriangle,
   Info,
-} from "lucide-react";
-import { PLAN_ICON_NAMES, getPlanIcon } from "@/lib/plan-icons";
+} from 'lucide-react';
+import { PLAN_ICON_NAMES, getPlanIcon } from '@/lib/plan-icons';
 
 // ─── TİP TANIMLARI ────────────────────────────────────────────────────────────
 
@@ -94,7 +94,7 @@ type Plan = {
   category: string | null;
   isListed: boolean;
   isFeatured: boolean;
-  status: "DRAFT" | "PUBLISHED";
+  status: 'DRAFT' | 'PUBLISHED';
   publishedAt: string | null;
   draftData: any;
 
@@ -153,38 +153,38 @@ type Plan = {
 
 const DEFAULT_TRUST_BLOCKS: TrustBlock[] = [
   {
-    key: "setup_time",
-    title: "24 Saat İçinde Kurulum",
-    text: "Ekibimiz tüm teknik entegrasyonu ve yapılandırmayı 24 saat içinde tamamlar, sisteminizi hemen kullanmaya başlarsınız.",
-    icon: "Clock",
+    key: 'setup_time',
+    title: '24 Saat İçinde Kurulum',
+    text: 'Ekibimiz tüm teknik entegrasyonu ve yapılandırmayı 24 saat içinde tamamlar, sisteminizi hemen kullanmaya başlarsınız.',
+    icon: 'Clock',
     isEnabled: true,
   },
   {
-    key: "support",
-    title: "Kesintisiz Uzman Desteği",
-    text: "Her adımda yanınızda olan dedike müşteri temsilciniz ve 7/24 teknik destek hattımızla işiniz asla aksamaz.",
-    icon: "Headphones",
+    key: 'support',
+    title: 'Kesintisiz Uzman Desteği',
+    text: 'Her adımda yanınızda olan dedike müşteri temsilciniz ve 7/24 teknik destek hattımızla işiniz asla aksamaz.',
+    icon: 'Headphones',
     isEnabled: true,
   },
   {
-    key: "security",
-    title: "KVKK & Kurumsal Veri Güvenliği",
-    text: "Tüm müşteri verileriniz ve görüşme kayıtlarınız 256-bit SSL şifreleme ve KVKK standartlarında güvenle korunur.",
-    icon: "ShieldCheck",
+    key: 'security',
+    title: 'KVKK & Kurumsal Veri Güvenliği',
+    text: 'Tüm müşteri verileriniz ve görüşme kayıtlarınız 256-bit SSL şifreleme ve KVKK standartlarında güvenle korunur.',
+    icon: 'ShieldCheck',
     isEnabled: true,
   },
   {
-    key: "cancel_policy",
-    title: "Taahhütsüz & Kolay İptal",
-    text: "Yıllık bağlayıcı taahhüt zorunluluğu yoktur; dilediğiniz zaman tek tıkla aboneliğinizi sonlandırabilirsiniz.",
-    icon: "Lock",
+    key: 'cancel_policy',
+    title: 'Taahhütsüz & Kolay İptal',
+    text: 'Yıllık bağlayıcı taahhüt zorunluluğu yoktur; dilediğiniz zaman tek tıkla aboneliğinizi sonlandırabilirsiniz.',
+    icon: 'Lock',
     isEnabled: true,
   },
   {
-    key: "pricing_transparency",
-    title: "Şeffaf Yenileme & Sabit Fiyat",
-    text: "Gizli maliyet veya sürpriz kurulum bedeli bulunmaz; her ay şeffaf fatura ile sabit fiyat garantisi sunulur.",
-    icon: "CheckCircle2",
+    key: 'pricing_transparency',
+    title: 'Şeffaf Yenileme & Sabit Fiyat',
+    text: 'Gizli maliyet veya sürpriz kurulum bedeli bulunmaz; her ay şeffaf fatura ile sabit fiyat garantisi sunulur.',
+    icon: 'CheckCircle2',
     isEnabled: true,
   },
 ];
@@ -201,44 +201,44 @@ const DEFAULT_SECTION_VISIBILITY = {
 };
 
 const emptyTier = (displayOrder = 0): Tier => ({
-  name: "",
-  description: "",
+  name: '',
+  description: '',
   priceMonthly: 0,
-  badge: "",
+  badge: '',
   isRecommended: false,
-  vatNote: "+ %20 KDV",
-  renewalNote: "Aylık yenilenir, dilediğiniz an tek tıkla iptal edilebilir.",
-  buttonText: "",
+  vatNote: '+ %20 KDV',
+  renewalNote: 'Aylık yenilenir, dilediğiniz an tek tıkla iptal edilebilir.',
+  buttonText: '',
   displayOrder,
   isActive: true,
-  features: [""],
+  features: [''],
   comparisonFeatures: [],
 });
 
 const emptyForm: Plan = {
-  id: "",
-  name: "",
-  slug: "",
-  shortDescription: "",
-  cardSummary: "",
-  category: "Yapay Zeka & Otomasyon",
+  id: '',
+  name: '',
+  slug: '',
+  shortDescription: '',
+  cardSummary: '',
+  category: 'Yapay Zeka & Otomasyon',
   isListed: true,
   isFeatured: false,
-  status: "DRAFT",
+  status: 'DRAFT',
   publishedAt: null,
   draftData: null,
 
-  tagline: "",
-  heroHeadline: "",
-  heroSubheadline: "",
-  primaryCtaLabel: "Paketleri İncele",
-  primaryCtaUrl: "#paketler",
-  secondaryCtaLabel: "",
-  secondaryCtaUrl: "",
-  heroMockupUrl: "",
-  heroImageAlt: "",
+  tagline: '',
+  heroHeadline: '',
+  heroSubheadline: '',
+  primaryCtaLabel: 'Paketleri İncele',
+  primaryCtaUrl: '#paketler',
+  secondaryCtaLabel: '',
+  secondaryCtaUrl: '',
+  heroMockupUrl: '',
+  heroImageAlt: '',
   showStartingPrice: true,
-  imageUrl: "",
+  imageUrl: '',
 
   trustPoints: [],
   stats: [],
@@ -250,19 +250,19 @@ const emptyForm: Plan = {
   comparisonFeatureKeys: [],
   faqs: [],
 
-  vatNote: "",
-  disclaimer: "",
+  vatNote: '',
+  disclaimer: '',
   isActive: true,
   displayOrder: 0,
-  updatedAt: "",
+  updatedAt: '',
 
-  whatsappNumber: "+90 530 341 21 56",
-  whatsappTemplate: "Merhaba, {ürün} hakkında bilgi ve canlı demo almak istiyorum.",
+  whatsappNumber: '+90 530 341 21 56',
+  whatsappTemplate: 'Merhaba, {ürün} hakkında bilgi ve canlı demo almak istiyorum.',
   isDemoFormActive: false,
 
-  metaTitle: "",
-  metaDescription: "",
-  ogImageUrl: "",
+  metaTitle: '',
+  metaDescription: '',
+  ogImageUrl: '',
 
   sectionVisibility: DEFAULT_SECTION_VISIBILITY,
   tiers: [emptyTier(0)],
@@ -270,11 +270,11 @@ const emptyForm: Plan = {
 
 const slugify = (value: string) =>
   value
-    .toLocaleLowerCase("tr-TR")
-    .replace(/[çğıöşü]/g, (c) => ({ ç: "c", ğ: "g", ı: "i", ö: "o", ş: "s", ü: "u" })[c] ?? c)
-    .normalize("NFKD")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
+    .toLocaleLowerCase('tr-TR')
+    .replace(/[çğıöşü]/g, (c) => ({ ç: 'c', ğ: 'g', ı: 'i', ö: 'o', ş: 's', ü: 'u' })[c] ?? c)
+    .normalize('NFKD')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
 
 // ─── YARDIMCI BİLEŞENLER ───────────────────────────────────────────────────────
 
@@ -282,7 +282,9 @@ function FieldHelp({ text, example }: { text: string; example?: string }) {
   return (
     <p className="mt-1 text-xs text-slate-500 leading-relaxed">
       {text}
-      {example ? <span className="block text-slate-400 font-mono mt-0.5">Örnek: {example}</span> : null}
+      {example ? (
+        <span className="block text-slate-400 font-mono mt-0.5">Örnek: {example}</span>
+      ) : null}
     </p>
   );
 }
@@ -292,11 +294,15 @@ function CharCounter({ current, max }: { current: number; max: number }) {
   return (
     <span
       className={`text-xs font-semibold tabular-nums ${
-        isOver ? "text-rose-600 font-bold" : current > max * 0.85 ? "text-amber-600" : "text-slate-400"
+        isOver
+          ? 'text-rose-600 font-bold'
+          : current > max * 0.85
+            ? 'text-amber-600'
+            : 'text-slate-400'
       }`}
     >
       {current}/{max} karakter
-      {isOver ? " (Sınır aşıldı!)" : ""}
+      {isOver ? ' (Sınır aşıldı!)' : ''}
     </span>
   );
 }
@@ -309,7 +315,7 @@ function IconPicker({ value, onChange }: { value?: string; onChange: (v: string)
         <Icon size={20} />
       </div>
       <select
-        value={value || "Sparkles"}
+        value={value || 'Sparkles'}
         onChange={(e) => onChange(e.target.value)}
         className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-sm font-medium text-slate-700 outline-none focus:border-corp-teal focus:ring-1 focus:ring-corp-teal"
       >
@@ -327,25 +333,25 @@ function IconPicker({ value, onChange }: { value?: string; onChange: (v: string)
 
 export default function AdminProductsPage() {
   const [plans, setPlans] = useState<Plan[]>([]);
-  const [filterStatus, setFilterStatus] = useState<"ALL" | "PUBLISHED" | "DRAFT">("ALL");
-  const [query, setQuery] = useState("");
+  const [filterStatus, setFilterStatus] = useState<'ALL' | 'PUBLISHED' | 'DRAFT'>('ALL');
+  const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [uploadingField, setUploadingField] = useState<string | null>(null);
-  const [error, setError] = useState("");
-  const [successMsg, setSuccessMsg] = useState("");
+  const [error, setError] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
 
   // Editör Durumları
   const [editing, setEditing] = useState<Plan | null>(null);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<string>("general");
+  const [activeTab, setActiveTab] = useState<string>('general');
   const [form, setForm] = useState<Plan>(emptyForm);
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
 
   // Modallar
   const [previewOpen, setPreviewOpen] = useState(false);
-  const [previewDevice, setPreviewDevice] = useState<"mobile" | "desktop">("desktop");
+  const [previewDevice, setPreviewDevice] = useState<'mobile' | 'desktop'>('desktop');
   const [historyOpen, setHistoryOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<Plan | null>(null);
   const [versions, setVersions] = useState<PlanVersion[]>([]);
@@ -355,12 +361,12 @@ export default function AdminProductsPage() {
   async function loadPlans() {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/plans");
+      const res = await fetch('/api/admin/plans');
       const data = await res.json();
       if (res.ok) setPlans(data);
-      else setError(data.error ?? "Hizmetler yüklenemedi");
+      else setError(data.error ?? 'Hizmetler yüklenemedi');
     } catch {
-      setError("Bağlantı hatası oluştu.");
+      setError('Bağlantı hatası oluştu.');
     } finally {
       setLoading(false);
     }
@@ -375,7 +381,7 @@ export default function AdminProductsPage() {
     setForm((curr) => ({ ...curr, [key]: value }));
   };
 
-  const updateSectionVisibility = (key: keyof Plan["sectionVisibility"], val: boolean) => {
+  const updateSectionVisibility = (key: keyof Plan['sectionVisibility'], val: boolean) => {
     setForm((curr) => ({
       ...curr,
       sectionVisibility: { ...curr.sectionVisibility, [key]: val },
@@ -387,7 +393,10 @@ export default function AdminProductsPage() {
     if (plan) {
       setEditing(plan);
       // Eğer yayınlanmamış taslak (draftData) varsa onu forma yükle
-      const sourceData = plan.draftData && typeof plan.draftData === "object" ? { ...plan, ...plan.draftData } : plan;
+      const sourceData =
+        plan.draftData && typeof plan.draftData === 'object'
+          ? { ...plan, ...plan.draftData }
+          : plan;
 
       setForm({
         ...emptyForm,
@@ -395,53 +404,59 @@ export default function AdminProductsPage() {
         id: plan.id,
         name: sourceData.name || plan.name,
         slug: sourceData.slug || plan.slug,
-        cardSummary: sourceData.cardSummary ?? "",
-        category: sourceData.category ?? "Yapay Zeka & Otomasyon",
-        tagline: sourceData.tagline ?? "",
-        heroHeadline: sourceData.heroHeadline ?? "",
-        heroSubheadline: sourceData.heroSubheadline ?? "",
-        primaryCtaLabel: sourceData.primaryCtaLabel ?? "Paketleri İncele",
-        primaryCtaUrl: sourceData.primaryCtaUrl ?? "#paketler",
-        secondaryCtaLabel: sourceData.secondaryCtaLabel ?? "",
-        secondaryCtaUrl: sourceData.secondaryCtaUrl ?? "",
-        heroMockupUrl: sourceData.heroMockupUrl ?? "",
-        heroImageAlt: sourceData.heroImageAlt ?? "",
-        imageUrl: sourceData.imageUrl ?? "",
-        vatNote: sourceData.vatNote ?? "",
-        disclaimer: sourceData.disclaimer ?? "",
-        whatsappNumber: sourceData.whatsappNumber ?? "+90 530 341 21 56",
-        whatsappTemplate: sourceData.whatsappTemplate ?? "Merhaba, {ürün} hakkında bilgi ve canlı demo almak istiyorum.",
-        metaTitle: sourceData.metaTitle ?? "",
-        metaDescription: sourceData.metaDescription ?? "",
-        ogImageUrl: sourceData.ogImageUrl ?? "",
+        cardSummary: sourceData.cardSummary ?? '',
+        category: sourceData.category ?? 'Yapay Zeka & Otomasyon',
+        tagline: sourceData.tagline ?? '',
+        heroHeadline: sourceData.heroHeadline ?? '',
+        heroSubheadline: sourceData.heroSubheadline ?? '',
+        primaryCtaLabel: sourceData.primaryCtaLabel ?? 'Paketleri İncele',
+        primaryCtaUrl: sourceData.primaryCtaUrl ?? '#paketler',
+        secondaryCtaLabel: sourceData.secondaryCtaLabel ?? '',
+        secondaryCtaUrl: sourceData.secondaryCtaUrl ?? '',
+        heroMockupUrl: sourceData.heroMockupUrl ?? '',
+        heroImageAlt: sourceData.heroImageAlt ?? '',
+        imageUrl: sourceData.imageUrl ?? '',
+        vatNote: sourceData.vatNote ?? '',
+        disclaimer: sourceData.disclaimer ?? '',
+        whatsappNumber: sourceData.whatsappNumber ?? '+90 530 341 21 56',
+        whatsappTemplate:
+          sourceData.whatsappTemplate ??
+          'Merhaba, {ürün} hakkında bilgi ve canlı demo almak istiyorum.',
+        metaTitle: sourceData.metaTitle ?? '',
+        metaDescription: sourceData.metaDescription ?? '',
+        ogImageUrl: sourceData.ogImageUrl ?? '',
         trustPoints: Array.isArray(sourceData.trustPoints) ? sourceData.trustPoints : [],
         stats: Array.isArray(sourceData.stats) ? sourceData.stats : [],
         benefits: Array.isArray(sourceData.benefits) ? sourceData.benefits : [],
         highlights: Array.isArray(sourceData.highlights) ? sourceData.highlights : [],
         steps: Array.isArray(sourceData.steps) ? sourceData.steps : [],
-        demoScreenshots: Array.isArray(sourceData.demoScreenshots) ? sourceData.demoScreenshots : [],
+        demoScreenshots: Array.isArray(sourceData.demoScreenshots)
+          ? sourceData.demoScreenshots
+          : [],
         trustBlocks:
           Array.isArray(sourceData.trustBlocks) && sourceData.trustBlocks.length > 0
             ? sourceData.trustBlocks
             : DEFAULT_TRUST_BLOCKS,
-        comparisonFeatureKeys: Array.isArray(sourceData.comparisonFeatureKeys) ? sourceData.comparisonFeatureKeys : [],
+        comparisonFeatureKeys: Array.isArray(sourceData.comparisonFeatureKeys)
+          ? sourceData.comparisonFeatureKeys
+          : [],
         faqs: Array.isArray(sourceData.faqs) ? sourceData.faqs : [],
         sectionVisibility: {
           ...DEFAULT_SECTION_VISIBILITY,
           ...(sourceData.sectionVisibility || {}),
         },
-        tiers:
-          sourceData.tiers?.map((t: any) => ({
-            ...t,
-            priceMonthly: t.priceMonthly > 1000 ? t.priceMonthly / 100 : t.priceMonthly,
-            description: t.description ?? "",
-            badge: t.badge ?? "",
-            vatNote: t.vatNote ?? "+ %20 KDV",
-            renewalNote: t.renewalNote ?? "Aylık yenilenir, dilediğiniz an tek tıkla iptal edilebilir.",
-            buttonText: t.buttonText ?? "",
-            features: Array.isArray(t.features) ? t.features : [],
-            comparisonFeatures: Array.isArray(t.comparisonFeatures) ? t.comparisonFeatures : [],
-          })) ?? [emptyTier(0)],
+        tiers: sourceData.tiers?.map((t: any) => ({
+          ...t,
+          priceMonthly: t.priceMonthly > 1000 ? t.priceMonthly / 100 : t.priceMonthly,
+          description: t.description ?? '',
+          badge: t.badge ?? '',
+          vatNote: t.vatNote ?? '+ %20 KDV',
+          renewalNote:
+            t.renewalNote ?? 'Aylık yenilenir, dilediğiniz an tek tıkla iptal edilebilir.',
+          buttonText: t.buttonText ?? '',
+          features: Array.isArray(t.features) ? t.features : [],
+          comparisonFeatures: Array.isArray(t.comparisonFeatures) ? t.comparisonFeatures : [],
+        })) ?? [emptyTier(0)],
       });
       setSlugManuallyEdited(true);
     } else {
@@ -449,40 +464,40 @@ export default function AdminProductsPage() {
       setForm(emptyForm);
       setSlugManuallyEdited(false);
     }
-    setActiveTab("general");
+    setActiveTab('general');
     setIsEditorOpen(true);
-    setError("");
-    setSuccessMsg("");
+    setError('');
+    setSuccessMsg('');
   }
 
   // Görsel Yükleme (Sharp ile WebP'ye dönüştürür ve optimize eder)
   async function uploadImage(file: File, targetField: string, callback?: (url: string) => void) {
-    if (!file.type.startsWith("image/")) {
-      setError("Lütfen geçerli bir görsel dosyası seçin (JPG, PNG, WebP).");
+    if (!file.type.startsWith('image/')) {
+      setError('Lütfen geçerli bir görsel dosyası seçin (JPG, PNG, WebP).');
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
-      setError("Görsel boyutu en fazla 5 MB olabilir.");
+      setError('Görsel boyutu en fazla 5 MB olabilir.');
       return;
     }
     setUploadingField(targetField);
-    setError("");
+    setError('');
 
     try {
       const fd = new FormData();
-      fd.append("file", file);
-      const res = await fetch("/api/admin/plans/upload", { method: "POST", body: fd });
+      fd.append('file', file);
+      const res = await fetch('/api/admin/plans/upload', { method: 'POST', body: fd });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Görsel yüklenemedi");
+      if (!res.ok) throw new Error(data.error || 'Görsel yüklenemedi');
 
       if (callback) {
         callback(data.url);
       } else {
         update(targetField as any, data.url);
       }
-      setSuccessMsg("Görsel başarıyla optimize edilip yüklendi!");
+      setSuccessMsg('Görsel başarıyla optimize edilip yüklendi!');
     } catch (err: any) {
-      setError(err.message || "Görsel yüklenirken bir hata oluştu.");
+      setError(err.message || 'Görsel yüklenirken bir hata oluştu.');
     } finally {
       setUploadingField(null);
     }
@@ -490,7 +505,7 @@ export default function AdminProductsPage() {
 
   // Taslak Olarak Kaydet (Canlı sayfayı bozmaz)
   async function saveDraft() {
-    setError("");
+    setError('');
     setSaving(true);
     try {
       const payload = {
@@ -505,25 +520,25 @@ export default function AdminProductsPage() {
         })),
       };
 
-      const url = editing ? `/api/admin/plans/${editing.id}` : "/api/admin/plans";
-      const method = editing ? "PATCH" : "POST";
+      const url = editing ? `/api/admin/plans/${editing.id}` : '/api/admin/plans';
+      const method = editing ? 'PATCH' : 'POST';
 
       const res = await fetch(url, {
         method,
-        headers: { "Content-Type": "application/json" },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Taslak kaydedilemedi");
+      if (!res.ok) throw new Error(data.error || 'Taslak kaydedilemedi');
 
-      setSuccessMsg("Taslak değişiklikler güvenle kaydedildi! Henüz canlıya alınmadı.");
+      setSuccessMsg('Taslak değişiklikler güvenle kaydedildi! Henüz canlıya alınmadı.');
       await loadPlans();
       if (!editing && data.id) {
         setEditing(data);
       }
     } catch (err: any) {
-      setError(err.message || "Taslak kaydetme hatası");
+      setError(err.message || 'Taslak kaydetme hatası');
     } finally {
       setSaving(false);
     }
@@ -531,22 +546,22 @@ export default function AdminProductsPage() {
 
   // Canlıda Yayınla (Değişiklikleri aktarır, snapshot kaydeder)
   async function publishPlan() {
-    setError("");
+    setError('');
     setPublishing(true);
 
     // Temel doğrulamalar
     if (!form.name.trim()) {
-      setError("Hizmet adı zorunludur.");
+      setError('Hizmet adı zorunludur.');
       setPublishing(false);
       return;
     }
     if (form.benefits.length > 0 && form.benefits.length < 3) {
-      setError("Fayda kartları eklenecekse en az 3 adet girilmelidir.");
+      setError('Fayda kartları eklenecekse en az 3 adet girilmelidir.');
       setPublishing(false);
       return;
     }
     if (form.steps.length > 0 && form.steps.length < 3) {
-      setError("Nasıl çalışır adımları eklenecekse en az 3 adım girilmelidir.");
+      setError('Nasıl çalışır adımları eklenecekse en az 3 adım girilmelidir.');
       setPublishing(false);
       return;
     }
@@ -555,7 +570,7 @@ export default function AdminProductsPage() {
       const payload = {
         ...form,
         slug: form.slug || slugify(form.name),
-        status: "PUBLISHED",
+        status: 'PUBLISHED',
         saveAsDraft: false,
         tiers: form.tiers.map((t, i) => ({
           ...t,
@@ -565,25 +580,25 @@ export default function AdminProductsPage() {
         })),
       };
 
-      const url = editing ? `/api/admin/plans/${editing.id}` : "/api/admin/plans";
-      const method = editing ? "PATCH" : "POST";
+      const url = editing ? `/api/admin/plans/${editing.id}` : '/api/admin/plans';
+      const method = editing ? 'PATCH' : 'POST';
 
       const res = await fetch(url, {
         method,
-        headers: { "Content-Type": "application/json" },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Yayınlama başarısız oldu");
+      if (!res.ok) throw new Error(data.error || 'Yayınlama başarısız oldu');
 
-      setSuccessMsg("Tebrikler! Hizmet başarıyla YAYINLANDI ve yeni bir sürüm kaydı oluşturuldu.");
+      setSuccessMsg('Tebrikler! Hizmet başarıyla YAYINLANDI ve yeni bir sürüm kaydı oluşturuldu.');
       await loadPlans();
       if (!editing && data.id) {
         setEditing(data);
       }
     } catch (err: any) {
-      setError(err.message || "Yayınlama hatası");
+      setError(err.message || 'Yayınlama hatası');
     } finally {
       setPublishing(false);
     }
@@ -599,7 +614,7 @@ export default function AdminProductsPage() {
       const data = await res.json();
       if (res.ok) setVersions(data);
     } catch {
-      setError("Sürüm geçmişi alınamadı");
+      setError('Sürüm geçmişi alınamadı');
     } finally {
       setLoadingVersions(false);
     }
@@ -608,22 +623,29 @@ export default function AdminProductsPage() {
   // Sürüme Geri Dön (Rollback)
   async function rollbackToVersion(versionId: string) {
     if (!editing) return;
-    if (!confirm("Bu sürüme geri dönmek istediğinize emin misiniz? Form içeriği o sürüme geri çekilecektir.")) return;
+    if (
+      !confirm(
+        'Bu sürüme geri dönmek istediğinize emin misiniz? Form içeriği o sürüme geri çekilecektir.'
+      )
+    )
+      return;
 
     try {
       const res = await fetch(`/api/admin/plans/${editing.id}/versions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ versionId }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Geri dönülemedi");
+      if (!res.ok) throw new Error(data.error || 'Geri dönülemedi');
 
       setHistoryOpen(false);
-      setSuccessMsg(data.message || "Sürüm başarıyla yüklendi! Lütfen kontrol edip Yayınla'ya basınız.");
+      setSuccessMsg(
+        data.message || "Sürüm başarıyla yüklendi! Lütfen kontrol edip Yayınla'ya basınız."
+      );
       openForm(data.plan);
     } catch (err: any) {
-      setError(err.message || "Geri yükleme hatası");
+      setError(err.message || 'Geri yükleme hatası');
     }
   }
 
@@ -631,26 +653,26 @@ export default function AdminProductsPage() {
   async function removePlan() {
     if (!confirmDelete) return;
     try {
-      const res = await fetch(`/api/admin/plans/${confirmDelete.id}`, { method: "DELETE" });
+      const res = await fetch(`/api/admin/plans/${confirmDelete.id}`, { method: 'DELETE' });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Hizmet silinemedi");
+      if (!res.ok) throw new Error(data.error || 'Hizmet silinemedi');
 
       setConfirmDelete(null);
       await loadPlans();
     } catch (err: any) {
-      setError(err.message || "Silme hatası");
+      setError(err.message || 'Silme hatası');
     }
   }
 
   // Filtrelenmiş liste
   const filteredPlans = useMemo(() => {
     return plans.filter((p) => {
-      const matchesSearch = `${p.name} ${p.slug} ${p.category || ""}`
-        .toLocaleLowerCase("tr-TR")
-        .includes(query.toLocaleLowerCase("tr-TR"));
+      const matchesSearch = `${p.name} ${p.slug} ${p.category || ''}`
+        .toLocaleLowerCase('tr-TR')
+        .includes(query.toLocaleLowerCase('tr-TR'));
       if (!matchesSearch) return false;
-      if (filterStatus === "PUBLISHED") return p.status === "PUBLISHED" && !p.draftData;
-      if (filterStatus === "DRAFT") return p.status === "DRAFT" || Boolean(p.draftData);
+      if (filterStatus === 'PUBLISHED') return p.status === 'PUBLISHED' && !p.draftData;
+      if (filterStatus === 'DRAFT') return p.status === 'DRAFT' || Boolean(p.draftData);
       return true;
     });
   }, [plans, query, filterStatus]);
@@ -663,12 +685,18 @@ export default function AdminProductsPage() {
         {/* Üst Başlık & Eylemler */}
         <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <Link href="/admin" className="mb-2 inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800">
+            <Link
+              href="/admin"
+              className="mb-2 inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800"
+            >
               <ArrowLeft size={14} /> Admin Paneline Dön
             </Link>
-            <h1 className="text-2xl font-bold tracking-tight text-corp-charcoal">AI Otomasyon Hizmetleri</h1>
+            <h1 className="text-2xl font-bold tracking-tight text-corp-charcoal">
+              AI Otomasyon Hizmetleri
+            </h1>
             <p className="mt-1 text-sm text-slate-500">
-              Yapay zeka abonelik sayfalarının tüm içeriğini, paketlerini ve SEO ayarlarını buradan yönetin.
+              Yapay zeka abonelik sayfalarının tüm içeriğini, paketlerini ve SEO ayarlarını buradan
+              yönetin.
             </p>
           </div>
           <button
@@ -682,7 +710,9 @@ export default function AdminProductsPage() {
         {error && (
           <div className="flex items-center justify-between rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
             <span>{error}</span>
-            <button onClick={() => setError("")}><X size={16} /></button>
+            <button onClick={() => setError('')}>
+              <X size={16} />
+            </button>
           </div>
         )}
 
@@ -690,28 +720,35 @@ export default function AdminProductsPage() {
         <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setFilterStatus("ALL")}
+              onClick={() => setFilterStatus('ALL')}
               className={`rounded-xl px-4 py-2 text-xs font-bold transition ${
-                filterStatus === "ALL" ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                filterStatus === 'ALL'
+                  ? 'bg-slate-900 text-white'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               }`}
             >
               Tümü ({plans.length})
             </button>
             <button
-              onClick={() => setFilterStatus("PUBLISHED")}
+              onClick={() => setFilterStatus('PUBLISHED')}
               className={`rounded-xl px-4 py-2 text-xs font-bold transition ${
-                filterStatus === "PUBLISHED" ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                filterStatus === 'PUBLISHED'
+                  ? 'bg-emerald-600 text-white'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               }`}
             >
-              Yayında ({plans.filter((p) => p.status === "PUBLISHED" && !p.draftData).length})
+              Yayında ({plans.filter((p) => p.status === 'PUBLISHED' && !p.draftData).length})
             </button>
             <button
-              onClick={() => setFilterStatus("DRAFT")}
+              onClick={() => setFilterStatus('DRAFT')}
               className={`rounded-xl px-4 py-2 text-xs font-bold transition ${
-                filterStatus === "DRAFT" ? "bg-amber-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                filterStatus === 'DRAFT'
+                  ? 'bg-amber-600 text-white'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               }`}
             >
-              Taslak / Değişiklik ({plans.filter((p) => p.status === "DRAFT" || p.draftData).length})
+              Taslak / Değişiklik ({plans.filter((p) => p.status === 'DRAFT' || p.draftData).length}
+              )
             </button>
           </div>
 
@@ -776,7 +813,7 @@ export default function AdminProductsPage() {
                               <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
                               Taslak Değişiklik Var
                             </span>
-                          ) : plan.status === "PUBLISHED" ? (
+                          ) : plan.status === 'PUBLISHED' ? (
                             <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700 border border-emerald-200">
                               <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                               Yayında
@@ -788,8 +825,10 @@ export default function AdminProductsPage() {
                           )}
                         </td>
                         <td className="px-5 py-4">
-                          <span className={`text-xs font-medium ${plan.isListed ? "text-emerald-700" : "text-slate-400"}`}>
-                            {plan.isListed ? "Listede Açık" : "Listede Gizli"}
+                          <span
+                            className={`text-xs font-medium ${plan.isListed ? 'text-emerald-700' : 'text-slate-400'}`}
+                          >
+                            {plan.isListed ? 'Listede Açık' : 'Listede Gizli'}
                           </span>
                         </td>
                         <td className="px-5 py-4 text-slate-600 font-medium">
@@ -832,9 +871,12 @@ export default function AdminProductsPage() {
         {confirmDelete && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
             <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-              <h2 className="text-lg font-bold text-slate-900">Bu AI Hizmetini Silmek İstiyor musunuz?</h2>
+              <h2 className="text-lg font-bold text-slate-900">
+                Bu AI Hizmetini Silmek İstiyor musunuz?
+              </h2>
               <p className="mt-2 text-sm text-slate-600">
-                “<strong>{confirmDelete.name}</strong>” ve buna bağlı fiyat paketleri kalıcı olarak silinecektir.
+                “<strong>{confirmDelete.name}</strong>” ve buna bağlı fiyat paketleri kalıcı olarak
+                silinecektir.
               </p>
               <div className="mt-6 flex justify-end gap-2">
                 <button
@@ -874,13 +916,13 @@ export default function AdminProductsPage() {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-lg font-bold text-corp-charcoal truncate max-w-md">
-                {editing ? form.name || "İsimsiz Hizmet" : "Yeni AI Hizmeti"}
+                {editing ? form.name || 'İsimsiz Hizmet' : 'Yeni AI Hizmeti'}
               </h1>
               {form.draftData ? (
                 <span className="rounded-full bg-amber-50 border border-amber-200 px-2.5 py-0.5 text-[10px] font-bold text-amber-700">
                   Taslak Değişiklikler
                 </span>
-              ) : form.status === "PUBLISHED" ? (
+              ) : form.status === 'PUBLISHED' ? (
                 <span className="rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-[10px] font-bold text-emerald-700">
                   Yayında
                 </span>
@@ -890,7 +932,9 @@ export default function AdminProductsPage() {
                 </span>
               )}
             </div>
-            <p className="text-xs text-slate-400 font-mono">/services/ai-automation/{form.slug || "slug"}</p>
+            <p className="text-xs text-slate-400 font-mono">
+              /services/ai-automation/{form.slug || 'slug'}
+            </p>
           </div>
         </div>
 
@@ -942,7 +986,9 @@ export default function AdminProductsPage() {
             <AlertTriangle size={18} className="text-rose-600 shrink-0" />
             <span>{error}</span>
           </div>
-          <button onClick={() => setError("")}><X size={16} /></button>
+          <button onClick={() => setError('')}>
+            <X size={16} />
+          </button>
         </div>
       )}
 
@@ -952,24 +998,26 @@ export default function AdminProductsPage() {
             <Check size={18} className="text-emerald-600 shrink-0" />
             <span>{successMsg}</span>
           </div>
-          <button onClick={() => setSuccessMsg("")}><X size={16} /></button>
+          <button onClick={() => setSuccessMsg('')}>
+            <X size={16} />
+          </button>
         </div>
       )}
 
       {/* Sekmeler (Tabs) */}
       <nav className="flex overflow-x-auto rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm scrollbar-none">
         {[
-          { id: "general", label: "Genel Bilgiler" },
-          { id: "hero", label: "Hero & Giriş" },
-          { id: "benefits", label: "Fayda Kartları" },
-          { id: "steps", label: "Nasıl Çalışır" },
-          { id: "screenshots", label: "Demo & Görseller" },
-          { id: "pricing", label: "Paketler & Fiyat" },
-          { id: "trust", label: "Güven Blokları" },
-          { id: "faqs", label: "SSS" },
-          { id: "whatsapp", label: "WhatsApp & Demo" },
-          { id: "seo", label: "SEO & Paylaşım" },
-          { id: "visibility", label: "Bölüm Ayarları" },
+          { id: 'general', label: 'Genel Bilgiler' },
+          { id: 'hero', label: 'Hero & Giriş' },
+          { id: 'benefits', label: 'Fayda Kartları' },
+          { id: 'steps', label: 'Nasıl Çalışır' },
+          { id: 'screenshots', label: 'Demo & Görseller' },
+          { id: 'pricing', label: 'Paketler & Fiyat' },
+          { id: 'trust', label: 'Güven Blokları' },
+          { id: 'faqs', label: 'SSS' },
+          { id: 'whatsapp', label: 'WhatsApp & Demo' },
+          { id: 'seo', label: 'SEO & Paylaşım' },
+          { id: 'visibility', label: 'Bölüm Ayarları' },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -977,8 +1025,8 @@ export default function AdminProductsPage() {
             onClick={() => setActiveTab(tab.id)}
             className={`whitespace-nowrap rounded-xl px-4 py-2.5 text-xs font-bold transition ${
               activeTab === tab.id
-                ? "bg-corp-teal text-white shadow-sm"
-                : "text-slate-600 hover:bg-slate-100"
+                ? 'bg-corp-teal text-white shadow-sm'
+                : 'text-slate-600 hover:bg-slate-100'
             }`}
           >
             {tab.label}
@@ -987,11 +1035,13 @@ export default function AdminProductsPage() {
       </nav>
 
       {/* ─── TAB 1: GENEL BİLGİLER ────────────────────────────────────────── */}
-      {activeTab === "general" && (
+      {activeTab === 'general' && (
         <section className="grid gap-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="border-b border-slate-100 pb-4">
             <h2 className="text-base font-bold text-slate-800">Genel Hizmet Bilgileri</h2>
-            <p className="text-xs text-slate-500">Hizmetin temel tanımlamaları ve liste sayfasındaki kart görünümü.</p>
+            <p className="text-xs text-slate-500">
+              Hizmetin temel tanımlamaları ve liste sayfasındaki kart görünümü.
+            </p>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
@@ -1003,8 +1053,8 @@ export default function AdminProductsPage() {
                 maxLength={120}
                 value={form.name}
                 onChange={(e) => {
-                  update("name", e.target.value);
-                  if (!slugManuallyEdited) update("slug", slugify(e.target.value));
+                  update('name', e.target.value);
+                  if (!slugManuallyEdited) update('slug', slugify(e.target.value));
                 }}
                 placeholder="Örn: Microsoft Call Center AI"
                 className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-sm outline-none focus:border-corp-teal"
@@ -1021,7 +1071,7 @@ export default function AdminProductsPage() {
                 value={form.slug}
                 onChange={(e) => {
                   setSlugManuallyEdited(true);
-                  update("slug", slugify(e.target.value));
+                  update('slug', slugify(e.target.value));
                 }}
                 placeholder="Örn: microsoft-call-center-ai"
                 className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-sm font-mono outline-none focus:border-corp-teal"
@@ -1031,14 +1081,16 @@ export default function AdminProductsPage() {
 
             <div className="sm:col-span-2">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-bold text-slate-700">Liste Kartı İçin Kısa Özet (Max 120 Karakter) *</label>
+                <label className="text-xs font-bold text-slate-700">
+                  Liste Kartı İçin Kısa Özet (Max 120 Karakter) *
+                </label>
                 <CharCounter current={form.cardSummary?.length || 0} max={120} />
               </div>
               <textarea
                 maxLength={120}
                 rows={2}
-                value={form.cardSummary || ""}
-                onChange={(e) => update("cardSummary", e.target.value)}
+                value={form.cardSummary || ''}
+                onChange={(e) => update('cardSummary', e.target.value)}
                 placeholder="Örn: Müşterilerinizin telefonlarını 7/24 bekletmeden karşılayan, insan doğallığında konuşan yapay zeka."
                 className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-sm outline-none focus:border-corp-teal"
               />
@@ -1050,8 +1102,8 @@ export default function AdminProductsPage() {
               <input
                 type="text"
                 maxLength={80}
-                value={form.category || ""}
-                onChange={(e) => update("category", e.target.value)}
+                value={form.category || ''}
+                onChange={(e) => update('category', e.target.value)}
                 placeholder="Örn: AI Çağrı Merkezi, Finans & Analiz, Müşteri Deneyimi"
                 className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-sm outline-none focus:border-corp-teal"
               />
@@ -1064,7 +1116,7 @@ export default function AdminProductsPage() {
                 type="number"
                 min="0"
                 value={form.displayOrder}
-                onChange={(e) => update("displayOrder", Number(e.target.value))}
+                onChange={(e) => update('displayOrder', Number(e.target.value))}
                 className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-sm outline-none focus:border-corp-teal"
               />
               <FieldHelp text="Daha küçük sayılar listede daha önce gösterilir (0 en üst)." />
@@ -1075,20 +1127,24 @@ export default function AdminProductsPage() {
                 <input
                   type="checkbox"
                   checked={form.isListed}
-                  onChange={(e) => update("isListed", e.target.checked)}
+                  onChange={(e) => update('isListed', e.target.checked)}
                   className="h-4 w-4 rounded text-corp-teal"
                 />
-                <span className="text-sm font-semibold text-slate-700">Tüm Hizmetler Sayfasında Göster (Listede Açık)</span>
+                <span className="text-sm font-semibold text-slate-700">
+                  Tüm Hizmetler Sayfasında Göster (Listede Açık)
+                </span>
               </label>
 
               <label className="inline-flex cursor-pointer items-center gap-2">
                 <input
                   type="checkbox"
                   checked={form.isFeatured}
-                  onChange={(e) => update("isFeatured", e.target.checked)}
+                  onChange={(e) => update('isFeatured', e.target.checked)}
                   className="h-4 w-4 rounded text-corp-teal"
                 />
-                <span className="text-sm font-semibold text-slate-700">Öne Çıkan Hizmet (Vurgula)</span>
+                <span className="text-sm font-semibold text-slate-700">
+                  Öne Çıkan Hizmet (Vurgula)
+                </span>
               </label>
             </div>
           </div>
@@ -1096,18 +1152,20 @@ export default function AdminProductsPage() {
       )}
 
       {/* ─── TAB 2: HERO & GİRİŞ BÖLÜMÜ ─────────────────────────────────── */}
-      {activeTab === "hero" && (
+      {activeTab === 'hero' && (
         <section className="grid gap-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between border-b border-slate-100 pb-4">
             <div>
               <h2 className="text-base font-bold text-slate-800">Hero & Karşılama Bölümü</h2>
-              <p className="text-xs text-slate-500">Sayfanın en üstünde ziyaretçiyi karşılayan ana vitrin alanı.</p>
+              <p className="text-xs text-slate-500">
+                Sayfanın en üstünde ziyaretçiyi karşılayan ana vitrin alanı.
+              </p>
             </div>
             <label className="inline-flex cursor-pointer items-center gap-2">
               <input
                 type="checkbox"
                 checked={form.sectionVisibility.hero}
-                onChange={(e) => updateSectionVisibility("hero", e.target.checked)}
+                onChange={(e) => updateSectionVisibility('hero', e.target.checked)}
                 className="h-4 w-4 rounded text-corp-teal"
               />
               <span className="text-xs font-bold text-slate-700">Hero Bölümünü Göster</span>
@@ -1117,14 +1175,16 @@ export default function AdminProductsPage() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="sm:col-span-2">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-bold text-slate-700">Sonuç Odaklı Ana Başlık (Max 70 Karakter) *</label>
+                <label className="text-xs font-bold text-slate-700">
+                  Sonuç Odaklı Ana Başlık (Max 70 Karakter) *
+                </label>
                 <CharCounter current={form.heroHeadline?.length || 0} max={70} />
               </div>
               <input
                 type="text"
                 maxLength={70}
-                value={form.heroHeadline || ""}
-                onChange={(e) => update("heroHeadline", e.target.value)}
+                value={form.heroHeadline || ''}
+                onChange={(e) => update('heroHeadline', e.target.value)}
                 placeholder="Örn: Telefonları 7/24 Kaçırmayın, Satışlarınızı Katlayın"
                 className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-sm outline-none focus:border-corp-teal"
               />
@@ -1133,14 +1193,16 @@ export default function AdminProductsPage() {
 
             <div className="sm:col-span-2">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-bold text-slate-700">Hero Alt Açıklama Metni (Max 160 Karakter) *</label>
+                <label className="text-xs font-bold text-slate-700">
+                  Hero Alt Açıklama Metni (Max 160 Karakter) *
+                </label>
                 <CharCounter current={form.heroSubheadline?.length || 0} max={160} />
               </div>
               <textarea
                 maxLength={160}
                 rows={2}
-                value={form.heroSubheadline || ""}
-                onChange={(e) => update("heroSubheadline", e.target.value)}
+                value={form.heroSubheadline || ''}
+                onChange={(e) => update('heroSubheadline', e.target.value)}
                 placeholder="Örn: Gelen çağrıları anında yanıtlayan, randevu oluşturan ve CRM entegrasyonuyla tüm veriyi işleyen yeni nesil sesli yapay zeka."
                 className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-sm outline-none focus:border-corp-teal"
               />
@@ -1151,8 +1213,8 @@ export default function AdminProductsPage() {
               <label className="text-xs font-bold text-slate-700">Birincil Düğme Metni</label>
               <input
                 type="text"
-                value={form.primaryCtaLabel || ""}
-                onChange={(e) => update("primaryCtaLabel", e.target.value)}
+                value={form.primaryCtaLabel || ''}
+                onChange={(e) => update('primaryCtaLabel', e.target.value)}
                 placeholder="Varsayılan: Paketleri İncele"
                 className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-sm outline-none focus:border-corp-teal"
               />
@@ -1162,30 +1224,34 @@ export default function AdminProductsPage() {
               <label className="text-xs font-bold text-slate-700">Birincil Düğme Bağlantısı</label>
               <input
                 type="text"
-                value={form.primaryCtaUrl || ""}
-                onChange={(e) => update("primaryCtaUrl", e.target.value)}
+                value={form.primaryCtaUrl || ''}
+                onChange={(e) => update('primaryCtaUrl', e.target.value)}
                 placeholder="Varsayılan: #paketler"
                 className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-sm outline-none focus:border-corp-teal"
               />
             </div>
 
             <div>
-              <label className="text-xs font-bold text-slate-700">İkincil Düğme Metni (İsteğe Bağlı)</label>
+              <label className="text-xs font-bold text-slate-700">
+                İkincil Düğme Metni (İsteğe Bağlı)
+              </label>
               <input
                 type="text"
-                value={form.secondaryCtaLabel || ""}
-                onChange={(e) => update("secondaryCtaLabel", e.target.value)}
+                value={form.secondaryCtaLabel || ''}
+                onChange={(e) => update('secondaryCtaLabel', e.target.value)}
                 placeholder="Örn: Canlı Demo Talep Et"
                 className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-sm outline-none focus:border-corp-teal"
               />
             </div>
 
             <div>
-              <label className="text-xs font-bold text-slate-700">İkincil Düğme Bağlantısı (İsteğe Bağlı)</label>
+              <label className="text-xs font-bold text-slate-700">
+                İkincil Düğme Bağlantısı (İsteğe Bağlı)
+              </label>
               <input
                 type="text"
-                value={form.secondaryCtaUrl || ""}
-                onChange={(e) => update("secondaryCtaUrl", e.target.value)}
+                value={form.secondaryCtaUrl || ''}
+                onChange={(e) => update('secondaryCtaUrl', e.target.value)}
                 placeholder="Örn: https://wa.me/905303412156 veya #demo"
                 className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-sm outline-none focus:border-corp-teal"
               />
@@ -1197,33 +1263,44 @@ export default function AdminProductsPage() {
               <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center">
                 {form.heroMockupUrl ? (
                   <div className="relative h-28 w-40 shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-white">
-                    <Image src={form.heroMockupUrl} alt="Hero Önizleme" fill className="object-cover" unoptimized />
+                    <Image
+                      src={form.heroMockupUrl}
+                      alt="Hero Önizleme"
+                      fill
+                      className="object-cover"
+                      unoptimized
+                    />
                   </div>
                 ) : null}
                 <div className="flex-1 space-y-2">
                   <input
                     type="url"
-                    value={form.heroMockupUrl || ""}
-                    onChange={(e) => update("heroMockupUrl", e.target.value)}
+                    value={form.heroMockupUrl || ''}
+                    onChange={(e) => update('heroMockupUrl', e.target.value)}
                     placeholder="Görsel URL'si yapıştırın veya doğrudan yükleyin"
                     className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-sm outline-none"
                   />
                   <div className="flex items-center gap-3">
                     <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-slate-900 px-3.5 py-2 text-xs font-bold text-white transition hover:bg-slate-800">
                       <ImagePlus size={14} />
-                      {uploadingField === "heroMockupUrl" ? "Optimize Ediliyor..." : "Yeni Görsel Yükle (Max 5MB)"}
+                      {uploadingField === 'heroMockupUrl'
+                        ? 'Optimize Ediliyor...'
+                        : 'Yeni Görsel Yükle (Max 5MB)'}
                       <input
                         type="file"
                         accept="image/*"
                         className="sr-only"
-                        disabled={uploadingField === "heroMockupUrl"}
-                        onChange={(e) => e.target.files?.[0] && void uploadImage(e.target.files[0], "heroMockupUrl")}
+                        disabled={uploadingField === 'heroMockupUrl'}
+                        onChange={(e) =>
+                          e.target.files?.[0] &&
+                          void uploadImage(e.target.files[0], 'heroMockupUrl')
+                        }
                       />
                     </label>
                     {form.heroMockupUrl && (
                       <button
                         type="button"
-                        onClick={() => update("heroMockupUrl", "")}
+                        onClick={() => update('heroMockupUrl', '')}
                         className="text-xs font-semibold text-rose-600 hover:underline"
                       >
                         Görseli Kaldır
@@ -1234,12 +1311,14 @@ export default function AdminProductsPage() {
               </div>
 
               <div className="mt-3">
-                <label className="text-xs font-bold text-slate-700">Hero Görseli Alt Metni (SEO & Erişilebilirlik)</label>
+                <label className="text-xs font-bold text-slate-700">
+                  Hero Görseli Alt Metni (SEO & Erişilebilirlik)
+                </label>
                 <input
                   type="text"
                   maxLength={120}
-                  value={form.heroImageAlt || ""}
-                  onChange={(e) => update("heroImageAlt", e.target.value)}
+                  value={form.heroImageAlt || ''}
+                  onChange={(e) => update('heroImageAlt', e.target.value)}
                   placeholder="Örn: Microsoft Call Center AI çağrı yönetim arayüzü"
                   className="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2.5 text-sm outline-none"
                 />
@@ -1248,11 +1327,13 @@ export default function AdminProductsPage() {
 
             {/* Logo & Başlayan Fiyat Toggle */}
             <div>
-              <label className="text-xs font-bold text-slate-700">Hizmet Logosu / İkonu (URL)</label>
+              <label className="text-xs font-bold text-slate-700">
+                Hizmet Logosu / İkonu (URL)
+              </label>
               <input
                 type="url"
-                value={form.imageUrl || ""}
-                onChange={(e) => update("imageUrl", e.target.value)}
+                value={form.imageUrl || ''}
+                onChange={(e) => update('imageUrl', e.target.value)}
                 placeholder="https://..."
                 className="mt-1 w-full rounded-xl border border-slate-200 p-2.5 text-sm outline-none"
               />
@@ -1263,10 +1344,12 @@ export default function AdminProductsPage() {
                 <input
                   type="checkbox"
                   checked={form.showStartingPrice}
-                  onChange={(e) => update("showStartingPrice", e.target.checked)}
+                  onChange={(e) => update('showStartingPrice', e.target.checked)}
                   className="h-4 w-4 rounded text-corp-teal"
                 />
-                <span className="text-sm font-semibold text-slate-700">'.../ay'dan Başlayan Fiyatlarla' Metnini Göster</span>
+                <span className="text-sm font-semibold text-slate-700">
+                  '.../ay'dan Başlayan Fiyatlarla' Metnini Göster
+                </span>
               </label>
             </div>
           </div>
@@ -1274,7 +1357,7 @@ export default function AdminProductsPage() {
       )}
 
       {/* ─── TAB 3: FAYDA KARTLARI (3 - 6 ADET) ─────────────────────────── */}
-      {activeTab === "benefits" && (
+      {activeTab === 'benefits' && (
         <section className="grid gap-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between border-b border-slate-100 pb-4">
             <div>
@@ -1285,14 +1368,15 @@ export default function AdminProductsPage() {
                 </span>
               </div>
               <p className="text-xs text-slate-500">
-                En az 3, en fazla 6 adet kart ekleyebilirsiniz. Her kart 1 cümlelik net bir avantaj anlatmalıdır.
+                En az 3, en fazla 6 adet kart ekleyebilirsiniz. Her kart 1 cümlelik net bir avantaj
+                anlatmalıdır.
               </p>
             </div>
             <label className="inline-flex cursor-pointer items-center gap-2">
               <input
                 type="checkbox"
                 checked={form.sectionVisibility.benefits}
-                onChange={(e) => updateSectionVisibility("benefits", e.target.checked)}
+                onChange={(e) => updateSectionVisibility('benefits', e.target.checked)}
                 className="h-4 w-4 rounded text-corp-teal"
               />
               <span className="text-xs font-bold text-slate-700">Bölümü Göster</span>
@@ -1301,12 +1385,22 @@ export default function AdminProductsPage() {
 
           <div className="grid gap-4 sm:grid-cols-2">
             {form.benefits.map((item, index) => (
-              <div key={index} className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50/50 p-4">
+              <div
+                key={index}
+                className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50/50 p-4"
+              >
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase tracking-wide text-corp-teal">Fayda #{index + 1}</span>
+                  <span className="text-xs font-bold uppercase tracking-wide text-corp-teal">
+                    Fayda #{index + 1}
+                  </span>
                   <button
                     type="button"
-                    onClick={() => update("benefits", form.benefits.filter((_, i) => i !== index))}
+                    onClick={() =>
+                      update(
+                        'benefits',
+                        form.benefits.filter((_, i) => i !== index)
+                      )
+                    }
                     className="text-xs font-bold text-rose-600 hover:underline"
                   >
                     Sil
@@ -1320,7 +1414,7 @@ export default function AdminProductsPage() {
                       value={item.icon}
                       onChange={(icon) =>
                         update(
-                          "benefits",
+                          'benefits',
                           form.benefits.map((b, i) => (i === index ? { ...b, icon } : b))
                         )
                       }
@@ -1329,15 +1423,19 @@ export default function AdminProductsPage() {
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-slate-600">Başlık (Max 80 Karakter)</label>
+                  <label className="text-xs font-bold text-slate-600">
+                    Başlık (Max 80 Karakter)
+                  </label>
                   <input
                     type="text"
                     maxLength={80}
                     value={item.title}
                     onChange={(e) =>
                       update(
-                        "benefits",
-                        form.benefits.map((b, i) => (i === index ? { ...b, title: e.target.value } : b))
+                        'benefits',
+                        form.benefits.map((b, i) =>
+                          i === index ? { ...b, title: e.target.value } : b
+                        )
                       )
                     }
                     placeholder="Örn: %100 Yanıtlama Oranı"
@@ -1347,7 +1445,9 @@ export default function AdminProductsPage() {
 
                 <div>
                   <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-slate-600">1 Cümle Açıklama (Max 160 Karakter)</label>
+                    <label className="text-xs font-bold text-slate-600">
+                      1 Cümle Açıklama (Max 160 Karakter)
+                    </label>
                     <CharCounter current={item.description.length} max={160} />
                   </div>
                   <textarea
@@ -1356,8 +1456,10 @@ export default function AdminProductsPage() {
                     value={item.description}
                     onChange={(e) =>
                       update(
-                        "benefits",
-                        form.benefits.map((b, i) => (i === index ? { ...b, description: e.target.value } : b))
+                        'benefits',
+                        form.benefits.map((b, i) =>
+                          i === index ? { ...b, description: e.target.value } : b
+                        )
                       )
                     }
                     placeholder="Örn: Eşzamanlı yüzlerce çağrıyı tek bir saniye bekletmeden karşılayarak müşteri memnuniyetini zirveye çıkarın."
@@ -1372,9 +1474,9 @@ export default function AdminProductsPage() {
             <button
               type="button"
               onClick={() =>
-                update("benefits", [
+                update('benefits', [
                   ...form.benefits,
-                  { icon: "Sparkles", title: "", description: "", order: form.benefits.length },
+                  { icon: 'Sparkles', title: '', description: '', order: form.benefits.length },
                 ])
               }
               className="inline-flex w-fit items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-xs font-bold text-corp-teal hover:bg-slate-50"
@@ -1386,7 +1488,7 @@ export default function AdminProductsPage() {
       )}
 
       {/* ─── TAB 4: NASIL ÇALIŞIR ADIMLARI (3 - 4 ADET) ─────────────────── */}
-      {activeTab === "steps" && (
+      {activeTab === 'steps' && (
         <section className="grid gap-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between border-b border-slate-100 pb-4">
             <div>
@@ -1396,13 +1498,15 @@ export default function AdminProductsPage() {
                   {form.steps.length} / 4 Adım
                 </span>
               </div>
-              <p className="text-xs text-slate-500">Müşterinin satın almadan sonuca giden 3-4 adımlık net süreci.</p>
+              <p className="text-xs text-slate-500">
+                Müşterinin satın almadan sonuca giden 3-4 adımlık net süreci.
+              </p>
             </div>
             <label className="inline-flex cursor-pointer items-center gap-2">
               <input
                 type="checkbox"
                 checked={form.sectionVisibility.steps}
-                onChange={(e) => updateSectionVisibility("steps", e.target.checked)}
+                onChange={(e) => updateSectionVisibility('steps', e.target.checked)}
                 className="h-4 w-4 rounded text-corp-teal"
               />
               <span className="text-xs font-bold text-slate-700">Bölümü Göster</span>
@@ -1411,12 +1515,22 @@ export default function AdminProductsPage() {
 
           <div className="grid gap-4 sm:grid-cols-2">
             {form.steps.map((step, index) => (
-              <div key={index} className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50/50 p-4">
+              <div
+                key={index}
+                className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50/50 p-4"
+              >
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase tracking-wide text-corp-teal">Adım #{index + 1}</span>
+                  <span className="text-xs font-bold uppercase tracking-wide text-corp-teal">
+                    Adım #{index + 1}
+                  </span>
                   <button
                     type="button"
-                    onClick={() => update("steps", form.steps.filter((_, i) => i !== index))}
+                    onClick={() =>
+                      update(
+                        'steps',
+                        form.steps.filter((_, i) => i !== index)
+                      )
+                    }
                     className="text-xs font-bold text-rose-600 hover:underline"
                   >
                     Sil
@@ -1424,15 +1538,19 @@ export default function AdminProductsPage() {
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-slate-600">Adım Başlığı (Max 80 Karakter)</label>
+                  <label className="text-xs font-bold text-slate-600">
+                    Adım Başlığı (Max 80 Karakter)
+                  </label>
                   <input
                     type="text"
                     maxLength={80}
                     value={step.title}
                     onChange={(e) =>
                       update(
-                        "steps",
-                        form.steps.map((s, i) => (i === index ? { ...s, title: e.target.value } : s))
+                        'steps',
+                        form.steps.map((s, i) =>
+                          i === index ? { ...s, title: e.target.value } : s
+                        )
                       )
                     }
                     placeholder="Örn: 1. Paket Seçimi & Kayıt"
@@ -1448,8 +1566,10 @@ export default function AdminProductsPage() {
                     value={step.description}
                     onChange={(e) =>
                       update(
-                        "steps",
-                        form.steps.map((s, i) => (i === index ? { ...s, description: e.target.value } : s))
+                        'steps',
+                        form.steps.map((s, i) =>
+                          i === index ? { ...s, description: e.target.value } : s
+                        )
                       )
                     }
                     placeholder="Örn: İhtiyacınıza uygun paketi belirleyin, güvenli ödeme ile aboneliğinizi başlatın."
@@ -1464,7 +1584,10 @@ export default function AdminProductsPage() {
             <button
               type="button"
               onClick={() =>
-                update("steps", [...form.steps, { title: "", description: "", order: form.steps.length }])
+                update('steps', [
+                  ...form.steps,
+                  { title: '', description: '', order: form.steps.length },
+                ])
               }
               className="inline-flex w-fit items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-xs font-bold text-corp-teal hover:bg-slate-50"
             >
@@ -1475,25 +1598,28 @@ export default function AdminProductsPage() {
       )}
 
       {/* ─── TAB 5: DEMO & EKRAN GÖRÜNTÜLERİ (0 - 6 ADET) ──────────────── */}
-      {activeTab === "screenshots" && (
+      {activeTab === 'screenshots' && (
         <section className="grid gap-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between border-b border-slate-100 pb-4">
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-base font-bold text-slate-800">Ürün Ekran Görüntüleri & Demo</h2>
+                <h2 className="text-base font-bold text-slate-800">
+                  Ürün Ekran Görüntüleri & Demo
+                </h2>
                 <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-slate-600">
                   {form.demoScreenshots.length} / 6 Görsel
                 </span>
               </div>
               <p className="text-xs text-slate-500">
-                0 ile 6 arasında ekran görüntüsü ekleyebilirsiniz. Eğer görsel eklemezseniz bu bölüm sayfada otomatik olarak gizlenir.
+                0 ile 6 arasında ekran görüntüsü ekleyebilirsiniz. Eğer görsel eklemezseniz bu bölüm
+                sayfada otomatik olarak gizlenir.
               </p>
             </div>
             <label className="inline-flex cursor-pointer items-center gap-2">
               <input
                 type="checkbox"
                 checked={form.sectionVisibility.demoScreenshots}
-                onChange={(e) => updateSectionVisibility("demoScreenshots", e.target.checked)}
+                onChange={(e) => updateSectionVisibility('demoScreenshots', e.target.checked)}
                 className="h-4 w-4 rounded text-corp-teal"
               />
               <span className="text-xs font-bold text-slate-700">Bölümü Göster</span>
@@ -1502,14 +1628,19 @@ export default function AdminProductsPage() {
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {form.demoScreenshots.map((item, index) => (
-              <div key={index} className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50/50 p-4">
+              <div
+                key={index}
+                className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50/50 p-4"
+              >
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase tracking-wide text-corp-teal">Görsel #{index + 1}</span>
+                  <span className="text-xs font-bold uppercase tracking-wide text-corp-teal">
+                    Görsel #{index + 1}
+                  </span>
                   <button
                     type="button"
                     onClick={() =>
                       update(
-                        "demoScreenshots",
+                        'demoScreenshots',
                         form.demoScreenshots.filter((_, i) => i !== index)
                       )
                     }
@@ -1521,7 +1652,13 @@ export default function AdminProductsPage() {
 
                 {item.url ? (
                   <div className="relative aspect-[16/10] w-full overflow-hidden rounded-xl border border-slate-200 bg-white">
-                    <Image src={item.url} alt="Önizleme" fill className="object-cover" unoptimized />
+                    <Image
+                      src={item.url}
+                      alt="Önizleme"
+                      fill
+                      className="object-cover"
+                      unoptimized
+                    />
                   </div>
                 ) : null}
 
@@ -1532,8 +1669,10 @@ export default function AdminProductsPage() {
                     value={item.url}
                     onChange={(e) =>
                       update(
-                        "demoScreenshots",
-                        form.demoScreenshots.map((s, i) => (i === index ? { ...s, url: e.target.value } : s))
+                        'demoScreenshots',
+                        form.demoScreenshots.map((s, i) =>
+                          i === index ? { ...s, url: e.target.value } : s
+                        )
                       )
                     }
                     placeholder="https://..."
@@ -1541,7 +1680,7 @@ export default function AdminProductsPage() {
                   />
                   <label className="mt-2 inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-slate-900 px-3 py-1.5 text-xs font-bold text-white hover:bg-slate-800">
                     <ImagePlus size={13} />
-                    {uploadingField === `demo_${index}` ? "Yükleniyor..." : "Dosyadan Yükle"}
+                    {uploadingField === `demo_${index}` ? 'Yükleniyor...' : 'Dosyadan Yükle'}
                     <input
                       type="file"
                       accept="image/*"
@@ -1551,7 +1690,7 @@ export default function AdminProductsPage() {
                         e.target.files?.[0] &&
                         void uploadImage(e.target.files[0], `demo_${index}`, (url) => {
                           update(
-                            "demoScreenshots",
+                            'demoScreenshots',
                             form.demoScreenshots.map((s, i) => (i === index ? { ...s, url } : s))
                           );
                         })
@@ -1561,15 +1700,19 @@ export default function AdminProductsPage() {
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-slate-600">Açıklama / Alt Başlık (Max 160 Karakter)</label>
+                  <label className="text-xs font-bold text-slate-600">
+                    Açıklama / Alt Başlık (Max 160 Karakter)
+                  </label>
                   <input
                     type="text"
                     maxLength={160}
                     value={item.caption}
                     onChange={(e) =>
                       update(
-                        "demoScreenshots",
-                        form.demoScreenshots.map((s, i) => (i === index ? { ...s, caption: e.target.value } : s))
+                        'demoScreenshots',
+                        form.demoScreenshots.map((s, i) =>
+                          i === index ? { ...s, caption: e.target.value } : s
+                        )
                       )
                     }
                     placeholder="Örn: Gerçek zamanlı arama analiz paneli"
@@ -1584,9 +1727,9 @@ export default function AdminProductsPage() {
             <button
               type="button"
               onClick={() =>
-                update("demoScreenshots", [
+                update('demoScreenshots', [
                   ...form.demoScreenshots,
-                  { url: "", caption: "", alt: "", order: form.demoScreenshots.length },
+                  { url: '', caption: '', alt: '', order: form.demoScreenshots.length },
                 ])
               }
               className="inline-flex w-fit items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-xs font-bold text-corp-teal hover:bg-slate-50"
@@ -1598,21 +1741,25 @@ export default function AdminProductsPage() {
       )}
 
       {/* ─── TAB 6: FİYAT PAKETLERİ (TIERS) ─────────────────────────────── */}
-      {activeTab === "pricing" && (
+      {activeTab === 'pricing' && (
         <section className="grid gap-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between border-b border-slate-100 pb-4">
             <div>
               <h2 className="text-base font-bold text-slate-800">Fiyatlandırma & Paketler</h2>
-              <p className="text-xs text-slate-500">Müşterinin satın alabileceği aylık abonelik paketleri ve özellikleri.</p>
+              <p className="text-xs text-slate-500">
+                Müşterinin satın alabileceği aylık abonelik paketleri ve özellikleri.
+              </p>
             </div>
             <label className="inline-flex cursor-pointer items-center gap-2">
               <input
                 type="checkbox"
                 checked={form.sectionVisibility.pricing}
-                onChange={(e) => updateSectionVisibility("pricing", e.target.checked)}
+                onChange={(e) => updateSectionVisibility('pricing', e.target.checked)}
                 className="h-4 w-4 rounded text-corp-teal"
               />
-              <span className="text-xs font-bold text-slate-700">Fiyatlandırma Bölümünü Göster</span>
+              <span className="text-xs font-bold text-slate-700">
+                Fiyatlandırma Bölümünü Göster
+              </span>
             </label>
           </div>
 
@@ -1622,15 +1769,24 @@ export default function AdminProductsPage() {
               <div
                 key={tier.id || index}
                 className={`flex flex-col gap-4 rounded-2xl border p-5 transition ${
-                  tier.isRecommended ? "border-corp-teal ring-2 ring-corp-teal/20 bg-slate-50/50" : "border-slate-200 bg-white"
+                  tier.isRecommended
+                    ? 'border-corp-teal ring-2 ring-corp-teal/20 bg-slate-50/50'
+                    : 'border-slate-200 bg-white'
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase tracking-wide text-corp-teal">Paket #{index + 1}</span>
+                  <span className="text-xs font-bold uppercase tracking-wide text-corp-teal">
+                    Paket #{index + 1}
+                  </span>
                   {form.tiers.length > 1 && (
                     <button
                       type="button"
-                      onClick={() => update("tiers", form.tiers.filter((_, i) => i !== index))}
+                      onClick={() =>
+                        update(
+                          'tiers',
+                          form.tiers.filter((_, i) => i !== index)
+                        )
+                      }
                       className="text-xs font-bold text-rose-600 hover:underline"
                     >
                       Paketi Sil
@@ -1646,7 +1802,7 @@ export default function AdminProductsPage() {
                     value={tier.name}
                     onChange={(e) =>
                       update(
-                        "tiers",
+                        'tiers',
                         form.tiers.map((t, i) => (i === index ? { ...t, name: e.target.value } : t))
                       )
                     }
@@ -1663,11 +1819,13 @@ export default function AdminProductsPage() {
                       step="0.01"
                       min="0"
                       required
-                      value={tier.priceMonthly || ""}
+                      value={tier.priceMonthly || ''}
                       onChange={(e) =>
                         update(
-                          "tiers",
-                          form.tiers.map((t, i) => (i === index ? { ...t, priceMonthly: Number(e.target.value) } : t))
+                          'tiers',
+                          form.tiers.map((t, i) =>
+                            i === index ? { ...t, priceMonthly: Number(e.target.value) } : t
+                          )
                         )
                       }
                       placeholder="Örn: 5000"
@@ -1680,11 +1838,13 @@ export default function AdminProductsPage() {
                     <input
                       type="text"
                       maxLength={80}
-                      value={tier.badge || ""}
+                      value={tier.badge || ''}
                       onChange={(e) =>
                         update(
-                          "tiers",
-                          form.tiers.map((t, i) => (i === index ? { ...t, badge: e.target.value } : t))
+                          'tiers',
+                          form.tiers.map((t, i) =>
+                            i === index ? { ...t, badge: e.target.value } : t
+                          )
                         )
                       }
                       placeholder="Örn: En Popüler"
@@ -1699,24 +1859,31 @@ export default function AdminProductsPage() {
                     checked={tier.isRecommended}
                     onChange={(e) =>
                       update(
-                        "tiers",
-                        form.tiers.map((t, i) => ({ ...t, isRecommended: i === index ? e.target.checked : false }))
+                        'tiers',
+                        form.tiers.map((t, i) => ({
+                          ...t,
+                          isRecommended: i === index ? e.target.checked : false,
+                        }))
                       )
                     }
                     className="h-4 w-4 rounded text-corp-teal"
                   />
-                  <span className="text-xs font-bold text-slate-700">Bu Paketi 'Önerilen' Olarak Vurgula</span>
+                  <span className="text-xs font-bold text-slate-700">
+                    Bu Paketi 'Önerilen' Olarak Vurgula
+                  </span>
                 </label>
 
                 <div>
                   <label className="text-xs font-bold text-slate-700">KDV Notu</label>
                   <input
                     type="text"
-                    value={tier.vatNote || ""}
+                    value={tier.vatNote || ''}
                     onChange={(e) =>
                       update(
-                        "tiers",
-                        form.tiers.map((t, i) => (i === index ? { ...t, vatNote: e.target.value } : t))
+                        'tiers',
+                        form.tiers.map((t, i) =>
+                          i === index ? { ...t, vatNote: e.target.value } : t
+                        )
                       )
                     }
                     placeholder="Örn: + %20 KDV"
@@ -1728,11 +1895,13 @@ export default function AdminProductsPage() {
                   <label className="text-xs font-bold text-slate-700">Yenileme / İptal Notu</label>
                   <input
                     type="text"
-                    value={tier.renewalNote || ""}
+                    value={tier.renewalNote || ''}
                     onChange={(e) =>
                       update(
-                        "tiers",
-                        form.tiers.map((t, i) => (i === index ? { ...t, renewalNote: e.target.value } : t))
+                        'tiers',
+                        form.tiers.map((t, i) =>
+                          i === index ? { ...t, renewalNote: e.target.value } : t
+                        )
                       )
                     }
                     placeholder="Örn: Dilediğiniz zaman tek tıkla iptal"
@@ -1744,21 +1913,25 @@ export default function AdminProductsPage() {
                   <label className="text-xs font-bold text-slate-700">Buton Metni</label>
                   <input
                     type="text"
-                    value={tier.buttonText || ""}
+                    value={tier.buttonText || ''}
                     onChange={(e) =>
                       update(
-                        "tiers",
-                        form.tiers.map((t, i) => (i === index ? { ...t, buttonText: e.target.value } : t))
+                        'tiers',
+                        form.tiers.map((t, i) =>
+                          i === index ? { ...t, buttonText: e.target.value } : t
+                        )
                       )
                     }
-                    placeholder={`Varsayılan: ${tier.name || "Paket"} Aboneliğini Başlat`}
+                    placeholder={`Varsayılan: ${tier.name || 'Paket'} Aboneliğini Başlat`}
                     className="mt-1 w-full rounded-xl border border-slate-200 p-2.5 text-xs outline-none"
                   />
                 </div>
 
                 {/* Paket Özellikleri */}
                 <div className="border-t border-slate-100 pt-3">
-                  <label className="text-xs font-bold text-slate-700">Paket Özellik Maddeleri</label>
+                  <label className="text-xs font-bold text-slate-700">
+                    Paket Özellik Maddeleri
+                  </label>
                   <div className="mt-2 space-y-2">
                     {tier.features.map((feat, fi) => (
                       <div key={fi} className="flex items-center gap-1.5">
@@ -1767,12 +1940,14 @@ export default function AdminProductsPage() {
                           value={feat}
                           onChange={(e) =>
                             update(
-                              "tiers",
+                              'tiers',
                               form.tiers.map((t, i) =>
                                 i === index
                                   ? {
                                       ...t,
-                                      features: t.features.map((f, j) => (j === fi ? e.target.value : f)),
+                                      features: t.features.map((f, j) =>
+                                        j === fi ? e.target.value : f
+                                      ),
                                     }
                                   : t
                               )
@@ -1785,7 +1960,7 @@ export default function AdminProductsPage() {
                           type="button"
                           onClick={() =>
                             update(
-                              "tiers",
+                              'tiers',
                               form.tiers.map((t, i) =>
                                 i === index
                                   ? { ...t, features: t.features.filter((_, j) => j !== fi) }
@@ -1803,13 +1978,149 @@ export default function AdminProductsPage() {
                       type="button"
                       onClick={() =>
                         update(
-                          "tiers",
-                          form.tiers.map((t, i) => (i === index ? { ...t, features: [...t.features, ""] } : t))
+                          'tiers',
+                          form.tiers.map((t, i) =>
+                            i === index ? { ...t, features: [...t.features, ''] } : t
+                          )
                         )
                       }
                       className="text-xs font-bold text-corp-teal hover:underline inline-flex items-center gap-1 mt-1"
                     >
                       <Plus size={14} /> Özellik Ekle
+                    </button>
+                  </div>
+                </div>
+
+                {/* Özel Karşılaştırma Matrisi (Opsiyonel) */}
+                <div className="border-t border-slate-100 pt-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-700">
+                      Özel Karşılaştırma Özellikleri
+                    </label>
+                    <span className="text-[10px] text-slate-400">
+                      Boş bırakılırsa ana maddelerden otomatik üretilir
+                    </span>
+                  </div>
+                  <div className="mt-2 space-y-2">
+                    {(tier.comparisonFeatures || []).map((cf, cfi) => (
+                      <div
+                        key={cfi}
+                        className="flex items-center gap-1.5 rounded-xl border border-slate-100 bg-slate-50/60 p-2 text-xs"
+                      >
+                        <input
+                          type="text"
+                          value={cf.key}
+                          onChange={(e) =>
+                            update(
+                              'tiers',
+                              form.tiers.map((t, i) =>
+                                i === index
+                                  ? {
+                                      ...t,
+                                      comparisonFeatures: (t.comparisonFeatures || []).map(
+                                        (item, j) =>
+                                          j === cfi ? { ...item, key: e.target.value } : item
+                                      ),
+                                    }
+                                  : t
+                              )
+                            )
+                          }
+                          placeholder="Özellik Adı (Örn: Canlı Destek)"
+                          className="w-1/2 rounded-lg border border-slate-200 bg-white p-1.5 text-xs outline-none"
+                        />
+                        <input
+                          type="text"
+                          value={cf.value || ''}
+                          onChange={(e) =>
+                            update(
+                              'tiers',
+                              form.tiers.map((t, i) =>
+                                i === index
+                                  ? {
+                                      ...t,
+                                      comparisonFeatures: (t.comparisonFeatures || []).map(
+                                        (item, j) =>
+                                          j === cfi ? { ...item, value: e.target.value } : item
+                                      ),
+                                    }
+                                  : t
+                              )
+                            )
+                          }
+                          placeholder="Değer (Örn: Sınırsız)"
+                          className="w-1/3 rounded-lg border border-slate-200 bg-white p-1.5 text-xs outline-none"
+                        />
+                        <label className="inline-flex items-center gap-1 shrink-0 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={cf.included}
+                            onChange={(e) =>
+                              update(
+                                'tiers',
+                                form.tiers.map((t, i) =>
+                                  i === index
+                                    ? {
+                                        ...t,
+                                        comparisonFeatures: (t.comparisonFeatures || []).map(
+                                          (item, j) =>
+                                            j === cfi
+                                              ? { ...item, included: e.target.checked }
+                                              : item
+                                        ),
+                                      }
+                                    : t
+                                )
+                              )
+                            }
+                            className="h-3.5 w-3.5 rounded text-corp-teal"
+                          />
+                          <span className="text-[10px] font-semibold text-slate-600">Dahil</span>
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            update(
+                              'tiers',
+                              form.tiers.map((t, i) =>
+                                i === index
+                                  ? {
+                                      ...t,
+                                      comparisonFeatures: (t.comparisonFeatures || []).filter(
+                                        (_, j) => j !== cfi
+                                      ),
+                                    }
+                                  : t
+                              )
+                            )
+                          }
+                          className="text-slate-400 hover:text-rose-600 p-1"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        update(
+                          'tiers',
+                          form.tiers.map((t, i) =>
+                            i === index
+                              ? {
+                                  ...t,
+                                  comparisonFeatures: [
+                                    ...(t.comparisonFeatures || []),
+                                    { key: '', value: '', included: true },
+                                  ],
+                                }
+                              : t
+                          )
+                        )
+                      }
+                      className="text-xs font-bold text-corp-teal hover:underline inline-flex items-center gap-1 mt-1"
+                    >
+                      <Plus size={13} /> Karşılaştırma Satırı Ekle
                     </button>
                   </div>
                 </div>
@@ -1819,7 +2130,7 @@ export default function AdminProductsPage() {
 
           <button
             type="button"
-            onClick={() => update("tiers", [...form.tiers, emptyTier(form.tiers.length)])}
+            onClick={() => update('tiers', [...form.tiers, emptyTier(form.tiers.length)])}
             className="inline-flex w-fit items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-xs font-bold text-corp-teal hover:bg-slate-50"
           >
             <Plus size={16} /> Yeni Paket Ekle
@@ -1828,20 +2139,21 @@ export default function AdminProductsPage() {
       )}
 
       {/* ─── TAB 7: GÜVEN VE İTİRAZ BLOKLARI ─────────────────────────────── */}
-      {activeTab === "trust" && (
+      {activeTab === 'trust' && (
         <section className="grid gap-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between border-b border-slate-100 pb-4">
             <div>
               <h2 className="text-base font-bold text-slate-800">Güven ve İtiraz Blokları</h2>
               <p className="text-xs text-slate-500">
-                Müşterilerin satın alma öncesi kafasındaki soru işaretlerini (kurulum süresi, destek, veri güvenliği, iptal/iade, yenileme) gideren bloklar.
+                Müşterilerin satın alma öncesi kafasındaki soru işaretlerini (kurulum süresi,
+                destek, veri güvenliği, iptal/iade, yenileme) gideren bloklar.
               </p>
             </div>
             <label className="inline-flex cursor-pointer items-center gap-2">
               <input
                 type="checkbox"
                 checked={form.sectionVisibility.trustBlocks}
-                onChange={(e) => updateSectionVisibility("trustBlocks", e.target.checked)}
+                onChange={(e) => updateSectionVisibility('trustBlocks', e.target.checked)}
                 className="h-4 w-4 rounded text-corp-teal"
               />
               <span className="text-xs font-bold text-slate-700">Bölümü Göster</span>
@@ -1853,19 +2165,25 @@ export default function AdminProductsPage() {
               <div
                 key={block.key}
                 className={`flex flex-col gap-3 rounded-2xl border p-4 transition ${
-                  block.isEnabled ? "border-slate-200 bg-white" : "border-slate-100 bg-slate-50/50 opacity-60"
+                  block.isEnabled
+                    ? 'border-slate-200 bg-white'
+                    : 'border-slate-100 bg-slate-50/50 opacity-60'
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase tracking-wide text-slate-500">Blok #{index + 1}</span>
+                  <span className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                    Blok #{index + 1}
+                  </span>
                   <label className="inline-flex cursor-pointer items-center gap-1.5">
                     <input
                       type="checkbox"
                       checked={block.isEnabled}
                       onChange={(e) =>
                         update(
-                          "trustBlocks",
-                          form.trustBlocks.map((b, i) => (i === index ? { ...b, isEnabled: e.target.checked } : b))
+                          'trustBlocks',
+                          form.trustBlocks.map((b, i) =>
+                            i === index ? { ...b, isEnabled: e.target.checked } : b
+                          )
                         )
                       }
                       className="h-4 w-4 rounded text-corp-teal"
@@ -1881,8 +2199,10 @@ export default function AdminProductsPage() {
                     value={block.title}
                     onChange={(e) =>
                       update(
-                        "trustBlocks",
-                        form.trustBlocks.map((b, i) => (i === index ? { ...b, title: e.target.value } : b))
+                        'trustBlocks',
+                        form.trustBlocks.map((b, i) =>
+                          i === index ? { ...b, title: e.target.value } : b
+                        )
                       )
                     }
                     className="mt-1 w-full rounded-xl border border-slate-200 p-2 text-sm font-semibold outline-none"
@@ -1896,8 +2216,10 @@ export default function AdminProductsPage() {
                     value={block.text}
                     onChange={(e) =>
                       update(
-                        "trustBlocks",
-                        form.trustBlocks.map((b, i) => (i === index ? { ...b, text: e.target.value } : b))
+                        'trustBlocks',
+                        form.trustBlocks.map((b, i) =>
+                          i === index ? { ...b, text: e.target.value } : b
+                        )
                       )
                     }
                     className="mt-1 w-full rounded-xl border border-slate-200 p-2 text-xs outline-none"
@@ -1910,18 +2232,20 @@ export default function AdminProductsPage() {
       )}
 
       {/* ─── TAB 8: SIKÇA SORULAN SORULAR (SSS) ─────────────────────────── */}
-      {activeTab === "faqs" && (
+      {activeTab === 'faqs' && (
         <section className="grid gap-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between border-b border-slate-100 pb-4">
             <div>
               <h2 className="text-base font-bold text-slate-800">Sıkça Sorulan Sorular (SSS)</h2>
-              <p className="text-xs text-slate-500">Müşterilerin aklındaki soruları yanıtlayan soru-cevap listesi.</p>
+              <p className="text-xs text-slate-500">
+                Müşterilerin aklındaki soruları yanıtlayan soru-cevap listesi.
+              </p>
             </div>
             <label className="inline-flex cursor-pointer items-center gap-2">
               <input
                 type="checkbox"
                 checked={form.sectionVisibility.faqs}
-                onChange={(e) => updateSectionVisibility("faqs", e.target.checked)}
+                onChange={(e) => updateSectionVisibility('faqs', e.target.checked)}
                 className="h-4 w-4 rounded text-corp-teal"
               />
               <span className="text-xs font-bold text-slate-700">Bölümü Göster</span>
@@ -1930,12 +2254,22 @@ export default function AdminProductsPage() {
 
           <div className="space-y-4">
             {form.faqs.map((faq, index) => (
-              <div key={index} className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50/50 p-4">
+              <div
+                key={index}
+                className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50/50 p-4"
+              >
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase tracking-wide text-corp-teal">Soru #{index + 1}</span>
+                  <span className="text-xs font-bold uppercase tracking-wide text-corp-teal">
+                    Soru #{index + 1}
+                  </span>
                   <button
                     type="button"
-                    onClick={() => update("faqs", form.faqs.filter((_, i) => i !== index))}
+                    onClick={() =>
+                      update(
+                        'faqs',
+                        form.faqs.filter((_, i) => i !== index)
+                      )
+                    }
                     className="text-xs font-bold text-rose-600 hover:underline"
                   >
                     Sil
@@ -1950,8 +2284,10 @@ export default function AdminProductsPage() {
                     value={faq.question}
                     onChange={(e) =>
                       update(
-                        "faqs",
-                        form.faqs.map((f, i) => (i === index ? { ...f, question: e.target.value } : f))
+                        'faqs',
+                        form.faqs.map((f, i) =>
+                          i === index ? { ...f, question: e.target.value } : f
+                        )
                       )
                     }
                     placeholder="Örn: Kurulum için teknik ekibe ihtiyacım var mı?"
@@ -1967,8 +2303,10 @@ export default function AdminProductsPage() {
                     value={faq.answer}
                     onChange={(e) =>
                       update(
-                        "faqs",
-                        form.faqs.map((f, i) => (i === index ? { ...f, answer: e.target.value } : f))
+                        'faqs',
+                        form.faqs.map((f, i) =>
+                          i === index ? { ...f, answer: e.target.value } : f
+                        )
                       )
                     }
                     placeholder="Örn: Hayır, tüm teknik entegrasyonu Çiçekana ekibi 24 saat içinde anahtar teslim tamamlar."
@@ -1981,7 +2319,9 @@ export default function AdminProductsPage() {
 
           <button
             type="button"
-            onClick={() => update("faqs", [...form.faqs, { question: "", answer: "", order: form.faqs.length }])}
+            onClick={() =>
+              update('faqs', [...form.faqs, { question: '', answer: '', order: form.faqs.length }])
+            }
             className="inline-flex w-fit items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-xs font-bold text-corp-teal hover:bg-slate-50"
           >
             <Plus size={16} /> Yeni Soru Ekle
@@ -1990,18 +2330,20 @@ export default function AdminProductsPage() {
       )}
 
       {/* ─── TAB 9: WHATSAPP & DEMO ───────────────────────────────────────── */}
-      {activeTab === "whatsapp" && (
+      {activeTab === 'whatsapp' && (
         <section className="grid gap-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between border-b border-slate-100 pb-4">
             <div>
               <h2 className="text-base font-bold text-slate-800">Demo & WhatsApp İletişimi</h2>
-              <p className="text-xs text-slate-500">Müşterinin tek tıkla canlı demo veya bilgi alabileceği iletişim alanı.</p>
+              <p className="text-xs text-slate-500">
+                Müşterinin tek tıkla canlı demo veya bilgi alabileceği iletişim alanı.
+              </p>
             </div>
             <label className="inline-flex cursor-pointer items-center gap-2">
               <input
                 type="checkbox"
                 checked={form.sectionVisibility.whatsappCta}
-                onChange={(e) => updateSectionVisibility("whatsappCta", e.target.checked)}
+                onChange={(e) => updateSectionVisibility('whatsappCta', e.target.checked)}
                 className="h-4 w-4 rounded text-corp-teal"
               />
               <span className="text-xs font-bold text-slate-700">WhatsApp Butonunu Göster</span>
@@ -2013,8 +2355,8 @@ export default function AdminProductsPage() {
               <label className="text-xs font-bold text-slate-700">WhatsApp Telefon Numarası</label>
               <input
                 type="text"
-                value={form.whatsappNumber || ""}
-                onChange={(e) => update("whatsappNumber", e.target.value)}
+                value={form.whatsappNumber || ''}
+                onChange={(e) => update('whatsappNumber', e.target.value)}
                 placeholder="+90 530 341 21 56"
                 className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-sm font-semibold outline-none"
               />
@@ -2022,11 +2364,13 @@ export default function AdminProductsPage() {
             </div>
 
             <div>
-              <label className="text-xs font-bold text-slate-700">Ön Metin Şablonu ({'{ürün}'} yer tutucusu)</label>
+              <label className="text-xs font-bold text-slate-700">
+                Ön Metin Şablonu ({'{ürün}'} yer tutucusu)
+              </label>
               <input
                 type="text"
-                value={form.whatsappTemplate || ""}
-                onChange={(e) => update("whatsappTemplate", e.target.value)}
+                value={form.whatsappTemplate || ''}
+                onChange={(e) => update('whatsappTemplate', e.target.value)}
                 placeholder="Merhaba, {ürün} hakkında bilgi ve canlı demo almak istiyorum."
                 className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-sm outline-none"
               />
@@ -2038,10 +2382,12 @@ export default function AdminProductsPage() {
                 <input
                   type="checkbox"
                   checked={form.isDemoFormActive}
-                  onChange={(e) => update("isDemoFormActive", e.target.checked)}
+                  onChange={(e) => update('isDemoFormActive', e.target.checked)}
                   className="h-4 w-4 rounded text-corp-teal"
                 />
-                <span className="text-sm font-semibold text-slate-700">Demo Talep Formu Açık (Sayfada gösterilsin)</span>
+                <span className="text-sm font-semibold text-slate-700">
+                  Demo Talep Formu Açık (Sayfada gösterilsin)
+                </span>
               </label>
             </div>
           </div>
@@ -2049,11 +2395,15 @@ export default function AdminProductsPage() {
       )}
 
       {/* ─── TAB 10: SEO & PAYLAŞIM ───────────────────────────────────────── */}
-      {activeTab === "seo" && (
+      {activeTab === 'seo' && (
         <section className="grid gap-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="border-b border-slate-100 pb-4">
-            <h2 className="text-base font-bold text-slate-800">Arama Motoru (SEO) & Sosyal Medya</h2>
-            <p className="text-xs text-slate-500">Google arama sonuçlarında ve sosyal medyada paylaşılınca çıkacak bilgiler.</p>
+            <h2 className="text-base font-bold text-slate-800">
+              Arama Motoru (SEO) & Sosyal Medya
+            </h2>
+            <p className="text-xs text-slate-500">
+              Google arama sonuçlarında ve sosyal medyada paylaşılınca çıkacak bilgiler.
+            </p>
           </div>
 
           <div className="grid gap-4">
@@ -2065,9 +2415,9 @@ export default function AdminProductsPage() {
               <input
                 type="text"
                 maxLength={80}
-                value={form.metaTitle || ""}
-                onChange={(e) => update("metaTitle", e.target.value)}
-                placeholder={`${form.name || "Hizmet Adı"} | Çiçekana Teknoloji`}
+                value={form.metaTitle || ''}
+                onChange={(e) => update('metaTitle', e.target.value)}
+                placeholder={`${form.name || 'Hizmet Adı'} | Çiçekana Teknoloji`}
                 className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-sm outline-none"
               />
               <FieldHelp text="Google sekmesinde ve arama sonuçlarında görünen başlık." />
@@ -2075,25 +2425,29 @@ export default function AdminProductsPage() {
 
             <div>
               <div className="flex items-center justify-between">
-                <label className="text-xs font-bold text-slate-700">SEO Açıklaması (Meta Description)</label>
+                <label className="text-xs font-bold text-slate-700">
+                  SEO Açıklaması (Meta Description)
+                </label>
                 <CharCounter current={form.metaDescription?.length || 0} max={160} />
               </div>
               <textarea
                 maxLength={160}
                 rows={2}
-                value={form.metaDescription || ""}
-                onChange={(e) => update("metaDescription", e.target.value)}
+                value={form.metaDescription || ''}
+                onChange={(e) => update('metaDescription', e.target.value)}
                 placeholder="Google snippet ve arama sonuçlarında görünen açıklama."
                 className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-sm outline-none"
               />
             </div>
 
             <div>
-              <label className="text-xs font-bold text-slate-700">Sosyal Medya Paylaşım Görseli (OG Image)</label>
+              <label className="text-xs font-bold text-slate-700">
+                Sosyal Medya Paylaşım Görseli (OG Image)
+              </label>
               <input
                 type="url"
-                value={form.ogImageUrl || ""}
-                onChange={(e) => update("ogImageUrl", e.target.value)}
+                value={form.ogImageUrl || ''}
+                onChange={(e) => update('ogImageUrl', e.target.value)}
                 placeholder="https://..."
                 className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-sm outline-none"
               />
@@ -2104,10 +2458,11 @@ export default function AdminProductsPage() {
                 <Check size={16} /> Canonical URL Doğrulanmıştır
               </div>
               <p className="mt-1 font-mono text-xs text-emerald-700">
-                https://www.cicekanatechmedia.com/services/ai-automation/{form.slug || "slug"}
+                https://www.cicekanatechmedia.com/services/ai-automation/{form.slug || 'slug'}
               </p>
               <p className="mt-1 text-xs text-slate-500">
-                Arama motorlarında yinelenen içerik oluşmaması için kanonik URL otomatik olarak resmi alan adımıza sabitlenmiştir.
+                Arama motorlarında yinelenen içerik oluşmaması için kanonik URL otomatik olarak
+                resmi alan adımıza sabitlenmiştir.
               </p>
             </div>
           </div>
@@ -2115,23 +2470,55 @@ export default function AdminProductsPage() {
       )}
 
       {/* ─── TAB 11: BÖLÜM GÖRÜNÜRLÜKLERİ ───────────────────────────────── */}
-      {activeTab === "visibility" && (
+      {activeTab === 'visibility' && (
         <section className="grid gap-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="border-b border-slate-100 pb-4">
-            <h2 className="text-base font-bold text-slate-800">Sayfa Bölüm Görünürlük Anahtarları</h2>
-            <p className="text-xs text-slate-500">Sayfada hangi bölümlerin görüneceğini tek tek Açık / Kapalı yapabilirsiniz.</p>
+            <h2 className="text-base font-bold text-slate-800">
+              Sayfa Bölüm Görünürlük Anahtarları
+            </h2>
+            <p className="text-xs text-slate-500">
+              Sayfada hangi bölümlerin görüneceğini tek tek Açık / Kapalı yapabilirsiniz.
+            </p>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
             {[
-              { key: "hero", label: "Hero (Başlangıç) Bölümü", desc: "Ana başlık, butonlar ve ürün görseli" },
-              { key: "benefits", label: "Fayda Kartları", desc: "3-6 adet ikonlu fayda kartı" },
-              { key: "steps", label: "Nasıl Çalışır Adımları", desc: "Başlangıç ve kurulum adımları" },
-              { key: "demoScreenshots", label: "Demo & Ekran Görüntüleri", desc: "Arayüz ekran görüntüleri (0 ise zaten gizlenir)" },
-              { key: "pricing", label: "Fiyat Paketleri", desc: "Abonelik paketleri ve satın alma butonları" },
-              { key: "trustBlocks", label: "Güven ve İtiraz Blokları", desc: "Kurulum, destek, güvenlik, iptal ve yenileme maddeleri" },
-              { key: "faqs", label: "Sıkça Sorulan Sorular", desc: "Merak edilen sorular akordeonu" },
-              { key: "whatsappCta", label: "WhatsApp & Canlı Destek Butonu", desc: "WhatsApp doğrudan iletişim kutusu" },
+              {
+                key: 'hero',
+                label: 'Hero (Başlangıç) Bölümü',
+                desc: 'Ana başlık, butonlar ve ürün görseli',
+              },
+              { key: 'benefits', label: 'Fayda Kartları', desc: '3-6 adet ikonlu fayda kartı' },
+              {
+                key: 'steps',
+                label: 'Nasıl Çalışır Adımları',
+                desc: 'Başlangıç ve kurulum adımları',
+              },
+              {
+                key: 'demoScreenshots',
+                label: 'Demo & Ekran Görüntüleri',
+                desc: 'Arayüz ekran görüntüleri (0 ise zaten gizlenir)',
+              },
+              {
+                key: 'pricing',
+                label: 'Fiyat Paketleri',
+                desc: 'Abonelik paketleri ve satın alma butonları',
+              },
+              {
+                key: 'trustBlocks',
+                label: 'Güven ve İtiraz Blokları',
+                desc: 'Kurulum, destek, güvenlik, iptal ve yenileme maddeleri',
+              },
+              {
+                key: 'faqs',
+                label: 'Sıkça Sorulan Sorular',
+                desc: 'Merak edilen sorular akordeonu',
+              },
+              {
+                key: 'whatsappCta',
+                label: 'WhatsApp & Canlı Destek Butonu',
+                desc: 'WhatsApp doğrudan iletişim kutusu',
+              },
             ].map((sec) => (
               <div
                 key={sec.key}
@@ -2144,9 +2531,12 @@ export default function AdminProductsPage() {
                 <label className="relative inline-flex cursor-pointer items-center">
                   <input
                     type="checkbox"
-                    checked={form.sectionVisibility[sec.key as keyof Plan["sectionVisibility"]]}
+                    checked={form.sectionVisibility[sec.key as keyof Plan['sectionVisibility']]}
                     onChange={(e) =>
-                      updateSectionVisibility(sec.key as keyof Plan["sectionVisibility"], e.target.checked)
+                      updateSectionVisibility(
+                        sec.key as keyof Plan['sectionVisibility'],
+                        e.target.checked
+                      )
                     }
                     className="sr-only peer"
                   />
@@ -2173,17 +2563,21 @@ export default function AdminProductsPage() {
               {/* Cihaz Seçici */}
               <div className="flex items-center rounded-xl bg-slate-800 p-1">
                 <button
-                  onClick={() => setPreviewDevice("desktop")}
+                  onClick={() => setPreviewDevice('desktop')}
                   className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-                    previewDevice === "desktop" ? "bg-corp-teal text-white" : "text-slate-400 hover:text-white"
+                    previewDevice === 'desktop'
+                      ? 'bg-corp-teal text-white'
+                      : 'text-slate-400 hover:text-white'
                   }`}
                 >
                   <Monitor size={14} /> Masaüstü
                 </button>
                 <button
-                  onClick={() => setPreviewDevice("mobile")}
+                  onClick={() => setPreviewDevice('mobile')}
                   className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-                    previewDevice === "mobile" ? "bg-corp-teal text-white" : "text-slate-400 hover:text-white"
+                    previewDevice === 'mobile'
+                      ? 'bg-corp-teal text-white'
+                      : 'text-slate-400 hover:text-white'
                   }`}
                 >
                   <Smartphone size={14} /> Mobil (375px)
@@ -2198,7 +2592,10 @@ export default function AdminProductsPage() {
                 <ExternalLink size={13} /> Yeni Sekmede Aç
               </Link>
 
-              <button onClick={() => setPreviewOpen(false)} className="text-slate-400 hover:text-white">
+              <button
+                onClick={() => setPreviewOpen(false)}
+                className="text-slate-400 hover:text-white"
+              >
                 <X size={20} />
               </button>
             </div>
@@ -2207,7 +2604,9 @@ export default function AdminProductsPage() {
           <div className="flex-1 overflow-auto rounded-b-2xl bg-slate-950 p-4 flex items-center justify-center">
             <div
               className={`h-full transition-all duration-300 overflow-hidden rounded-2xl bg-white shadow-2xl ${
-                previewDevice === "mobile" ? "w-[375px] border-8 border-slate-800" : "w-full max-w-6xl"
+                previewDevice === 'mobile'
+                  ? 'w-[375px] border-8 border-slate-800'
+                  : 'w-full max-w-6xl'
               }`}
             >
               <iframe
@@ -2228,10 +2627,14 @@ export default function AdminProductsPage() {
               <div>
                 <h2 className="text-lg font-bold text-slate-900">Sürüm Geçmişi (Son 5 Sürüm)</h2>
                 <p className="text-xs text-slate-500">
-                  Her yayınlamada otomatik yedek alınır. İstediğiniz bir sürüme tek tıkla geri dönebilirsiniz.
+                  Her yayınlamada otomatik yedek alınır. İstediğiniz bir sürüme tek tıkla geri
+                  dönebilirsiniz.
                 </p>
               </div>
-              <button onClick={() => setHistoryOpen(false)} className="text-slate-400 hover:text-slate-600">
+              <button
+                onClick={() => setHistoryOpen(false)}
+                className="text-slate-400 hover:text-slate-600"
+              >
                 <X size={18} />
               </button>
             </div>
@@ -2250,9 +2653,12 @@ export default function AdminProductsPage() {
                 versions.map((ver) => (
                   <div key={ver.id} className="flex items-center justify-between py-3.5">
                     <div>
-                      <div className="font-bold text-slate-800 text-sm">{ver.title || `Sürüm ${ver.versionNumber}`}</div>
+                      <div className="font-bold text-slate-800 text-sm">
+                        {ver.title || `Sürüm ${ver.versionNumber}`}
+                      </div>
                       <div className="text-xs text-slate-400 mt-0.5">
-                        {new Date(ver.createdAt).toLocaleString("tr-TR")} • {ver.createdBy || "Admin"}
+                        {new Date(ver.createdAt).toLocaleString('tr-TR')} •{' '}
+                        {ver.createdBy || 'Admin'}
                       </div>
                     </div>
                     <button

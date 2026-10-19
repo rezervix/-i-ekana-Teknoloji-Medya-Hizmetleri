@@ -219,7 +219,10 @@ export default function SubscriptionSuccessBanner({
                 <div className="text-right">
                   <span className="text-xs text-corp-gray block">Aylık Tutar</span>
                   <span className="text-lg sm:text-xl font-extrabold text-corp-teal">
-                    {details.priceMonthly ? (details.priceMonthly / 100).toLocaleString('tr-TR') : ''} TL
+                    {details.priceMonthly
+                      ? (details.priceMonthly / 100).toLocaleString('tr-TR')
+                      : ''}{' '}
+                    TL
                   </span>
                 </div>
               </div>
@@ -252,7 +255,8 @@ export default function SubscriptionSuccessBanner({
                     <span className="font-bold">Hesabınıza Giriş Yapın</span>
                   </div>
                   <p className="leading-relaxed">
-                    Hizmetinizi yönetmek ve panelinize erişmek için belirlediğiniz şifrenizle giriş yapabilirsiniz:
+                    Hizmetinizi yönetmek ve panelinize erişmek için belirlediğiniz şifrenizle giriş
+                    yapabilirsiniz:
                   </p>
                   <form onSubmit={handleManualLogin} className="space-y-2.5">
                     <div className="flex gap-2">
@@ -271,7 +275,9 @@ export default function SubscriptionSuccessBanner({
                         className="w-1/2 px-3 py-2 rounded-lg border border-amber-300 bg-white text-xs focus:ring-2 focus:ring-corp-teal"
                       />
                     </div>
-                    {loginError && <p className="text-red-600 font-semibold text-[11px]">{loginError}</p>}
+                    {loginError && (
+                      <p className="text-red-600 font-semibold text-[11px]">{loginError}</p>
+                    )}
                     <button
                       type="submit"
                       disabled={loggingIn}
@@ -289,7 +295,9 @@ export default function SubscriptionSuccessBanner({
                   <PhoneCall size={18} className="text-emerald-700 flex-shrink-0" />
                   <div>
                     <p className="font-bold text-emerald-950">Doğrudan Destek Hattı</p>
-                    <p className="text-emerald-800 text-xs">Sorularınız veya API kurulumu için hazırız.</p>
+                    <p className="text-emerald-800 text-xs">
+                      Sorularınız veya API kurulumu için hazırız.
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 w-full sm:w-auto">

@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from 'react';
 
 type IsolatedHtmlFrameProps = {
   srcDoc: string;
@@ -14,13 +14,13 @@ export default function IsolatedHtmlFrame({ srcDoc, title }: IsolatedHtmlFramePr
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       if (event.source !== frameRef.current?.contentWindow) return;
-      if (event.data?.type !== "isolated-html-height") return;
+      if (event.data?.type !== 'isolated-html-height') return;
       const nextHeight = Number(event.data.height);
       if (Number.isFinite(nextHeight) && nextHeight > 0) setHeight(Math.ceil(nextHeight));
     };
 
-    window.addEventListener("message", handleMessage);
-    return () => window.removeEventListener("message", handleMessage);
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
   }, []);
 
   return (
