@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import crypto from 'node:crypto';
 import { prisma } from '@/lib/prisma';
+import { logger } from '@/lib/logger';
 import {
   sendSubscriptionStartedEmail,
   sendAdminSubscriptionAlertEmail,
@@ -59,32 +60,63 @@ export async function POST(request: NextRequest) {
     };
     const originalOrderId = parseOid('ORD');
     const originalSubId = parseOid('SUB');
+    const isSubscriptionOid = merchantOid.startsWith('SUB') || merchantOid.startsWith('SUB_');
+    const isOrderOid = merchantOid.startsWith('ORD') || merchantOid.startsWith('ORD_');
 
-    // Abonelik kontrolü (doğrudan ID, ayrıştırılan ID veya paytrCustomerCode üzerinden)
-    let subscription = await prisma.subscription.findFirst({
-      where: {
-        OR: [
-          { id: merchantOid },
-          { id: originalSubId },
-          { paytrCustomerCode: merchantOid },
-          { paytrCustomerCode: originalSubId },
-        ],
-      },
-    });
+    const receivedAmount = /^\d+$/.test(totalAmount) ? Number(totalAmount) : NaN;
+    if (!Number.isSafeInteger(receivedAmount) || receivedAmount < 0) {
+      logger.security({
+        event: 'PAYTR_INVALID_AMOUNT_FORMAT',
+        details: { merchantOid, totalAmount, status },
+      });
+      return new Response('NO', { status: 400 });
+    }
 
-    if (subscription) {
-      const receivedAmount = /^\d+$/.test(totalAmount) ? Number(totalAmount) : NaN;
-      if (
-        !Number.isSafeInteger(receivedAmount) ||
-        receivedAmount !== subscription.priceAtPurchase
-      ) {
+    // ── 2. ABONELİK İŞLEME ───────────────────────────────────────────────────
+    if (isSubscriptionOid || (!isOrderOid && (originalSubId !== merchantOid))) {
+      const subscription = await prisma.subscription.findFirst({
+        where: {
+          OR: [
+            { id: merchantOid },
+            { id: originalSubId },
+            { paytrCustomerCode: merchantOid },
+            { paytrCustomerCode: originalSubId },
+          ],
+        },
+      });
+
+      if (!subscription) {
+        logger.error({
+          event: 'PAYTR_CALLBACK_SUBSCRIPTION_NOT_FOUND',
+          details: { merchantOid, originalSubId, status, retryNeeded: true },
+        });
+        return new Response('NO', { status: 404 });
+      }
+
+      // Tutar doğrulama (PayTR kuruş cinsinden gönderir)
+      if (receivedAmount !== subscription.priceAtPurchase) {
         logger.security({
           event: 'PAYTR_SUBSCRIPTION_AMOUNT_MISMATCH',
-          details: { merchantOid, originalSubId, status },
+          details: {
+            merchantOid,
+            originalSubId,
+            status,
+            receivedAmount,
+            expectedAmount: subscription.priceAtPurchase,
+          },
         });
         return new Response('NO', { status: 400 });
       }
-      if (subscription.status !== 'PENDING') return new Response('OK');
+
+      // İdempotency: Zaten işlenmiş abonelikte mükerrer işlem yapma
+      if (subscription.status !== 'PENDING') {
+        logger.info({
+          event: 'PAYTR_SUBSCRIPTION_ALREADY_PROCESSED',
+          details: { merchantOid, subscriptionId: subscription.id, currentStatus: subscription.status },
+        });
+        return new Response('OK');
+      }
+
       if (status === 'success') {
         const start = new Date();
         const end = new Date(start);
@@ -92,7 +124,7 @@ export async function POST(request: NextRequest) {
 
         let finalUserId = subscription.userId;
 
-        // Misafir kullanıcı ise ödeme sonrasında hesabı kesinleştir
+        // Misafir kullanıcı ise ödeme sonrasında hesabı kesinleştir / bağla
         if (!finalUserId && subscription.pendingPhone) {
           let user = await prisma.user.findFirst({
             where: { phone: subscription.pendingPhone },
@@ -102,103 +134,134 @@ export async function POST(request: NextRequest) {
             const fallbackEmail = `${subscription.pendingPhone}@musteri.cicekanatechmedia.com`;
             const desiredEmail = subscription.pendingEmail || fallbackEmail;
 
-            // E-posta çakışması kontrolü
             const existingEmailUser = await prisma.user.findUnique({
               where: { email: desiredEmail },
             });
-
             const safeEmail = existingEmailUser ? fallbackEmail : desiredEmail;
 
-            user = await prisma.user.create({
-              data: {
-                name: subscription.pendingName || 'Müşteri',
-                phone: subscription.pendingPhone,
-                email: safeEmail,
-                passwordHash: subscription.pendingPasswordHash,
-                role: 'EDITOR',
-                isActive: true,
-                isEmailVerified: false,
-              },
-            });
+            try {
+              user = await prisma.user.create({
+                data: {
+                  name: subscription.pendingName || 'Müşteri',
+                  phone: subscription.pendingPhone,
+                  email: safeEmail,
+                  passwordHash: subscription.pendingPasswordHash,
+                  role: 'EDITOR',
+                  isActive: true,
+                  isEmailVerified: false,
+                },
+              });
+            } catch {
+              // Eş zamanlı istekte başka bir işlem oluşturmuşsa yeniden sorgula
+              user = await prisma.user.findFirst({
+                where: { phone: subscription.pendingPhone },
+              });
+            }
           }
-          finalUserId = user.id;
+          if (user) {
+            finalUserId = user.id;
+          }
         }
 
-        await prisma.subscription.updateMany({
+        // Atomik güncelleme: Yalnızca durumu hala PENDING olan kaydı ACTIVE yap
+        const updateResult = await prisma.subscription.updateMany({
           where: { id: subscription.id, status: 'PENDING' },
           data: {
             status: 'ACTIVE',
             userId: finalUserId,
             currentPeriodStart: start,
             currentPeriodEnd: end,
-            pendingPasswordHash: null, // Hash kullanıldıktan sonra temizlenir
+            pendingPasswordHash: null, // Güvenlik: Hash tek kullanımlık olup temizlenir
           },
         });
 
-        logger.info({
-          event: 'PAYTR_SUBSCRIPTION_ACTIVATED',
-          details: { merchantOid, originalSubId, userId: finalUserId },
-        });
+        // Sadece bu çağrı PENDING -> ACTIVE geçişini gerçekleştirdiyse bildirim gönder
+        if (updateResult.count === 1) {
+          logger.info({
+            event: 'PAYTR_SUBSCRIPTION_ACTIVATED',
+            details: {
+              merchantOid,
+              originalSubId,
+              subscriptionId: subscription.id,
+              userId: finalUserId,
+              amount: subscription.priceAtPurchase,
+            },
+          });
 
-        // Bildirim e-postaları (hata ödemeyi asla bozmaz)
-        try {
-          const [plan, tier, targetUser] = await Promise.all([
-            prisma.plan.findUnique({ where: { id: subscription.planId }, select: { name: true } }),
-            subscription.planTierId
-              ? prisma.planTier.findUnique({
-                  where: { id: subscription.planTierId },
-                  select: { name: true },
-                })
-              : null,
-            finalUserId
-              ? prisma.user.findUnique({
-                  where: { id: finalUserId },
-                  select: { name: true, email: true, phone: true },
-                })
-              : null,
-          ]);
+          try {
+            const [plan, tier, targetUser] = await Promise.all([
+              prisma.plan.findUnique({ where: { id: subscription.planId }, select: { name: true } }),
+              subscription.planTierId
+                ? prisma.planTier.findUnique({
+                    where: { id: subscription.planTierId },
+                    select: { name: true },
+                  })
+                : null,
+              finalUserId
+                ? prisma.user.findUnique({
+                    where: { id: finalUserId },
+                    select: { name: true, email: true, phone: true },
+                  })
+                : null,
+            ]);
 
-          const customerEmail = targetUser?.email || subscription.pendingEmail;
-          const isSynthetic = customerEmail?.endsWith('@musteri.cicekanatechmedia.com');
+            const customerEmail = targetUser?.email || subscription.pendingEmail;
+            const isSynthetic = customerEmail?.endsWith('@musteri.cicekanatechmedia.com');
 
-          if (customerEmail && !isSynthetic) {
-            sendSubscriptionStartedEmail({
-              to: customerEmail,
-              customerName: targetUser?.name || subscription.pendingName || 'Değerli Müşterimiz',
+            if (customerEmail && !isSynthetic) {
+              sendSubscriptionStartedEmail({
+                to: customerEmail,
+                customerName: targetUser?.name || subscription.pendingName || 'Değerli Müşterimiz',
+                planName: plan?.name || 'AI Automation Paketi',
+                tierName: tier?.name || 'Abonelik Paketi',
+                amountTL: subscription.priceAtPurchase / 100,
+                startDate: start.toLocaleDateString('tr-TR'),
+              }).catch((e) => console.error('Subscription customer email error:', e));
+            }
+
+            sendAdminSubscriptionAlertEmail({
+              customerName: targetUser?.name || subscription.pendingName || 'Müşteri',
+              customerPhone: targetUser?.phone || subscription.pendingPhone || '-',
+              customerEmail: customerEmail || '-',
               planName: plan?.name || 'AI Automation Paketi',
               tierName: tier?.name || 'Abonelik Paketi',
               amountTL: subscription.priceAtPurchase / 100,
-              startDate: start.toLocaleDateString('tr-TR'),
-            }).catch((e) => console.error('Subscription customer email error:', e));
+              subscriptionId: subscription.id,
+            }).catch((e) => console.error('Subscription admin email error:', e));
+          } catch (mailErr) {
+            logger.warn({
+              event: 'SUBSCRIPTION_NOTIFICATION_ERROR',
+              details: { error: String(mailErr) },
+            });
           }
-
-          sendAdminSubscriptionAlertEmail({
-            customerName: targetUser?.name || subscription.pendingName || 'Müşteri',
-            customerPhone: targetUser?.phone || subscription.pendingPhone || '-',
-            customerEmail: customerEmail || '-',
-            planName: plan?.name || 'AI Automation Paketi',
-            tierName: tier?.name || 'Abonelik Paketi',
-            amountTL: subscription.priceAtPurchase / 100,
-            subscriptionId: subscription.id,
-          }).catch((e) => console.error('Subscription admin email error:', e));
-        } catch (mailErr) {
-          logger.warn({
-            event: 'SUBSCRIPTION_NOTIFICATION_ERROR',
-            details: { error: String(mailErr) },
-          });
         }
       } else if (status === 'failed') {
         await prisma.subscription.updateMany({
           where: { id: subscription.id, status: 'PENDING' },
           data: { status: 'FAILED', pendingPasswordHash: null },
         });
-        logger.info({ event: 'PAYTR_SUBSCRIPTION_FAILED', details: { merchantOid, originalSubId } });
+        logger.info({
+          event: 'PAYTR_SUBSCRIPTION_FAILED',
+          details: {
+            merchantOid,
+            originalSubId,
+            subscriptionId: subscription.id,
+            reason: form.get('failed_reason_msg') || 'Failed',
+          },
+        });
+      } else {
+        logger.warn({
+          event: 'PAYTR_UNKNOWN_STATUS',
+          details: { merchantOid, status },
+        });
+        return new Response('NO', { status: 400 });
       }
+
       return new Response('OK');
     }
 
-    // Sipariş kontrolü (ayrıştırılan orijinal orderId veya tam merchantOid üzerinden)
-    let order = await prisma.order.findFirst({
+    // ── 3. STANDART SİPARİŞ İŞLEME ───────────────────────────────────────────
+    const order = await prisma.order.findFirst({
       where: {
         OR: [
           { id: originalOrderId },
@@ -209,15 +272,39 @@ export async function POST(request: NextRequest) {
       },
       include: { items: true, user: true },
     });
+
     if (!order) {
       logger.error({
         event: 'PAYTR_CALLBACK_ORDER_NOT_FOUND',
-        details: { merchantOid, originalOrderId },
+        details: { merchantOid, originalOrderId, status, retryNeeded: true },
+      });
+      return new Response('NO', { status: 404 });
+    }
+
+    // Sipariş tutar doğrulama (Kuruş bazında tam eşleşme)
+    const expectedOrderKurus = Math.round((order.finalAmount + Number.EPSILON) * 100);
+    if (receivedAmount !== expectedOrderKurus) {
+      logger.security({
+        event: 'PAYTR_ORDER_AMOUNT_MISMATCH',
+        details: {
+          merchantOid,
+          originalOrderId,
+          status,
+          receivedAmount,
+          expectedAmount: expectedOrderKurus,
+        },
+      });
+      return new Response('NO', { status: 400 });
+    }
+
+    // İdempotency: Zaten sonuçlandırılmış sipariş için mükerrer işlem yapma
+    if (order.paymentStatus !== 'PENDING') {
+      logger.info({
+        event: 'PAYTR_ORDER_ALREADY_PROCESSED',
+        details: { merchantOid, orderNumber: order.orderNumber, paymentStatus: order.paymentStatus },
       });
       return new Response('OK');
     }
-
-    if (order.paymentStatus !== 'PENDING') return new Response('OK');
 
     if (status === 'success') {
       const updated = await prisma.$transaction(async (tx) => {
@@ -348,6 +435,12 @@ export async function POST(request: NextRequest) {
         event: 'PAYTR_PAYMENT_FAILED',
         details: { merchantOid, originalOrderId, orderId: order.id, orderNumber: order.orderNumber, reason: form.get('failed_reason_msg') },
       });
+    } else {
+      logger.warn({
+        event: 'PAYTR_UNKNOWN_STATUS',
+        details: { merchantOid, status },
+      });
+      return new Response('NO', { status: 400 });
     }
 
     return new Response('OK');

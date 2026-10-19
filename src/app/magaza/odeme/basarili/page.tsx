@@ -27,6 +27,7 @@ export default async function PaymentSuccessPage({
   const isAuthenticated = Boolean(session && session.user);
 
   let orderData: any = null;
+  let isPaymentVerified = false;
 
   if (orderNumber) {
     try {
@@ -44,10 +45,15 @@ export default async function PaymentSuccessPage({
           redirect(`/magaza/odeme/basarisiz?order=${encodeURIComponent(orderNumber)}`);
         }
 
+        if (dbOrder.paymentStatus === 'COMPLETED') {
+          isPaymentVerified = true;
+        }
+
         orderData = {
           orderNumber: dbOrder.orderNumber,
           finalAmount: dbOrder.finalAmount,
           status: dbOrder.status,
+          paymentStatus: dbOrder.paymentStatus,
           createdAt: dbOrder.createdAt,
           items: dbOrder.items.map((it: any) => ({
             id: it.id,
@@ -66,7 +72,14 @@ export default async function PaymentSuccessPage({
   return (
     <main className="min-h-screen bg-corp-surface flex flex-col justify-between">
       <Header />
-      {orderNumber && <OrderTrackingSuccess orderNumber={orderNumber} />}
+      {/* Yalnızca ödemesi sunucu ve veritabanı tarafından doğrulanmış siparişlerde dönüşüm tetiklenir */}
+      {isPaymentVerified && orderData && (
+        <OrderTrackingSuccess
+          orderNumber={orderNumber}
+          finalAmount={orderData.finalAmount}
+          items={orderData.items}
+        />
+      )}
       <div className="pt-24 sm:pt-32 pb-16 sm:pb-24 px-3.5 sm:px-6 md:px-10 max-w-4xl mx-auto w-full">
         <PaymentSuccessClient
           orderNumber={orderNumber}

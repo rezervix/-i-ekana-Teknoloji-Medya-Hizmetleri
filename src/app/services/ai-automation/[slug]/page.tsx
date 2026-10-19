@@ -264,7 +264,9 @@ export default async function AIAutomationPlanPage({
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString }} />
         <NewAIAutomationDetail
           plan={fullPlanData as any}
-          activeSubscriptions={activeSubscriptions.filter((s): s is { planTierId: string } => typeof s.planTierId === "string")}
+          activeSubscriptions={activeSubscriptions
+            .filter((s) => typeof s.planTierId === "string" && s.planTierId.length > 0)
+            .map((s) => ({ planTierId: s.planTierId as string }))}
           preview={preview}
         />
       </>

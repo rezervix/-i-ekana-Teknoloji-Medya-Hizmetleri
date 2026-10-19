@@ -6,19 +6,22 @@ export interface LogPayload {
   email?: string;
   ip?: string;
   details?: Record<string, any>;
+  [key: string]: any;
 }
 
 class StructuredLogger {
   private formatLog(level: LogLevel, payload: LogPayload) {
     const timestamp = new Date().toISOString();
+    const { event, userId, email, ip, details, ...rest } = payload;
+    const mergedDetails = { ...(details || {}), ...rest };
     return JSON.stringify({
       timestamp,
       level,
-      event: payload.event,
-      userId: payload.userId || null,
-      email: payload.email ? payload.email.toLowerCase() : null,
-      ip: payload.ip || "unknown",
-      ...(payload.details ? { details: payload.details } : {}),
+      event,
+      userId: userId || null,
+      email: email ? email.toLowerCase() : null,
+      ip: ip || "unknown",
+      ...(Object.keys(mergedDetails).length > 0 ? { details: mergedDetails } : {}),
     });
   }
 

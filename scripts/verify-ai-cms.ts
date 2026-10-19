@@ -1,4 +1,5 @@
 import { prisma } from '../src/lib/prisma';
+import { Prisma } from '@prisma/client';
 
 async function main() {
   console.log("=== AI HİZMETLERİ CMS DOĞRULAMA TESTİ ===");
@@ -49,7 +50,7 @@ async function main() {
     data: {
       heroHeadline: "Yayınlanan Başlık",
       status: "PUBLISHED",
-      draftData: null,
+      draftData: Prisma.DbNull,
     },
   });
 
@@ -70,7 +71,7 @@ async function main() {
     data: {
       heroHeadline: testPlan.heroHeadline,
       status: "PUBLISHED",
-      draftData: null,
+      draftData: Prisma.DbNull,
     },
   });
   await prisma.planVersion.delete({ where: { id: nextVersion.id } });

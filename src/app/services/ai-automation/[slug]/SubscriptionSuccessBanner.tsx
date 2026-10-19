@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useCartStore } from '@/store/useCartStore';
 import { useSession, signIn } from 'next-auth/react';
 import Link from 'next/link';
+import { trackPurchase } from '@/lib/analytics';
 import {
   CheckCircle2,
   Sparkles,
@@ -87,6 +88,32 @@ export default function SubscriptionSuccessBanner({
         setDetails(data);
         setLoading(false);
 
+        // Google Ads & GA4: Yalnızca sunucu ve PayTR tarafından doğrulanmış abonelik satın alması
+        if (data.valid && data.success && data.subId) {
+          const trackedKey = `cicekana_tracked_sub_${data.subId}`;
+          try {
+            if (!sessionStorage.getItem(trackedKey)) {
+              const amountTL = data.priceMonthly ? data.priceMonthly / 100 : 0;
+              trackPurchase(
+                data.subId,
+                [
+                  {
+                    id: data.subId,
+                    name: `${data.planName || 'AI Otomasyon'} - ${data.tierName || 'Standart'}`,
+                    price: amountTL,
+                    quantity: 1,
+                    category: 'subscription',
+                  },
+                ],
+                amountTL
+              );
+              sessionStorage.setItem(trackedKey, '1');
+            }
+          } catch (e) {
+            console.warn('[SubscriptionSuccessBanner] Tracking error:', e);
+          }
+        }
+
         // Kısa ömürlü tek kullanımlık belirteç ile otomatik giriş dene
         if (data.valid && data.claimToken && authStatus === 'unauthenticated') {
           signIn('credentials', {
@@ -167,7 +194,7 @@ export default function SubscriptionSuccessBanner({
 
         {/* Modal İçeriği */}
         <div className="p-6 sm:p-8 overflow-y-auto space-y-6">
-          {loading || details?.pending ? (
+          {loading || !details || details.pending ? (
             <div className="py-12 flex flex-col items-center justify-center gap-4 text-center">
               <Loader2 size={36} className="animate-spin text-corp-teal" />
               <p className="text-sm font-semibold text-corp-charcoal">

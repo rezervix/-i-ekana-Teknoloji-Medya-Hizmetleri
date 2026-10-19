@@ -7,6 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { ArrowRight, ShieldCheck, CheckCircle2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { trackGenerateLead } from "@/lib/analytics";
 
 const interests = [
   { value: "yazilim-ai",     label: "Yazılım & AI" },
@@ -65,6 +66,14 @@ export default function ContactSection() {
         const err = await res.json();
         throw new Error(err.error || "Bir hata oluştu");
       }
+      const json = await res.json().catch(() => ({}));
+
+      // Google Ads & GA4: Başarılı müşteri adayı oluşturma dönüşümü
+      trackGenerateLead({
+        leadId: json?.id,
+        sector: data.sector,
+      });
+
       setSubmitted(true);
     } catch (e: any) {
       toast.error(e.message || "Gönderim başarısız. Lütfen tekrar deneyin.");

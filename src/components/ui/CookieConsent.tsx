@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { Cookie } from "lucide-react";
+import { updateAnalyticsConsent } from "@/lib/analytics";
 
 const STORAGE_KEY = "cicekana-cookie-consent";
 
@@ -20,14 +21,12 @@ export default function CookieConsent() {
   }, []);
 
   const accept = () => {
-    localStorage.setItem(STORAGE_KEY, "accepted");
-    window.dispatchEvent(new CustomEvent("cookie-consent-updated", { detail: { consent: "accepted" } }));
+    updateAnalyticsConsent("accepted");
     setVisible(false);
   };
 
   const reject = () => {
-    localStorage.setItem(STORAGE_KEY, "rejected");
-    window.dispatchEvent(new CustomEvent("cookie-consent-updated", { detail: { consent: "rejected" } }));
+    updateAnalyticsConsent("rejected");
     setVisible(false);
   };
 

@@ -50,6 +50,7 @@ export const metadata: Metadata = {
 
 const GOOGLE_ADS_ID =
   process.env.NEXT_PUBLIC_GOOGLE_ADS_ID || 'AW-18495983175';
+const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
 
 export default function RootLayout({
   children,
@@ -62,7 +63,7 @@ export default function RootLayout({
         <meta charSet="UTF-8" />
       </head>
       <body>
-        {/* Google Ads Tag (gtag.js) */}
+        {/* Google Tag (gtag.js) & Consent Mode v2 */}
         <Script
           strategy="afterInteractive"
           src={`https://www.googletagmanager.com/gtag/js?id=${GOOGLE_ADS_ID}`}
@@ -74,8 +75,23 @@ export default function RootLayout({
             __html: `
               window.dataLayer = window.dataLayer || [];
               function gtag(){dataLayer.push(arguments);}
+
+              var storedConsent = null;
+              try {
+                storedConsent = localStorage.getItem('cicekana-cookie-consent');
+              } catch (e) {}
+
+              var defaultState = storedConsent === 'accepted' ? 'granted' : 'denied';
+              gtag('consent', 'default', {
+                'analytics_storage': defaultState,
+                'ad_storage': defaultState,
+                'ad_user_data': defaultState,
+                'ad_personalization': defaultState
+              });
+
               gtag('js', new Date());
               gtag('config', '${GOOGLE_ADS_ID}');
+              ${GA_MEASUREMENT_ID ? `gtag('config', '${GA_MEASUREMENT_ID}');` : ''}
             `,
           }}
         />

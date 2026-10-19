@@ -18,6 +18,7 @@ export const GA4_EVENTS = {
   ADD_SHIPPING_INFO: "add_shipping_info",
   ADD_PAYMENT_INFO: "add_payment_info",
   PURCHASE: "purchase",
+  GENERATE_LEAD: "generate_lead",
 } as const;
 
 export type GA4EventType = (typeof GA4_EVENTS)[keyof typeof GA4_EVENTS];
@@ -57,6 +58,30 @@ export function hasAnalyticsConsent(): boolean {
     return localStorage.getItem(COOKIE_CONSENT_KEY) === "accepted";
   } catch {
     return false;
+  }
+}
+
+/**
+ * Çerez onay durumunu günceller ve Google Consent Mode v2 sinyali gönderir
+ */
+export function updateAnalyticsConsent(status: "accepted" | "rejected"): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(COOKIE_CONSENT_KEY, status);
+    if (typeof (window as any).gtag === "function") {
+      const consentState = status === "accepted" ? "granted" : "denied";
+      (window as any).gtag("consent", "update", {
+        analytics_storage: consentState,
+        ad_storage: consentState,
+        ad_user_data: consentState,
+        ad_personalization: consentState,
+      });
+    }
+    window.dispatchEvent(
+      new CustomEvent("cookie-consent-updated", { detail: { consent: status } })
+    );
+  } catch (err) {
+    console.warn("[analytics] Consent update error:", err);
   }
 }
 
@@ -271,12 +296,31 @@ export async function trackFunnelEvent(payload: FunnelPayload): Promise<void> {
         index: index + 1,
       }));
 
+      const transactionId =
+        payload.metadata?.transaction_id || payload.metadata?.transactionId;
+
+      // Google Ads doğrudan dönüşüm etiketi desteği (Ortam değişkeninde tanımlıysa)
+      const adsId = process.env.NEXT_PUBLIC_GOOGLE_ADS_ID || "AW-18495983175";
+      let sendTo: string | undefined = undefined;
+      if (payload.event === GA4_EVENTS.PURCHASE) {
+        const purchaseLabel =
+          process.env.NEXT_PUBLIC_GOOGLE_ADS_PURCHASE_CONVERSION_LABEL ||
+          process.env.NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_LABEL;
+        if (purchaseLabel) sendTo = `${adsId}/${purchaseLabel}`;
+      } else if (payload.event === GA4_EVENTS.GENERATE_LEAD) {
+        const leadLabel = process.env.NEXT_PUBLIC_GOOGLE_ADS_LEAD_CONVERSION_LABEL;
+        if (leadLabel) sendTo = `${adsId}/${leadLabel}`;
+      }
+
       const ga4Data: Record<string, any> = {
         currency: payload.currency || "TRY",
         value: payload.value !== undefined ? Number(payload.value) : undefined,
         items: ga4Items.length > 0 ? ga4Items : undefined,
+        transaction_id: transactionId,
+        send_to: sendTo,
         variant,
         session_id: sessionId,
+        ...(payload.metadata || {}),
       };
 
       // Temizleme: tanımsız alanları sil
@@ -414,5 +458,16 @@ export function trackPurchase(orderNumber: string, items: AnalyticsItem[], total
     value: totalValue,
     items,
     metadata: { transaction_id: orderNumber },
+  });
+}
+
+export function trackGenerateLead(params?: { leadId?: string; sector?: string; value?: number }) {
+  return trackFunnelEvent({
+    event: GA4_EVENTS.GENERATE_LEAD,
+    value: params?.value,
+    metadata: {
+      lead_id: params?.leadId,
+      sector: params?.sector,
+    },
   });
 }
