@@ -65,7 +65,7 @@ export function getDomainConfig(domain: AIDomain): AIServiceConfig {
   switch (domain) {
     case "SUPPORT":
       apiKey = process.env.GEMINI_SUPPORT_API_KEY || process.env.GEMINI_API_KEY || "";
-      model = process.env.GEMINI_SUPPORT_MODEL || process.env.GEMINI_MODEL || "gemini-flash-latest";
+      model = process.env.GEMINI_SUPPORT_MODEL || "gemini-flash-lite-latest";
       break;
 
     case "CONTENT":

@@ -34,8 +34,8 @@ async function runAuditScenarios() {
   let liveAiSuccess = false;
   try {
     const liveRes = await executeDomainGeneration("SUPPORT", "Merhaba Çiçekana, tek cümlelik test cevabı ver.");
-    liveAiSuccess = Boolean(liveRes.text && liveRes.text.length > 0);
-    assert(liveAiSuccess, "Canlı Gemini API üzerinden gerçek model cevabı üretildi", `Cevap: ${liveRes.text.slice(0, 100)}`);
+    liveAiSuccess = Boolean(liveRes.text && liveRes.text.length > 0 && liveRes.modelUsed === "gemini-flash-lite-latest");
+    assert(liveAiSuccess, "Canlı Gemini Flash-Lite modeliyle gerçek model cevabı üretildi", `Model: ${liveRes.modelUsed} | Cevap: ${liveRes.text.slice(0, 100)}`);
   } catch (err: any) {
     assert(false, "Canlı Gemini API çağrısı başarısız oldu", err.message);
   }
