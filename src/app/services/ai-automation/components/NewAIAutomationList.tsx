@@ -34,7 +34,7 @@ interface PlanItem {
 export default function NewAIAutomationList({ plans }: { plans: PlanItem[] }) {
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
 
-  // Kategorileri dinamik olarak çıkar + Call Center AI kategorisini de dahil et
+  // Kategorileri dinamik olarak veritabanı planlarından çıkar
   const categories = useMemo(() => {
     const set = new Set<string>();
     plans.forEach((p) => {
@@ -42,7 +42,6 @@ export default function NewAIAutomationList({ plans }: { plans: PlanItem[] }) {
         set.add(p.category.trim());
       }
     });
-    set.add('Sesli AI & Çağrı Merkezi');
     return Array.from(set);
   }, [plans]);
 
@@ -51,9 +50,6 @@ export default function NewAIAutomationList({ plans }: { plans: PlanItem[] }) {
     if (selectedCategory === 'ALL') return plans;
     return plans.filter((p) => p.category?.trim() === selectedCategory);
   }, [plans, selectedCategory]);
-
-  const showCallCenterCard =
-    selectedCategory === 'ALL' || selectedCategory === 'Sesli AI & Çağrı Merkezi';
 
   // GA4 & Analytics: view_item_list olayı
   useEffect(() => {
@@ -64,12 +60,6 @@ export default function NewAIAutomationList({ plans }: { plans: PlanItem[] }) {
         price: p.tiers?.[0]?.priceMonthly ? p.tiers[0].priceMonthly / 100 : 0,
         category: p.category || 'AI Otomasyon',
       }));
-      items.push({
-        id: 'microsoft-call-center-ai',
-        name: 'Microsoft Call Center AI',
-        price: 0,
-        category: 'Sesli AI & Çağrı Merkezi',
-      });
       trackViewItemList(items, 'AI Otomasyon Hizmetleri Listesi');
     }
   }, [plans]);
@@ -130,7 +120,7 @@ export default function NewAIAutomationList({ plans }: { plans: PlanItem[] }) {
                   : 'border border-corp-border bg-white text-corp-gray hover:border-corp-teal hover:text-corp-teal'
               }`}
             >
-              Tüm Çözümler ({plans.length + 1})
+              Tüm Çözümler ({plans.length})
             </button>
             {categories.map((cat) => (
               <button
@@ -154,89 +144,22 @@ export default function NewAIAutomationList({ plans }: { plans: PlanItem[] }) {
         {/* Ürün & Hizmet Kartları Izgarası */}
         <section aria-label="AI Hizmet ve Ürün Kartları">
           <div className="grid grid-cols-1 gap-7 sm:grid-cols-2 lg:grid-cols-3">
-            {/* 1. ÖNE ÇIKAN ÇÖZÜM: Microsoft Call Center AI */}
-            {showCallCenterCard && (
-              <article className="group relative flex h-full flex-col overflow-hidden rounded-3xl border-2 border-[#00b2c9]/40 bg-gradient-to-b from-white via-white to-[#f0f9fa] p-6 shadow-sm transition-all duration-300 hover:border-corp-teal hover:shadow-card-hover">
-                <div className="relative mb-5 flex h-48 w-full items-center justify-center overflow-hidden rounded-2xl bg-corp-teal-50">
-                  <Headphones
-                    size={54}
-                    className="text-[#00b2c9] transition-transform duration-300 group-hover:scale-110"
-                  />
-                  <span className="absolute top-3 left-3 rounded-full bg-corp-coral px-3 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-white shadow-xs">
-                    Öne Çıkan Sesli AI
-                  </span>
-                </div>
-
-                <div className="mb-2 inline-flex items-center gap-1.5 text-xs font-bold text-corp-teal">
-                  <Sparkles size={13} className="text-corp-coral" />
-                  <span>Sesli AI & Çağrı Merkezi</span>
-                </div>
-
-                <h2 className="font-display text-2xl font-bold leading-tight text-corp-teal group-hover:text-corp-coral transition-colors">
-                  Microsoft Call Center AI
-                </h2>
-
-                <p className="mt-2.5 flex-1 text-sm leading-relaxed text-corp-gray">
-                  Müşterilerinizin telefonlarını 7/24 bekletmeden karşılayan, 50+ dili anlayan ve
-                  insan doğallığında akıcı konuşan kurumsal sesli yapay zekâ çağrı merkezi.
-                </p>
-
-                {/* Fiyat Bilgisi */}
-                <div className="mt-5 border-t border-corp-border/60 pt-4">
-                  <div className="text-xs font-semibold text-corp-gray uppercase tracking-wider">
-                    Fiyatlandırma
-                  </div>
-                  <div className="mt-1 flex items-baseline gap-1">
-                    <span className="text-2xl font-extrabold text-corp-teal">Dinamik Kur</span>
-                    <span className="text-xs text-corp-gray">/ kurumsal ihtiyaca göre</span>
-                  </div>
-                  <p className="text-[11px] text-corp-gray mt-0.5">
-                    Canlı döviz kuru hesaplama & modüler eklentiler
-                  </p>
-                </div>
-
-                {/* Aksiyon Butonları */}
-                <div className="mt-5 flex flex-col gap-2">
-                  <Link
-                    href="/services/ai-automation/microsoft-call-center-ai"
-                    className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl bg-corp-teal px-4 text-xs sm:text-sm font-bold text-white shadow-xs transition hover:bg-corp-teal/90 active:scale-[0.98]"
-                  >
-                    <span>Çözümü & Paketleri İncele</span>
-                    <ArrowRight size={15} />
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (typeof window !== 'undefined') {
-                        window.dispatchEvent(
-                          new CustomEvent('cicekana:open-chat', {
-                            detail: {
-                              message: 'Merhaba, Microsoft Call Center AI hakkında canlı demo ve bilgi almak istiyorum.',
-                            },
-                          })
-                        );
-                      }
-                    }}
-                    className="inline-flex min-h-[40px] w-full items-center justify-center gap-1.5 rounded-xl border border-corp-teal/30 bg-corp-teal/5 px-3 text-xs font-bold text-corp-teal transition hover:bg-corp-teal/10 active:scale-[0.98]"
-                  >
-                    <Headphones size={15} />
-                    <span>Canlı Demo İste</span>
-                  </button>
-                </div>
-              </article>
-            )}
-
-            {/* 2. DİNAMİK VERİTABANI PLANLARI (Midvem, Faktura, ScoreForm, Kuşçu vb.) */}
+            {/* DİNAMİK VERİTABANI PLANLARI (Microsoft Call Center AI, Midvem, Faktura, ScoreForm, Kuşçu vb.) */}
             {filteredPlans.map((plan) => {
               const singleSentence =
                 plan.cardSummary?.trim() || plan.shortDescription?.trim() || plan.name;
               const startingPriceText = formatStartingPrice(plan);
               const displayImage = plan.heroMockupUrl || plan.imageUrl;
+              const isCallCenter = plan.slug === 'microsoft-call-center-ai';
 
               return (
                 <article
                   key={plan.id}
-                  className="group relative flex h-full flex-col overflow-hidden rounded-3xl border border-corp-border/80 bg-white p-6 shadow-sm transition-all duration-300 hover:border-corp-teal/50 hover:shadow-card-hover"
+                  className={`group relative flex h-full flex-col overflow-hidden rounded-3xl border bg-white p-6 shadow-sm transition-all duration-300 hover:shadow-card-hover ${
+                    isCallCenter
+                      ? 'border-[#00b2c9]/40 hover:border-corp-teal'
+                      : 'border-corp-border/80 hover:border-corp-teal/50'
+                  }`}
                 >
                   {/* Görsel / Mockup / İkon Alanı */}
                   <div className="relative mb-5 flex h-48 w-full items-center justify-center overflow-hidden rounded-2xl bg-bg-soft">
@@ -249,6 +172,11 @@ export default function NewAIAutomationList({ plans }: { plans: PlanItem[] }) {
                         className="object-contain p-4 transition-transform duration-300 group-hover:scale-105"
                         unoptimized
                       />
+                    ) : isCallCenter ? (
+                      <Headphones
+                        size={54}
+                        className="text-[#00b2c9] transition-transform duration-300 group-hover:scale-110"
+                      />
                     ) : (
                       <Bot
                         size={54}
@@ -256,11 +184,18 @@ export default function NewAIAutomationList({ plans }: { plans: PlanItem[] }) {
                       />
                     )}
                     {plan.category && (
-                      <span className="absolute top-3 left-3 rounded-full bg-corp-teal-50 border border-corp-border px-3 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-corp-teal shadow-xs">
-                        {plan.category}
+                      <span
+                        className={`absolute top-3 left-3 rounded-full px-3 py-0.5 text-[10px] font-extrabold uppercase tracking-wide shadow-xs ${
+                          isCallCenter
+                            ? 'bg-corp-coral text-white'
+                            : 'bg-corp-teal-50 border border-corp-border text-corp-teal'
+                        }`}
+                      >
+                        {isCallCenter ? 'Öne Çıkan Sesli AI' : plan.category}
                       </span>
                     )}
                   </div>
+
 
                   <h2 className="font-display text-2xl font-bold leading-tight text-corp-teal group-hover:text-corp-coral transition-colors">
                     {plan.name}
@@ -296,7 +231,9 @@ export default function NewAIAutomationList({ plans }: { plans: PlanItem[] }) {
                       href={`/services/ai-automation/${plan.slug}`}
                       className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl bg-corp-teal px-4 text-xs sm:text-sm font-bold text-white shadow-xs transition hover:bg-corp-teal/90 active:scale-[0.98]"
                     >
-                      <span>Paketleri & Özellikleri Gör</span>
+                      <span>
+                        {isCallCenter ? 'Çözümü & Paketleri İncele' : 'Paketleri & Özellikleri Gör'}
+                      </span>
                       <ArrowRight size={15} />
                     </Link>
                     <button
