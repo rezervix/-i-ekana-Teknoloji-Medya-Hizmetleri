@@ -137,23 +137,31 @@ export async function handleCustomerMessage(params: {
 
   if (verification.isGeneralGreeting) {
     // Standard friendly greeting
+    isHandoverPrompt = false;
     replyText =
       "Merhaba! Size nasıl yardımcı olabiliriz? Çiçekana Tech Media ürünlerimiz, otomasyon paketlerimiz ve fiyatlarımız hakkında sorularınızı yanıtlayabilirim.";
-  } else if (!verification.sufficient) {
-    // Insufficient evidence OR explicit handover request
+  } else if (verification.isExplicitHandoverRequest) {
+    // ONLY prompt for handover phone when user explicitly requested callback or human agent
     isHandoverPrompt = true;
     replyText =
       verification.handoverPrompt ||
-      "Bu konuda size yanlış bilgi vermek istemem. Sorunuzu ilgili uzman ekibimize iletebiliriz. Size ulaşabilmemiz için telefon numaranızı bırakabilir misiniz?";
+      "Talebinizi memnuniyetle müşteri temsilcimize aktarabiliriz. Size en kısa sürede ulaşabilmemiz için telefon numaranızı paylaşabilir misiniz?";
 
     // Update conversation handover status to REQUESTED
     await prisma.chatConversation.update({
       where: { id: conv.id },
       data: {
         handoverStatus: "REQUESTED",
-        handoverReason: verification.reason || "Bilgi yetersizliği veya müşteri talebi",
+        handoverReason: verification.reason || "Müşteri doğrudan temsilci veya arama talep etti",
       },
     });
+  } else if (!verification.sufficient) {
+    // Insufficient evidence in knowledge base, but user did NOT request handover
+    // Politely state lack of verification WITHOUT demanding phone numbers
+    isHandoverPrompt = false;
+    replyText =
+      verification.handoverPrompt ||
+      "Bu konuda sistemimizde doğrulanmış yeterli bilgi bulunamadı. Dilerseniz sorunuzu biraz daha detaylandırabilir veya müşteri temsilcimize bağlanmak istediğinizi belirtebilirsiniz.";
   } else {
     // Sufficient evidence: Construct controlled prompt with system guardrails
     const knowledgeSnippets = retrieval.chunks
@@ -190,8 +198,12 @@ MİMARİ VE KAPSAM PRENSİPLERİ:
    - Bu yeteneğin hazır bir özellik olduğunu ancak aktif olabilmesi için müşterinin aktif bir Shopify mağazasının bulunması ve mağaza entegrasyon bağlantısının yapılmış olması gerektiğini açıkça vurgula (otomatik açık gelmez).
 4. DOĞRULUK VE GÜVENLİK:
    - Bilgi kaynaklarında bulunmayan HİÇBİR özellik, entegrasyon veya ticari koşul uydurma.
-   - Kesin bilgi bulunmuyorsa durumu dürüstçe açıkla ve yetkili müşteri temsilcisine aktarımı öner.
-   - Doğal, kibar ve profesyonel bir müşteri temsilcisi dili kullan; aşırı robotik kalıplardan kaçın.`;
+   - Kesin bilgi bulunmuyorsa durumu dürüstçe açıkla.
+   - Doğal, kibar ve profesyonel bir müşteri temsilcisi dili kullan; aşırı robotik kalıplardan kaçın.
+5. İLETİŞİM VE TELEFON İSTEMEME KURALI (KRİTİK):
+   - KULLANICI AÇIKÇA ARANMAK YA DA MÜŞTERİ TEMSİLCİSİNE BAĞLANMAK İSTEMEDİKÇE: Kesinlikle kullanıcıdan telefon numarası, iletişim bilgisi veya arama talebi İSTEME.
+   - "Telefon numaranızı bırakın sizi arayalım", "İletişim bilgilerinizi bırakırsanız uzman ekibimiz ulaşabilir" gibi ifadeleri ASLA kendi inisiyatifinle yanıta ekleme.
+   - Soruyu net, kurumsal ve bilgilendirici şekilde yanıtla ve normal sohbete devam et.`;
 
     const promptContent = `<verified_knowledge>
 ${knowledgeSnippets || "Özel doküman kaydı yok."}
@@ -215,23 +227,12 @@ Yanıt:`;
 
       replyText = aiResponse.text;
       tokensUsed = aiResponse.tokensUsed;
+      isHandoverPrompt = false;
     } catch (aiErr: any) {
       console.error("[ChatService] AI generation error fallback:", aiErr);
-      isHandoverPrompt = true;
+      isHandoverPrompt = false; // Never force phone collection on transient AI errors
       replyText =
-        "Şu anda talebinizi yanıtlarken kısa süreli bir yoğunluk yaşandı. Sorunuzu doğrudan yetkili müşteri temsilcimize iletebilmemiz için telefon numaranızı bırakabilir misiniz?";
-
-      try {
-        await prisma.chatConversation.update({
-          where: { id: conv.id },
-          data: {
-            handoverStatus: "REQUESTED",
-            handoverReason: `AI_ERROR: ${aiErr?.code || aiErr?.message || "AI yanıt üretimi başarısız"}`,
-          },
-        });
-      } catch (dbErr) {
-        console.warn("[ChatService] Failed to record handover status:", dbErr);
-      }
+        "Şu anda yanıtınızı hazırlarken geçici bir teknik yoğunluk yaşandı. Lütfen sorunuzu birazdan tekrar deneyiniz veya dilerseniz müşteri temsilcimizle görüşmek istediğinizi iletebilirsiniz.";
     }
   }
 

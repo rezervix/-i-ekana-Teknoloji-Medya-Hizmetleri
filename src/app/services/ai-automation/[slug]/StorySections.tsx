@@ -109,14 +109,6 @@ export default function StorySections({
   sectionVisibility?: Record<string, boolean>;
 }) {
   const activeTrustBlocks = trustBlocks.filter((b) => b.isEnabled !== false);
-  const cleanPhone = (whatsappNumber || '').replace(/[^0-9]/g, '');
-  const waText = encodeURIComponent(
-    (whatsappTemplate || `Merhaba, ${name} hakkında bilgi ve canlı demo almak istiyorum.`).replace(
-      '{ürün}',
-      name
-    )
-  );
-  const waUrl = cleanPhone ? `https://wa.me/${cleanPhone}?text=${waText}` : null;
 
   return (
     <>
@@ -356,10 +348,10 @@ export default function StorySections({
               </div>
               <div>
                 <h3 className="text-xl font-bold text-corp-teal">
-                  Canlı Demo veya Sorularınız mı Var?
+                  Sorularınız mı Var?
                 </h3>
                 <p className="mt-1 text-sm text-corp-gray">
-                  Müşteri hizmetleri asistanımızla anında görüşün, sorularınızı yanıtlayalım ve canlı demo planlayalım.
+                  Müşteri hizmetleri asistanımızla anında görüşün, sorularınızı memnuniyetle yanıtlayalım.
                 </p>
               </div>
             </div>
@@ -371,7 +363,7 @@ export default function StorySections({
                     window.dispatchEvent(
                       new CustomEvent('cicekana:open-chat', {
                         detail: {
-                          message: `Merhaba, ${name} hakkında detaylı bilgi ve canlı demo almak istiyorum.`,
+                          message: `Merhaba, ${name} hakkında detaylı bilgi almak istiyorum.`,
                         },
                       })
                     );

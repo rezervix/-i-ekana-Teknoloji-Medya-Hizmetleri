@@ -79,9 +79,8 @@ export const DEFAULT_ETICARET_CMS: ETicaretCMSData = {
       "İşletmenizi dijitale taşırken teknik detaylarla uğraşmayın. Gelişmiş çapraz satış, yapay zeka entegrasyonu ve sepet kurtarma araçlarıyla satışlarınızı anında artırın.",
     primaryCtaText: "Paketini Seç, Başla",
     primaryCtaLink: "#paketler",
-    secondaryCtaText: "Danışmanla Görüş",
-    secondaryCtaLink:
-      "https://wa.me/905303412156?text=E-ticaret%20hizmetleri%20hakkında%20bilgi%20almak%20istiyorum",
+    secondaryCtaText: "",
+    secondaryCtaLink: "",
   },
   socialProof: {
     stat1Value: "%42",
@@ -168,7 +167,7 @@ export const DEFAULT_ETICARET_CMS: ETicaretCMSData = {
             "Çapraz satış özelliği sayesinde müşterilerinize, ödeme sayfasında dilediğiniz ürünü indirimli veya indirimsiz sunabilirsiniz.",
         },
         { name: "Ürün Paketleme & Kargolama Hizmeti", tooltip: null },
-        { name: "Kurulum ve Yayına Alma WhatsApp Desteği 7/24", tooltip: null },
+        { name: "Kurulum ve Yayına Alma Canlı Desteği 7/24", tooltip: null },
         { name: "Kendi Sanal POS'unuzu Kullanma Seçeneği", tooltip: null },
         { name: "Ürün Yorum Hatırlatma", tooltip: null },
         { name: "Ürün Yorumlarına Cevap Verme", tooltip: null },
@@ -225,7 +224,7 @@ export const DEFAULT_ETICARET_CMS: ETicaretCMSData = {
     {
       id: "f4",
       q: "Destek taleplerine ne kadar sürede dönüş yapıyorsunuz?",
-      a: "7/24 WhatsApp destek hattımız üzerinden bize ulaşabilirsiniz. Talepleriniz anında işleme alınır. Plus pakette doğrudan öncelikli destek hattına bağlanırsınız.",
+      a: "Müşteri hizmetleri ve destek sistemimiz üzerinden dilediğiniz zaman bize ulaşabilirsiniz. Talepleriniz anında işleme alınır. Plus pakette doğrudan öncelikli destek hattına bağlanırsınız.",
     },
     {
       id: "f5",

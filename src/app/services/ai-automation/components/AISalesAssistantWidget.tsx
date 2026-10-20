@@ -52,15 +52,6 @@ export default function AISalesAssistantWidget({
   const modalRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Telefon & WhatsApp URL hazırlığı
-  const cleanPhone = (whatsappNumber || '905303412156').replace(/[^0-9]/g, '');
-  const baseWaUrl =
-    whatsappUrl ||
-    `https://wa.me/${cleanPhone}?text=${encodeURIComponent(
-      whatsappTemplate ||
-        `Merhaba, ${planName} hakkında canlı demo ve paket detayları almak istiyorum.`
-    )}`;
-
   // Ürüne özel proaktif mesajlar ve hızlı soru-cevap verisi
   const getProductContext = useCallback(() => {
     switch (planSlug) {
@@ -136,13 +127,13 @@ export default function AISalesAssistantWidget({
       case 'kuscu-finansal-analiz-piyasa-zekasi-platformu':
         return {
           proactiveMessage:
-            '👋 BIST ve VİOP algoritmik piyasa tarama sisteminin canlı demosunu görmek ister misiniz?',
+            '👋 BIST ve VİOP algoritmik piyasa tarama sistemi hakkında bilgi almak ister misiniz?',
           tagline: 'Algoritmik Piyasa Zekâsı & Hacim Kırılım Alarmları',
           faqs: [
             {
               question: 'Sinyaller ne kadar gecikmeyle gelir?',
               answer:
-                'BIST verileri doğrudan sunucu düzeyinde anlık taranır; belirlediğiniz kırılımlar milisaniyeler içinde WhatsApp ve Telegram alarmınıza düşer.',
+                'BIST verileri doğrudan sunucu düzeyinde anlık taranır; belirlediğiniz kırılımlar milisaniyeler içinde alarmınıza düşer.',
             },
             {
               question: 'Kendi indikatörlerimi tanımlayabilir miyim?',
@@ -159,7 +150,7 @@ export default function AISalesAssistantWidget({
       case 'microsoft-call-center-ai':
         return {
           proactiveMessage:
-            '👋 7/24 sesli yapay zekâ çağrı merkezi demomuzu canlı ortamda test etmek ister misiniz?',
+            '👋 7/24 sesli yapay zekâ çağrı merkezi çözümlerimizi incelemek ister misiniz?',
           tagline: 'Microsoft Azure Neural Voice Destekli Sesli AI Asistan',
           faqs: [
             {
@@ -181,13 +172,13 @@ export default function AISalesAssistantWidget({
         };
       default:
         return {
-          proactiveMessage: `👋 ${planName} hakkında aklınıza takılan soruları yanıtlayalım veya canlı demo başlatalım!`,
+          proactiveMessage: `👋 ${planName} hakkında aklınıza takılan soruları yanıtlayalım!`,
           tagline: `${planName} Kurumsal Çözüm Danışmanı`,
           faqs: [
             {
-              question: 'Canlı demo süreci nasıl ilerler?',
+              question: 'Kurulum süreci nasıl ilerler?',
               answer:
-                'Uzman ekibimiz 10 dakikalık hızlı bir seansla sistemin arayüzünü ve işletmenize özel faydalarını canlı gösterir.',
+                'Teknik ekibimiz sistemin kurulumunu ve işletmenize özel yapılandırmasını eksiksiz tamamlar.',
             },
             {
               question: 'Kurulum ve teknik destek kapsamı nedir?',
@@ -299,32 +290,29 @@ export default function AISalesAssistantWidget({
     }, 150);
   };
 
-  // WhatsApp canlı demoya yönlendir
-  const handleWhatsAppDemoClick = (source: string) => {
-    trackFunnelEvent({
-      event: 'ai_assistant_whatsapp_click',
-      metadata: { source, planSlug, planName },
-    });
-    window.open(baseWaUrl, '_blank', 'noopener,noreferrer');
-  };
-
-  // Özel soruyu WhatsApp üzerinden gönder
+  // Özel soruyu Müşteri Hizmetleri Destek sohbetine yönlendir
   const handleSendCustomQuestion = (e: React.FormEvent) => {
     e.preventDefault();
     if (!userQuestion.trim()) return;
 
     const query = userQuestion.trim();
-    const formattedUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(
-      `Merhaba, ${planName} hakkında bir sorum var: "${query}"`
-    )}`;
-
     trackFunnelEvent({
       event: 'ai_assistant_custom_question',
       metadata: { planSlug, planName, queryLength: query.length },
     });
 
     setUserQuestion('');
-    window.open(formattedUrl, '_blank', 'noopener,noreferrer');
+    setIsModalOpen(false);
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('cicekana:open-chat', {
+          detail: {
+            message: `Merhaba, ${planName} hakkında bir sorum var: "${query}"`,
+          },
+        })
+      );
+    }
   };
 
   // Paketler bölümüne pürüzsüz kaydır
@@ -388,18 +376,10 @@ export default function AISalesAssistantWidget({
             <div className="mt-3 flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => handleWhatsAppDemoClick('proactive_bubble_demo')}
-                className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs hover:from-emerald-700 hover:to-teal-700 transition"
-              >
-                <MessageCircle size={13} />
-                <span>Canlı Demo</span>
-              </button>
-              <button
-                type="button"
                 onClick={() => handleOpenAssistant('proactive_bubble_open')}
-                className="inline-flex items-center justify-center gap-1 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:border-corp-teal hover:text-corp-teal transition"
+                className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-corp-teal px-3 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-corp-teal-dark transition"
               >
-                <span>Soru Sor</span>
+                <span>Asistana Soru Sor</span>
                 <ChevronRight size={13} />
               </button>
             </div>
@@ -411,7 +391,7 @@ export default function AISalesAssistantWidget({
           type="button"
           onClick={() => handleOpenAssistant('fab_button')}
           aria-expanded={isModalOpen}
-          aria-label="Çiçekana Akıllı Satış ve Demo Asistanını Aç"
+          aria-label="Çiçekana Akıllı Satış Asistanını Aç"
           className="pointer-events-auto group relative flex items-center gap-2.5 rounded-full bg-gradient-to-r from-corp-teal to-corp-teal-dark p-3 lg:px-4 lg:py-3 text-white shadow-luxury hover:scale-105 active:scale-95 transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-corp-teal/30"
         >
           {/* Çevrimiçi Nabız Göstergesi */}
@@ -429,7 +409,7 @@ export default function AISalesAssistantWidget({
               AI Satış Asistanı
             </span>
             <span className="text-[10px] text-corp-coral-light font-medium leading-tight mt-0.5">
-              Canlı Demo & Destek
+              Canlı Destek
             </span>
           </div>
         </button>
@@ -491,7 +471,7 @@ export default function AISalesAssistantWidget({
                 <div className="rounded-2xl rounded-tl-xs bg-slate-100/90 p-3 text-slate-700 leading-relaxed border border-slate-200/50">
                   <p>
                     Merhaba! 👋 Ben <strong>{planName}</strong> çözüm danışmanınız. İşletmeniz için
-                    en uygun paketi seçmenize, canlı demo yapmanıza veya aklınızdaki soruları anında
+                    en uygun paketi seçmenize veya aklınızdaki tüm soruları anında
                     yanıtlamaya hazırım.
                   </p>
                   {startingPriceFormatted && (
@@ -510,27 +490,6 @@ export default function AISalesAssistantWidget({
                 </div>
 
                 <div className="grid grid-cols-1 gap-2">
-                  {/* WhatsApp Canlı Demo */}
-                  <button
-                    type="button"
-                    onClick={() => handleWhatsAppDemoClick('modal_quick_demo')}
-                    className="flex items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-3 text-left transition hover:bg-emerald-100/70 hover:border-emerald-300"
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-2xs">
-                        <MessageCircle size={16} />
-                      </div>
-                      <div>
-                        <div className="font-bold text-emerald-950 text-xs">
-                          Canlı Demo Başlat (WhatsApp)
-                        </div>
-                        <div className="text-[10px] text-emerald-700">
-                          Uzmanımız 10 dk içinde sistemin çalışmasını göstersin
-                        </div>
-                      </div>
-                    </div>
-                    <ChevronRight size={14} className="text-emerald-700 shrink-0" />
-                  </button>
 
                   {/* Fiyat & Paketleri İncele */}
                   <button
@@ -631,14 +590,14 @@ export default function AISalesAssistantWidget({
                 <button
                   type="submit"
                   disabled={!userQuestion.trim()}
-                  title="WhatsApp ile Uzmana Sor"
+                  title="Sorunuzu Gönderin"
                   className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-corp-teal text-white shadow-2xs hover:bg-corp-teal-dark disabled:opacity-40 transition shrink-0"
                 >
                   <Send size={14} />
                 </button>
               </form>
               <p className="mt-1.5 text-center text-[10px] text-slate-400">
-                Sorunuz WhatsApp üzerinden uzman danışmanımıza anında iletilir.
+                Sorunuz müşteri hizmetleri destek sistemimize anında iletilir.
               </p>
             </footer>
           </div>

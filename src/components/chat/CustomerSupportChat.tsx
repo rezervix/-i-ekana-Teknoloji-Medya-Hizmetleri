@@ -50,6 +50,7 @@ export default function CustomerSupportChat() {
 
   // Handover state
   const [showHandoverForm, setShowHandoverForm] = useState(false);
+  const [handoverDismissed, setHandoverDismissed] = useState(false);
   const [handoverPhone, setHandoverPhone] = useState("");
   const [handoverName, setHandoverName] = useState("");
   const [kvkkConsent, setKvkkConsent] = useState(true);
@@ -128,8 +129,10 @@ export default function CustomerSupportChat() {
           if (data.conversation.messages && data.conversation.messages.length > 0) {
             setMessages(data.conversation.messages);
             const last = data.conversation.messages[data.conversation.messages.length - 1];
-            if (last?.isHandoverPrompt) {
+            if (last?.isHandoverPrompt && !handoverDismissed) {
               setShowHandoverForm(true);
+            } else {
+              setShowHandoverForm(false);
             }
           } else {
             setMessages([
@@ -341,6 +344,9 @@ export default function CustomerSupportChat() {
 
       if (data.isHandoverPrompt) {
         setShowHandoverForm(true);
+        setHandoverDismissed(false);
+      } else {
+        setShowHandoverForm(false);
       }
     } catch (err: any) {
       setErrorMsg(err.message || "Bağlantı hatası oluştu.");
@@ -475,17 +481,13 @@ export default function CustomerSupportChat() {
                 <Logo width={26} height={26} className="object-contain" />
                 <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-400 border-2 border-corp-charcoal rounded-full" />
               </div>
-              <div>
+              <div className="flex items-center">
                 <h3
                   id="chat-title"
                   className="font-display text-sm font-semibold tracking-wide text-white leading-tight"
                 >
                   Çiçekana Müşteri Hizmetleri
                 </h3>
-                <div className="flex items-center gap-1.5 text-[11px] text-zinc-400 mt-0.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                  <span>Çevrimiçi Destek Ekibi</span>
-                </div>
               </div>
             </div>
 
@@ -583,10 +585,21 @@ export default function CustomerSupportChat() {
             })}
 
             {/* Handover Form Card with Explicit KVKK Consent */}
-            {showHandoverForm && !handoverSuccess && (
-              <div className="bg-amber-50/90 border border-amber-200/80 rounded-2xl p-4 shadow-sm my-2 text-xs text-corp-charcoal">
-                <div className="flex items-center gap-2 font-display font-semibold text-xs text-amber-900 mb-1.5">
-                  <Phone className="w-4 h-4 text-amber-600" />
+            {showHandoverForm && !handoverSuccess && !handoverDismissed && (
+              <div className="bg-amber-50/90 border border-amber-200/80 rounded-2xl p-4 shadow-sm my-2 text-xs text-corp-charcoal relative">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowHandoverForm(false);
+                    setHandoverDismissed(true);
+                  }}
+                  aria-label="İletişim Formunu Kapat"
+                  className="absolute top-3 right-3 p-1 text-amber-800/60 hover:text-amber-950 rounded-lg hover:bg-amber-100/70 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+                <div className="flex items-center gap-2 font-display font-semibold text-xs text-amber-900 mb-1.5 pr-6">
+                  <Phone className="w-4 h-4 text-amber-600 shrink-0" />
                   Yetkili Ekibimiz Size Ulaşsın
                 </div>
                 <p className="text-[11px] text-corp-gray mb-3 leading-relaxed">

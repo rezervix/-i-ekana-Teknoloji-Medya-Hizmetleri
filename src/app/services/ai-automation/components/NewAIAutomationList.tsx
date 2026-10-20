@@ -236,24 +236,6 @@ export default function NewAIAutomationList({ plans }: { plans: PlanItem[] }) {
                       </span>
                       <ArrowRight size={15} />
                     </Link>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (typeof window !== 'undefined') {
-                          window.dispatchEvent(
-                            new CustomEvent('cicekana:open-chat', {
-                              detail: {
-                                message: `Merhaba, ${plan.name} hakkında detaylı bilgi ve canlı demo almak istiyorum.`,
-                              },
-                            })
-                          );
-                        }
-                      }}
-                      className="inline-flex min-h-[40px] w-full items-center justify-center gap-1.5 rounded-xl border border-corp-teal/30 bg-corp-teal/5 px-3 text-xs font-bold text-corp-teal transition hover:bg-corp-teal/10 active:scale-[0.98]"
-                    >
-                      <Headphones size={15} />
-                      <span>Canlı Demo İste</span>
-                    </button>
                   </div>
                 </article>
               );

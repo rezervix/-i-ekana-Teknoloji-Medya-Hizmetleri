@@ -27,6 +27,9 @@ import {
   X,
   AlertTriangle,
   Info,
+  Sparkles,
+  UploadCloud,
+  FileText,
 } from 'lucide-react';
 import { PLAN_ICON_NAMES, getPlanIcon } from '@/lib/plan-icons';
 import PlanDemoScreenshotsUploader from '@/components/admin/PlanDemoScreenshotsUploader';
@@ -258,7 +261,7 @@ const emptyForm: Plan = {
   updatedAt: '',
 
   whatsappNumber: '+90 530 341 21 56',
-  whatsappTemplate: 'Merhaba, {ürün} hakkında bilgi ve canlı demo almak istiyorum.',
+  whatsappTemplate: 'Merhaba, {ürün} hakkında bilgi almak istiyorum.',
   isDemoFormActive: false,
 
   metaTitle: '',
@@ -358,6 +361,13 @@ export default function AdminProductsPage() {
   const [versions, setVersions] = useState<PlanVersion[]>([]);
   const [loadingVersions, setLoadingVersions] = useState(false);
 
+  // AI ile Ürün İçe Aktarma Durumları
+  const [aiImportModalOpen, setAiImportModalOpen] = useState(false);
+  const [aiImportFile, setAiImportFile] = useState<File | null>(null);
+  const [aiImportLoading, setAiImportLoading] = useState(false);
+  const [aiImportError, setAiImportError] = useState('');
+  const [aiImportWarnings, setAiImportWarnings] = useState<string[]>([]);
+
   // Verileri Yükle
   async function loadPlans() {
     setLoading(true);
@@ -376,6 +386,63 @@ export default function AdminProductsPage() {
   useEffect(() => {
     void loadPlans();
   }, []);
+
+  // AI ile Dokümandan Ürün Oluştur
+  async function handleAiImport() {
+    if (!aiImportFile) {
+      setAiImportError('Lütfen analiz edilecek bir doküman dosyası seçin.');
+      return;
+    }
+
+    setAiImportLoading(true);
+    setAiImportError('');
+    setAiImportWarnings([]);
+
+    try {
+      const data = new FormData();
+      data.append('file', aiImportFile);
+
+      const res = await fetch('/api/admin/products/ai-import', {
+        method: 'POST',
+        body: data,
+      });
+
+      const result = await res.json();
+
+      if (!res.ok) {
+        setAiImportError(result.error || 'Doküman analizi başarısız oldu.');
+        setAiImportLoading(false);
+        return;
+      }
+
+      if (result.plan) {
+        // AI çıktısını forma aktar
+        setForm({
+          ...emptyForm,
+          ...result.plan,
+          // İş Kuralı: Fiyat ve Logo alanlarını kesinlikle manuel bırak (0 / '')
+          priceMonthly: 0,
+          imageUrl: '',
+          heroMockupUrl: '',
+        });
+        setEditing(null); // Yeni kayıt
+        setSlugManuallyEdited(true);
+        setActiveTab('general');
+        setIsEditorOpen(true);
+        setAiImportModalOpen(false);
+        setSuccessMsg(
+          'AI doküman analizi tamamlandı! Ürün bilgileri form alanlarına yerleştirildi. Logo görselini yükleyip fiyat paketlerini manuel olarak belirledikten sonra kaydedebilirsiniz.'
+        );
+        if (result.warnings && result.warnings.length > 0) {
+          setAiImportWarnings(result.warnings);
+        }
+      }
+    } catch {
+      setAiImportError('Sunucu bağlantısı sırasında bir hata oluştu.');
+    } finally {
+      setAiImportLoading(false);
+    }
+  }
 
   // Form Güncelleme
   const update = <K extends keyof Plan>(key: K, value: Plan[K]) => {
@@ -422,7 +489,7 @@ export default function AdminProductsPage() {
         whatsappNumber: sourceData.whatsappNumber ?? '+90 530 341 21 56',
         whatsappTemplate:
           sourceData.whatsappTemplate ??
-          'Merhaba, {ürün} hakkında bilgi ve canlı demo almak istiyorum.',
+          'Merhaba, {ürün} hakkında bilgi almak istiyorum.',
         metaTitle: sourceData.metaTitle ?? '',
         metaDescription: sourceData.metaDescription ?? '',
         ogImageUrl: sourceData.ogImageUrl ?? '',
@@ -700,12 +767,25 @@ export default function AdminProductsPage() {
               yönetin.
             </p>
           </div>
-          <button
-            onClick={() => openForm()}
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-corp-teal px-5 text-sm font-bold text-white shadow-sm transition hover:bg-corp-teal/90"
-          >
-            <Plus size={18} /> Yeni AI Hizmeti Ekle
-          </button>
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                setAiImportModalOpen(true);
+                setAiImportError('');
+                setAiImportFile(null);
+              }}
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-corp-teal/30 bg-corp-teal/10 px-5 text-sm font-bold text-corp-teal transition hover:bg-corp-teal/20"
+            >
+              <Sparkles size={18} /> AI ile Ürün Oluştur
+            </button>
+            <button
+              onClick={() => openForm()}
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-corp-teal px-5 text-sm font-bold text-white shadow-sm transition hover:bg-corp-teal/90"
+            >
+              <Plus size={18} /> Yeni AI Hizmeti Ekle
+            </button>
+          </div>
         </header>
 
         {error && (
@@ -896,6 +976,169 @@ export default function AdminProductsPage() {
             </div>
           </div>
         )}
+
+        {/* AI ile Ürün İçe Aktarma Modalı */}
+        {aiImportModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
+            <div className="w-full max-w-xl rounded-3xl bg-white p-6 md:p-8 shadow-2xl border border-slate-100">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-corp-teal/10 text-corp-teal">
+                    <Sparkles size={20} />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold text-slate-900">AI ile Ürün Oluştur</h2>
+                    <p className="text-xs text-slate-500">
+                      Doküman yükleyin, Gemini AI form alanlarını otomatik doldursun.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    if (!aiImportLoading) {
+                      setAiImportModalOpen(false);
+                      setAiImportError('');
+                      setAiImportFile(null);
+                    }
+                  }}
+                  disabled={aiImportLoading}
+                  className="text-slate-400 hover:text-slate-600 disabled:opacity-50"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="mt-5 space-y-4">
+                <div className="rounded-2xl border border-teal-100 bg-teal-50/60 p-4 text-xs text-teal-900 flex items-start gap-3">
+                  <Info size={18} className="text-corp-teal shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="font-semibold text-corp-charcoal">Otomatik Doldurulacak Alanlar:</p>
+                    <p className="text-slate-600">
+                      Ürün adı, slug, özet, hero başlığı, faydalar, adımlar, öne çıkan özellikler, SSS ve SEO etiketleri.
+                    </p>
+                    <p className="font-semibold text-corp-teal pt-1">
+                      ⚠️ Logo ve ticari fiyat alanları iş kuralı gereği boş bırakılacak, kaydetmeden önce manuel girilecektir.
+                    </p>
+                  </div>
+                </div>
+
+                <div
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                      setAiImportFile(e.dataTransfer.files[0]);
+                      setAiImportError('');
+                    }
+                  }}
+                  className={`relative rounded-2xl border-2 border-dashed p-6 text-center transition-all ${
+                    aiImportFile
+                      ? 'border-corp-teal bg-teal-50/30'
+                      : 'border-slate-300 hover:border-corp-teal bg-slate-50/60'
+                  }`}
+                >
+                  <input
+                    type="file"
+                    id="ai-doc-upload"
+                    accept=".pdf,.txt,.md,.json,application/pdf,text/plain,text/markdown,application/json"
+                    disabled={aiImportLoading}
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files[0]) {
+                        setAiImportFile(e.target.files[0]);
+                        setAiImportError('');
+                      }
+                    }}
+                    className="hidden"
+                  />
+
+                  {aiImportFile ? (
+                    <div className="flex flex-col items-center gap-2">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-corp-teal text-white shadow-md">
+                        <FileText size={24} />
+                      </div>
+                      <div className="text-sm font-bold text-slate-800">{aiImportFile.name}</div>
+                      <div className="text-xs text-slate-400">
+                        {(aiImportFile.size / 1024).toFixed(1)} KB • {aiImportFile.type || 'Doküman'}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setAiImportFile(null)}
+                        disabled={aiImportLoading}
+                        className="mt-2 text-xs font-semibold text-rose-600 hover:underline"
+                      >
+                        Farklı bir dosya seç
+                      </button>
+                    </div>
+                  ) : (
+                    <label htmlFor="ai-doc-upload" className="cursor-pointer flex flex-col items-center gap-2">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-500">
+                        <UploadCloud size={24} />
+                      </div>
+                      <div className="text-sm font-bold text-slate-700">
+                        Dokümanı buraya sürükleyin veya <span className="text-corp-teal underline">gözatın</span>
+                      </div>
+                      <div className="text-xs text-slate-400">
+                        PDF, TXT, MD veya JSON (Maksimum 10 MB)
+                      </div>
+                    </label>
+                  )}
+                </div>
+
+                {aiImportError && (
+                  <div className="flex items-start gap-2 rounded-2xl border border-rose-200 bg-rose-50 p-3.5 text-xs text-rose-800">
+                    <AlertTriangle size={16} className="shrink-0 mt-0.5 text-rose-600" />
+                    <div className="flex-1 font-medium leading-relaxed">{aiImportError}</div>
+                  </div>
+                )}
+
+                {aiImportLoading && (
+                  <div className="rounded-2xl border border-teal-200 bg-teal-50 p-4 text-center space-y-2">
+                    <Loader2 size={24} className="animate-spin text-corp-teal mx-auto" />
+                    <p className="text-xs font-bold text-corp-charcoal">
+                      Doküman Gemini AI tarafından analiz ediliyor...
+                    </p>
+                    <p className="text-[11px] text-slate-500">
+                      Ürün özellikleri, adımlar, faydalar ve SEO etiketleri yapılandırılıyor. Lütfen bekleyin.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-6 flex items-center justify-end gap-3 border-t border-slate-100 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAiImportModalOpen(false);
+                    setAiImportError('');
+                    setAiImportFile(null);
+                  }}
+                  disabled={aiImportLoading}
+                  className="rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                >
+                  Vazgeç
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleAiImport()}
+                  disabled={!aiImportFile || aiImportLoading}
+                  className="inline-flex items-center gap-2 rounded-xl bg-corp-teal px-5 py-2.5 text-xs font-bold text-white shadow-md hover:bg-corp-teal/90 disabled:opacity-50 transition-all"
+                >
+                  {aiImportLoading ? (
+                    <>
+                      <Loader2 size={14} className="animate-spin" />
+                      <span>Analiz Ediliyor...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles size={14} />
+                      <span>Dokümanı Analiz Et ve Formu Doldur</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -1002,6 +1245,20 @@ export default function AdminProductsPage() {
           <button onClick={() => setSuccessMsg('')}>
             <X size={16} />
           </button>
+        </div>
+      )}
+
+      {/* AI İçe Aktarma Uyarıları (ör. çakışan slug düzeltmesi) */}
+      {aiImportWarnings.length > 0 && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-900">
+          <div className="font-bold flex items-center gap-1.5 mb-1.5 text-amber-800">
+            <AlertTriangle size={15} /> AI İçe Aktarma Notları:
+          </div>
+          <ul className="list-disc list-inside space-y-1">
+            {aiImportWarnings.map((w, i) => (
+              <li key={i}>{w}</li>
+            ))}
+          </ul>
         </div>
       )}
 
@@ -1240,7 +1497,7 @@ export default function AdminProductsPage() {
                 type="text"
                 value={form.secondaryCtaLabel || ''}
                 onChange={(e) => update('secondaryCtaLabel', e.target.value)}
-                placeholder="Örn: Canlı Demo Talep Et"
+                placeholder="Örn: İletişime Geç"
                 className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-sm outline-none focus:border-corp-teal"
               />
             </div>
@@ -1253,7 +1510,7 @@ export default function AdminProductsPage() {
                 type="text"
                 value={form.secondaryCtaUrl || ''}
                 onChange={(e) => update('secondaryCtaUrl', e.target.value)}
-                placeholder="Örn: https://wa.me/905303412156 veya #demo"
+                placeholder="Örn: /iletisim veya #paketler"
                 className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-sm outline-none focus:border-corp-teal"
               />
             </div>
@@ -2232,7 +2489,7 @@ export default function AdminProductsPage() {
             <div>
               <h2 className="text-base font-bold text-slate-800">Demo & WhatsApp İletişimi</h2>
               <p className="text-xs text-slate-500">
-                Müşterinin tek tıkla canlı demo veya bilgi alabileceği iletişim alanı.
+                Müşterinin tek tıkla doğrudan bilgi alabileceği iletişim alanı.
               </p>
             </div>
             <label className="inline-flex cursor-pointer items-center gap-2">
@@ -2267,7 +2524,7 @@ export default function AdminProductsPage() {
                 type="text"
                 value={form.whatsappTemplate || ''}
                 onChange={(e) => update('whatsappTemplate', e.target.value)}
-                placeholder="Merhaba, {ürün} hakkında bilgi ve canlı demo almak istiyorum."
+                placeholder="Merhaba, {ürün} hakkında bilgi almak istiyorum."
                 className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-sm outline-none"
               />
               <FieldHelp text="{ürün} yazan yere otomatik olarak bu hizmetin adı yerleştirilecektir." />

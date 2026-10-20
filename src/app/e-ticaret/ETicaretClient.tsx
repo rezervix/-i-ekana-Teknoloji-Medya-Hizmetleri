@@ -126,7 +126,7 @@ export default function ETicaretClient({ initialCmsData }: ETicaretClientProps) 
       extraServices: [
         {
           type: "setup",
-          label: "Kurulum ve Yayına Alma WhatsApp Desteği 7/24",
+          label: "Kurulum ve Yayına Alma Canlı Desteği 7/24",
           price: 0,
         },
       ],
@@ -186,17 +186,6 @@ export default function ETicaretClient({ initialCmsData }: ETicaretClientProps) 
                 {cms.hero.primaryCtaText || "Hemen Başla"}
                 <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
               </a>
-              {cms.hero.secondaryCtaText && (
-                <a
-                  href={cms.hero.secondaryCtaLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-7 py-4 rounded-md font-body font-semibold text-[15px] text-corp-charcoal border border-corp-border hover:bg-corp-surface transition-all duration-200"
-                >
-                  <MessageCircle size={16} className="text-corp-teal" />
-                  {cms.hero.secondaryCtaText}
-                </a>
-              )}
             </motion.div>
           </motion.div>
         </div>
@@ -396,17 +385,6 @@ export default function ETicaretClient({ initialCmsData }: ETicaretClientProps) 
                     <ShoppingCart size={17} />
                     Paketi Satın Al <ArrowRight size={16} />
                   </button>
-
-                  <a
-                    href={`https://wa.me/905303412156?text=${encodeURIComponent(
-                      `Merhaba, ${pkg.name} hakkında bilgi ve canlı demo almak istiyorum.`
-                    )}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full text-center py-2 text-xs font-semibold text-corp-gray hover:text-corp-teal transition-colors"
-                  >
-                    💬 WhatsApp ile Satış Temsilcisine Sor
-                  </a>
                 </div>
 
                 {pkg.bonus && (

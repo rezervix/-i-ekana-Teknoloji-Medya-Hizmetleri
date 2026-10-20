@@ -9,15 +9,22 @@ export interface EvidenceVerificationResult {
   handoverPrompt?: string;
 }
 
-const HUMAN_REQUEST_PATTERNS = [
-  /insan/i,
-  /(müşteri\s+)?temsilci(si)?/i,
-  /yetkili/i,
-  /beni\s+ara(yın|r\s+mısınız)?/i,
-  /telefon(um|la)?/i,
-  /özel\s+(teklif|fiyat)/i,
-  /canlı\s+destek/i,
-  /biriyle\s+görüş/i,
+// Strictly matches explicit human agent / callback / call requests
+const EXPLICIT_CALLBACK_PATTERNS = [
+  /(beni|bizi)\s+(ara|arayın|arar\s+mısınız|arayabilir\s+misiniz)/i,
+  /telefon(um)?la\s+(ara|arayın|ulaşın|görüşelim)/i,
+  /numaramı\s+bırak(mak|ayım)/i,
+  /geri\s+dönüş\s+yap(ın|ar\s+mısınız)?/i,
+  /geri\s+arama\s+talebi/i,
+];
+
+const EXPLICIT_HUMAN_AGENT_PATTERNS = [
+  /(müşteri\s+)?temsilci(sine|siyle|ye)?\s+(bağlan|aktar|görüşmek|konuşmak)/i,
+  /(canlı\s+)?temsilci(ye|yle)?\s+(bağla|aktar)/i,
+  /bir\s+(yetkili|insan|uzman)la\s+(görüşmek|konuşmak)\s+istiyorum/i,
+  /insan\s+desteği(ne\s+bağla|yle\s+görüş)/i,
+  /yetkiliye\s+aktar/i,
+  /temsilciye\s+bağla/i,
 ];
 
 const GREETING_PATTERNS = [
@@ -26,7 +33,7 @@ const GREETING_PATTERNS = [
 
 /**
  * Evaluates whether the retrieved evidence contains verified facts to answer the question.
- * Strictly prevents hallucinations or speculative claims.
+ * Strictly prevents hallucinations or speculative claims while never demanding phone numbers unsolicited.
  */
 export function verifyEvidenceSufficiency(
   query: string,
@@ -35,17 +42,22 @@ export function verifyEvidenceSufficiency(
 ): EvidenceVerificationResult {
   const trimmed = query.trim();
 
-  // 1. Explicit request to talk with a human
-  const isExplicitHandoverRequest = HUMAN_REQUEST_PATTERNS.some((p) => p.test(trimmed));
-  if (isExplicitHandoverRequest) {
+  // 1. Explicit request to talk with a human or receive a phone callback
+  const isExplicitCallback = EXPLICIT_CALLBACK_PATTERNS.some((p) => p.test(trimmed));
+  const isExplicitAgent = EXPLICIT_HUMAN_AGENT_PATTERNS.some((p) => p.test(trimmed));
+
+  if (isExplicitCallback || isExplicitAgent) {
     return {
       sufficient: false,
       confidence: 1.0,
       isExplicitHandoverRequest: true,
       isGeneralGreeting: false,
-      reason: "Müşteri doğrudan insan temsilci ile görüşmek istedi.",
-      handoverPrompt:
-        "Talebinizi memnuniyetle müşteri temsilcimize aktarabiliriz. Size en kısa sürede ulaşabilmemiz için telefon numaranızı paylaşabilir misiniz?",
+      reason: isExplicitCallback
+        ? "Müşteri telefonla aranma talebinde bulundu."
+        : "Müşteri müşteri temsilcisine bağlanmak istedi.",
+      handoverPrompt: isExplicitCallback
+        ? "Talebinizi memnuniyetle aldık. Yetkili ekibimizin sizi en kısa sürede arayabilmesi için lütfen telefon numaranızı bırakınız."
+        : "Talebinizi memnuniyetle müşteri temsilcimize aktarabiliriz. Size en kısa sürede ulaşabilmemiz için telefon numaranızı paylaşabilir misiniz?",
     };
   }
 
@@ -69,19 +81,13 @@ export function verifyEvidenceSufficiency(
       isGeneralGreeting: false,
       reason: "Soruyla eşleşen aktif ve onaylanmış ürün dokümanı veya paket bilgisi bulunamadı.",
       handoverPrompt:
-        "Bu konuda size yanlış bilgi vermek istemem. Sorunuzu ilgili uzman ekibimize iletebiliriz. Size ulaşabilmemiz için telefon numaranızı bırakabilir misiniz?",
+        "Bu konuda sistemimizde şu anda doğrulanmış bir bilgi kaydı bulunmuyor. Dilerseniz sorunuzu farklı kelimelerle iletebilir ya da müşteri temsilcimizle görüşmek istediğinizi belirtebilirsiniz.",
     };
   }
 
   // 4. Feature / Integration / Specific term verification
-  // If query asks for a specific technical integration or guarantee, check whether any chunk mentions that subject
   const lowerQuery = trimmed.toLowerCase();
-  const tokens = lowerQuery
-    .replace(/[^\p{L}\p{N}\s]/gu, " ")
-    .split(/\s+/)
-    .filter((w) => w.length > 3);
 
-  // Common technical / integration terms to check
   const technicalKeywords = [
     "whatsapp", "instagram", "facebook", "shopify", "woocommerce", "trendyol",
     "hepsiburada", "entegrasyon", "api", "erp", "muhasebe", "sms", "e-posta",
@@ -91,7 +97,6 @@ export function verifyEvidenceSufficiency(
   const questionedTech = technicalKeywords.filter((tk) => lowerQuery.includes(tk));
 
   if (questionedTech.length > 0) {
-    // If the customer specifically asks about a tech (e.g. "Shopify"), check if any chunk or product features mention it
     const allChunkText = chunks.map((c) => c.content.toLowerCase()).join(" ");
     const allProductText = verifiedProducts
       .flatMap((p) => [
@@ -102,11 +107,9 @@ export function verifyEvidenceSufficiency(
       .join(" ");
 
     const combinedText = allChunkText + " " + allProductText;
-
     const missingTech = questionedTech.filter((tk) => !combinedText.includes(tk));
 
     if (missingTech.length > 0) {
-      // Evidence is missing for the questioned integration/feature
       return {
         sufficient: false,
         confidence: 0.3,
@@ -114,7 +117,7 @@ export function verifyEvidenceSufficiency(
         isGeneralGreeting: false,
         reason: `Belirtilen özellik veya entegrasyon (${missingTech.join(", ")}) onaylı dokümanlarda doğrulanamadı.`,
         handoverPrompt:
-          "Bu özelliğin mevcut kapsamını şu anda sistemimizde doğrulanmış verilerle teyit edemiyorum. Size yanıltıcı bilgi vermemek adına konuyu yetkili teknik ekibimize iletebiliriz. Size ulaşabilmemiz için telefon numaranızı paylaşabilir misiniz?",
+          `Belirttiğiniz özellik veya entegrasyon (${missingTech.join(", ")}) hakkında sistemimizde şu an için doğrulanmış kapsam bilgisi bulunmuyor. Dilerseniz teknik detaylar için bir müşteri temsilcisine bağlanmak istediğinizi belirtebilirsiniz.`,
       };
     }
   }
@@ -138,6 +141,6 @@ export function verifyEvidenceSufficiency(
     isGeneralGreeting: false,
     reason: "Onaylı dokümanlardaki bilgi yetersizliği sebebiyle güvenli yanıt üretilemiyor.",
     handoverPrompt:
-      "Bu konuda size yanlış bilgi vermek istemem. Sorunuzu ilgili ekibimize iletebiliriz. Size ulaşabilmemiz için telefon numaranızı bırakabilir misiniz?",
+      "Sorduğunuz konu hakkında sistemimizde yeterli doğrulanmış bilgi bulunamadı. Dilerseniz sorunuzu farklı kelimelerle açıklayabilir veya müşteri temsilcimize bağlanmak istediğinizi söyleyebilirsiniz.",
   };
 }

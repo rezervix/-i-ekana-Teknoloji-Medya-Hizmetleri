@@ -38,14 +38,19 @@ export async function POST(req: NextRequest) {
       status?: number;
     } | null = null;
 
-    if (!verification.sufficient) {
+    if (verification.isGeneralGreeting) {
+      generatedReply =
+        "Merhaba! Size nasıl yardımcı olabiliriz? Çiçekana Tech Media ürünlerimiz, otomasyon paketlerimiz ve fiyatlarımız hakkında sorularınızı yanıtlayabilirim.";
+    } else if (verification.isExplicitHandoverRequest) {
       willHandover = true;
       generatedReply =
         verification.handoverPrompt ||
-        "Bu konuda size yanlış bilgi vermek istemem. Sorunuzu ilgili uzman ekibimize iletebiliriz. Size ulaşabilmemiz için telefon numaranızı bırakabilir misiniz?";
-    } else if (verification.isGeneralGreeting) {
+        "Talebinizi memnuniyetle müşteri temsilcimize aktarabiliriz. Size en kısa sürede ulaşabilmemiz için telefon numaranızı paylaşabilir misiniz?";
+    } else if (!verification.sufficient) {
+      willHandover = false;
       generatedReply =
-        "Merhaba! Size nasıl yardımcı olabiliriz? Çiçekana Tech Media ürünlerimiz, otomasyon paketlerimiz ve fiyatlarımız hakkında sorularınızı yanıtlayabilirim.";
+        verification.handoverPrompt ||
+        "Bu konuda sistemimizde şu anda doğrulanmış bir bilgi kaydı bulunmuyor. Dilerseniz sorunuzu farklı kelimelerle iletebilir ya da müşteri temsilcimizle görüşmek istediğinizi belirtebilirsiniz.";
     } else {
       // Test actual Gemini generation
       const knowledgeSnippets = retrieval.chunks

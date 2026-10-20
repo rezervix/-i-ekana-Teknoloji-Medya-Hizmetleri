@@ -1014,18 +1014,10 @@ export default function ProfileClient({
                     <div className="flex items-center gap-3 relative z-10 w-full md:w-auto">
                       <button
                         onClick={() => setSupportModalOpen(true)}
-                        className="flex-1 md:flex-none px-5 py-3 rounded-xl bg-corp-teal hover:bg-corp-teal-600 text-white font-bold text-xs transition-colors shadow-lg shadow-corp-teal/20 flex items-center justify-center gap-2"
+                        className="w-full md:w-auto px-5 py-3 rounded-xl bg-corp-teal hover:bg-corp-teal-600 text-white font-bold text-xs transition-colors shadow-lg shadow-corp-teal/20 flex items-center justify-center gap-2"
                       >
                         <LifeBuoy size={16} /> Destek Talebi Aç
                       </button>
-                      <a
-                        href="https://wa.me/905303412156?text=Merhaba,%20danışmanlık%20hizmetleri%20hakkında%20bilgi%20almak%20istiyorum."
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex-1 md:flex-none px-5 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs transition-colors border border-white/10 flex items-center justify-center gap-2"
-                      >
-                        <MessageSquare size={16} /> Temsilciye Yaz
-                      </a>
                     </div>
                   </div>
 
@@ -1048,14 +1040,12 @@ export default function ProfileClient({
                       {projects.length === 0 ? (
                         <div className="text-center py-8">
                           <p className="text-xs text-corp-gray mb-3">Henüz tanımlanmış aktif bir projeniz bulunmuyor.</p>
-                          <a
-                            href="https://wa.me/905303412156?text=Merhaba,%20yeni%20proje%20hakkında%20görüşmek%20istiyorum."
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-block px-4 py-2 rounded-xl bg-corp-teal text-white font-bold text-xs shadow-md shadow-corp-teal/20"
+                          <button
+                            onClick={() => setSupportModalOpen(true)}
+                            className="inline-block px-4 py-2 rounded-xl bg-corp-teal text-white font-bold text-xs shadow-md shadow-corp-teal/20 hover:bg-corp-teal-600 transition-colors"
                           >
                             Yeni Proje Talebi Başlat →
-                          </a>
+                          </button>
                         </div>
                       ) : (
                         <div className="space-y-4">
@@ -1138,14 +1128,12 @@ export default function ProfileClient({
                       <h3 className="font-display text-xl font-bold text-corp-charcoal">Projelerim & Hizmetlerim</h3>
                       <p className="text-xs text-corp-gray mt-0.5">Aktif web, reklam, sosyal medya ve AI abonelik projelerinizin durumunu takip edin.</p>
                     </div>
-                    <a
-                      href="https://wa.me/905303412156?text=Merhaba,%20yeni%20bir%20hizmet%20almak%20istiyorum."
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <button
+                      onClick={() => setSupportModalOpen(true)}
                       className="px-4 py-2.5 rounded-xl bg-corp-teal text-white font-bold text-xs hover:bg-corp-teal-600 transition-colors shadow-lg shadow-corp-teal/20 flex items-center gap-1.5"
                     >
                       <Plus size={16} /> Yeni Hizmet Talebi
-                    </a>
+                    </button>
                   </div>
 
                   {loadingProjects ? (
@@ -1160,14 +1148,12 @@ export default function ProfileClient({
                       <p className="text-corp-gray font-body text-xs mb-6 max-w-md mx-auto">
                         Web geliştirme, e-ticaret altyapısı, reklam yönetimi veya Microsoft Call Center AI çözümlerimizden yararlanmak için ekibimizle iletişime geçin.
                       </p>
-                      <a
-                        href="https://wa.me/905303412156?text=Merhaba,%20hizmetleriniz%20hakkında%20bilgi%20almak%20istiyorum."
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <Link
+                        href="/services"
                         className="inline-block px-6 py-3 rounded-xl bg-corp-teal text-white font-bold text-xs hover:bg-corp-teal-600 transition-colors shadow-lg shadow-corp-teal/20"
                       >
                         Hizmet Paketlerini Keşfet →
-                      </a>
+                      </Link>
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -2251,12 +2237,12 @@ export default function ProfileClient({
                         },
                       },
                       {
-                        title: "WhatsApp Destek & Bildirim Hattı",
+                        title: "E-Posta & SMS Bildirimleri",
                         desc: user?.phone
-                          ? `Profil telefon numaranız (${user.phone}) üzerinden sipariş durumları ve ajans bildirimleri.`
-                          : "Sipariş ve destek bildirimlerini anlık WhatsApp üzerinden almak için telefon numaranızı kaydedin.",
+                          ? `Profil telefon numaranız (${user.phone}) üzerinden sipariş durumları ve ajans bildirimleri iletilir.`
+                          : "Sipariş ve destek bildirimlerini almak için telefon numaranızı kaydedebilirsiniz.",
                         connected: Boolean(user?.phone),
-                        icon: "💬",
+                        icon: "🔔",
                         btnText: user?.phone ? "Numara Tanımlı" : "Telefon Numarası Ekle",
                         action: () => {
                           if (!user?.phone) setActiveTab("settings");

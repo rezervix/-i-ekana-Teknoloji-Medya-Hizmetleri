@@ -171,9 +171,7 @@ function PkgCard({ pkg }: { pkg: typeof packages[0] }) {
       </ul>
 
       <a
-        href="https://wa.me/90XXXXXXXXXX?text=Gezgin%20Tabela%20hizmetini%20sat%C4%B1n%20almak%20istiyorum"
-        target="_blank"
-        rel="noopener noreferrer"
+        href="/iletisim"
         className="flex items-center justify-center gap-2 py-4 rounded-xl font-body font-bold text-[14px] transition-all hover:-translate-y-0.5"
         style={
           pkg.featured
@@ -181,7 +179,7 @@ function PkgCard({ pkg }: { pkg: typeof packages[0] }) {
             : { background: `${pkg.accent}12`, color: pkg.accent, border: `1px solid ${pkg.accent}30` }
         }
       >
-        Hemen Satın Al <ArrowRight size={15} />
+        Hemen Başvur <ArrowRight size={15} />
       </a>
     </div>
   );
@@ -408,7 +406,7 @@ export default function GerillaPage() {
               Hemen Satın Al <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
             </a>
             <a
-              href="tel:+90XXXXXXXXXX"
+              href="tel:+905303412156"
               className="inline-flex items-center gap-2 px-8 py-4 rounded-md font-body font-semibold text-[14px] text-white border border-white/30 hover:border-white/60 hover:bg-white/10 transition-all duration-200"
             >
               Bizi Ara

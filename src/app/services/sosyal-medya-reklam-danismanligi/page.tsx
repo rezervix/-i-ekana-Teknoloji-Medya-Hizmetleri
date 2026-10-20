@@ -160,7 +160,7 @@ const faqs = [
   },
   {
     q: "Başvuru sonrasında süreç nasıl işler?",
-    a: "Formu doldurmanızın ardından danışmanlık ekibimiz mevcut hesaplarınızı ve bilgilerinizi 2 iş günü içinde inceler. Şartları uygun olan işletmelerle telefon veya WhatsApp üzerinden ön görüşme yapılarak resmi çalışma teklifi iletilir.",
+    a: "Formu doldurmanızın ardından danışmanlık ekibimiz mevcut hesaplarınızı ve bilgilerinizi 2 iş günü içinde inceler. Şartları uygun olan işletmelerle telefon veya e-posta üzerinden ön görüşme yapılarak resmi çalışma teklifi iletilir.",
   },
   {
     q: "Her başvuru kabul edilir mi?",

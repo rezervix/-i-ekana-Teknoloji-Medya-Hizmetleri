@@ -101,7 +101,7 @@ export const planSchema = z.object({
 
   // Demo & WhatsApp
   whatsappNumber: nullableText(30).default("+90 530 341 21 56"),
-  whatsappTemplate: nullableText(300).default("Merhaba, {ürün} hakkında bilgi ve canlı demo almak istiyorum."),
+  whatsappTemplate: nullableText(300).default("Merhaba, {ürün} hakkında bilgi almak istiyorum."),
   isDemoFormActive: z.boolean().default(false),
 
   // SEO & Görünürlük

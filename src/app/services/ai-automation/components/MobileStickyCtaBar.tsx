@@ -8,7 +8,6 @@ interface MobileStickyCtaBarProps {
   startingPrice: number | null;
   startingPriceFormatted: string;
   packageSectionId?: string;
-  whatsappUrl?: string;
   onSelectRecommendedTier?: () => void;
   recommendedTierName?: string;
 }
@@ -18,7 +17,6 @@ export default function MobileStickyCtaBar({
   startingPrice,
   startingPriceFormatted,
   packageSectionId = 'paketler',
-  whatsappUrl,
   onSelectRecommendedTier,
   recommendedTierName,
 }: MobileStickyCtaBarProps) {
@@ -72,7 +70,7 @@ export default function MobileStickyCtaBar({
                 window.dispatchEvent(
                   new CustomEvent('cicekana:open-chat', {
                     detail: {
-                      message: `Merhaba, ${planName} hakkında bilgi ve canlı demo almak istiyorum.`,
+                      message: `Merhaba, ${planName} hakkında bilgi almak istiyorum.`,
                     },
                   })
                 );

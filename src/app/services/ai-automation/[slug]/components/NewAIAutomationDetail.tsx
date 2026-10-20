@@ -154,15 +154,6 @@ export default function NewAIAutomationDetail({
       ? activeTrustBlocks.map((b) => ({ title: b.title, text: b.text }))
       : defaultTrustItems;
 
-  // WhatsApp iletişim URL'si
-  const cleanPhone = (plan.whatsappNumber || '905303412156').replace(/[^0-9]/g, '');
-  const waText = encodeURIComponent(
-    (
-      plan.whatsappTemplate || `Merhaba, ${plan.name} hakkında bilgi ve canlı demo almak istiyorum.`
-    ).replace('{ürün}', plan.name)
-  );
-  const waUrl = `https://wa.me/${cleanPhone}?text=${waText}`;
-
   // State yönetimi
   const [expandedFeatures, setExpandedFeatures] = useState<Record<string, boolean>>({});
   const [openTrustIndex, setOpenTrustIndex] = useState<number | null>(0);
@@ -335,23 +326,12 @@ export default function NewAIAutomationDetail({
                 </div>
               )}
 
-              {/* 2 Temel Aksiyon: "Paketleri Gör" + "WhatsApp'tan Canlı Demo İste" */}
               <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
                 <a
                   href="#paketler"
                   className="inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl bg-corp-coral px-6 text-base font-bold text-white shadow-sm transition hover:bg-corp-coral/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-corp-coral focus-visible:ring-offset-2 sm:w-auto"
                 >
                   Paketleri İncele <ArrowRight size={18} aria-hidden="true" />
-                </a>
-
-                <a
-                  href={waUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={() => handleWhatsAppClick('hero_demo_cta')}
-                  className="inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl border-2 border-emerald-600 bg-white px-6 text-base font-bold text-emerald-700 shadow-sm transition hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 sm:w-auto"
-                >
-                  <MessageCircle size={18} aria-hidden="true" /> WhatsApp&apos;tan Demo İste
                 </a>
               </div>
 
@@ -806,8 +786,7 @@ export default function NewAIAutomationDetail({
                 {plan.name} ile Süreçlerinizi Otomatize Edin
               </h2>
               <p className="mt-3 text-sm leading-relaxed text-white/80 sm:text-base">
-                İster doğrudan paketinizi seçip başlayın, ister uzman ekibimizle WhatsApp üzerinden
-                canlı demo planlayın.
+                İhtiyacınıza uygun paketi seçerek sisteminizi dakikalar içinde başlatabilir veya sorularınız için müşteri hizmetlerimizle iletişime geçebilirsiniz.
               </p>
             </div>
 
@@ -817,16 +796,6 @@ export default function NewAIAutomationDetail({
                 className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl bg-corp-coral px-6 text-base font-bold text-white shadow-sm transition hover:bg-corp-coral/90 active:scale-[0.98]"
               >
                 Paketleri Gör <ArrowRight size={18} aria-hidden="true" />
-              </a>
-
-              <a
-                href={waUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => handleWhatsAppClick('final_cta_banner')}
-                className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl bg-emerald-600 px-6 text-base font-bold text-white shadow-sm transition hover:bg-emerald-700 active:scale-[0.98]"
-              >
-                <MessageCircle size={18} aria-hidden="true" /> WhatsApp ile Danışın
               </a>
             </div>
           </div>
@@ -850,7 +819,6 @@ export default function NewAIAutomationDetail({
           startingPrice !== null ? formatTryPrice(startingPrice) : 'Teklif Alın'
         }
         packageSectionId="paketler"
-        whatsappUrl={waUrl}
         onSelectRecommendedTier={
           recommendedTier ? () => handleSelectTier(recommendedTier) : undefined
         }

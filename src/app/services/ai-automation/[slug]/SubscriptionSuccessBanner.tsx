@@ -14,7 +14,6 @@ import {
   Lock,
   Loader2,
   X,
-  MessageCircle,
 } from 'lucide-react';
 
 interface SuccessDetails {
@@ -303,18 +302,9 @@ export default function SubscriptionSuccessBanner({
                 <div className="flex items-center gap-2 w-full sm:w-auto">
                   <a
                     href="tel:+905303412156"
-                    className="flex-1 sm:flex-none text-center px-3 py-2 bg-white rounded-lg border border-emerald-300 font-bold text-emerald-900 hover:bg-emerald-100 transition-colors"
+                    className="flex-1 sm:flex-none text-center px-4 py-2 bg-white rounded-lg border border-emerald-300 font-bold text-emerald-900 hover:bg-emerald-100 transition-colors text-sm"
                   >
                     +90 530 341 21 56
-                  </a>
-                  <a
-                    href="https://wa.me/905303412156"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="p-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
-                    title="WhatsApp'tan Yazın"
-                  >
-                    <MessageCircle size={18} />
                   </a>
                 </div>
               </div>

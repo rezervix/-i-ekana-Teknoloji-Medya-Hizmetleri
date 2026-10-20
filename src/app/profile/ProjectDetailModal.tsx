@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X,
@@ -119,15 +120,6 @@ export default function ProjectDetailModal({ project, onClose }: Props) {
                     <p className="text-xs text-corp-gray">{project.accountManagerContact || "Çiçekana Proje Ekibi"}</p>
                   </div>
                 </div>
-
-                <a
-                  href={`https://wa.me/${(project.accountManagerContact || "").replace(/[^0-9]/g, "") || "905303412156"}?text=Merhaba,%20${encodeURIComponent(project.title)}%20projem%20hakkında%20bilgi%20almak%20istiyorum.`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-colors flex items-center gap-2 shadow-sm"
-                >
-                  <MessageSquare size={16} /> WhatsApp ile İletişim
-                </a>
               </div>
             )}
 
@@ -143,14 +135,12 @@ export default function ProjectDetailModal({ project, onClose }: Props) {
                       : "Sürekli Abonelik"}
                   </p>
                 </div>
-                <a
-                  href="https://wa.me/905303412156?text=Abonelik%20paketimi%20yükseltmek%20istiyorum."
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <Link
+                  href="/profile?tab=subscriptions"
                   className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs transition-colors shadow-sm"
                 >
-                  Planı Yükselt →
-                </a>
+                  Planı İncele →
+                </Link>
               </div>
             )}
 
