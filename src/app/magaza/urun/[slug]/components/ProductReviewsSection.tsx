@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Star, MessageSquare } from "lucide-react";
+import { Star, MessageSquare, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface ProductReviewsSectionProps {
@@ -76,6 +76,17 @@ export default function ProductReviewsSection({
               <p className="text-xs text-corp-gray dark:text-white/70 leading-relaxed">
                 {rev.comment || rev.text}
               </p>
+              {rev.adminReply && (
+                <div className="mt-2.5 p-3 rounded-xl bg-corp-teal/5 dark:bg-white/5 border border-corp-teal/20 dark:border-corp-teal/30 space-y-1">
+                  <div className="flex items-center gap-1.5 text-[11px] font-bold text-corp-teal">
+                    <MessageCircle size={13} />
+                    <span>Mağaza Yanıtı</span>
+                  </div>
+                  <p className="text-xs text-corp-charcoal dark:text-white/90 italic leading-relaxed pl-1">
+                    "{rev.adminReply}"
+                  </p>
+                </div>
+              )}
               {rev.createdAt && (
                 <div className="text-[10px] text-corp-gray/60 text-right">
                   {new Date(rev.createdAt).toLocaleDateString("tr-TR")}

@@ -7,15 +7,32 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  if (!session || (session.user as any)?.role !== "SUPER_ADMIN") {
+  const role = (session?.user as any)?.role;
+  if (!session || (role !== "SUPER_ADMIN" && role !== "ADMIN")) {
     return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
   }
 
   try {
-    const data = await req.json();
+    const { id } = await params;
+    const body = await req.json();
+
+    const data: Record<string, any> = {};
+    if (typeof body.isApproved === "boolean") {
+      data.isApproved = body.isApproved;
+    }
+    if (body.adminReply !== undefined) {
+      data.adminReply =
+        typeof body.adminReply === "string" && body.adminReply.trim().length > 0
+          ? body.adminReply.trim()
+          : null;
+    }
+
     const review = await prisma.review.update({
-      where: { id: (await params).id },
-      data
+      where: { id },
+      data,
+      include: {
+        product: true,
+      },
     });
     return NextResponse.json(review);
   } catch (error: any) {
@@ -28,16 +45,19 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-  if (!session || (session.user as any)?.role !== "SUPER_ADMIN") {
+  const role = (session?.user as any)?.role;
+  if (!session || (role !== "SUPER_ADMIN" && role !== "ADMIN")) {
     return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
   }
 
   try {
+    const { id } = await params;
     await prisma.review.delete({
-      where: { id: (await params).id }
+      where: { id },
     });
     return NextResponse.json({ success: true });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
+
