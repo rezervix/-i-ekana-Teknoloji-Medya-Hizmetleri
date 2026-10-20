@@ -10,6 +10,7 @@ import CartDrawer from "@/components/CartDrawer";
 import CookieConsent from "@/components/ui/CookieConsent";
 import MicrosoftClarity from "@/components/analytics/MicrosoftClarity";
 import CartRecoveryListener from "@/components/analytics/CartRecoveryListener";
+import CustomerSupportChat from "@/components/chat/CustomerSupportChat";
 
 const inter = localFont({
   src: '../fonts/Inter-Variable.woff2',
@@ -105,6 +106,7 @@ export default function RootLayout({
           <CartDrawer />
           <CookieConsent />
           <MicrosoftClarity />
+          <CustomerSupportChat />
         </NextAuthProvider>
 
         <script type="module" async src="https://static.rocket.new/rocket-web.js?_cfg=https%3A%2F%2Fcicekana2069back.builtwithrocket.new&_be=https%3A%2F%2Fappanalytics.rocket.new&_v=0.1.17" />
