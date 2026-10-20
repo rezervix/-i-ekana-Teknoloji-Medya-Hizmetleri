@@ -13,7 +13,6 @@ import {
 } from 'lucide-react';
 import { useCartStore } from '@/store/useCartStore';
 import { toast } from 'sonner';
-import AISalesAssistantWidget from '../components/AISalesAssistantWidget';
 
 type BillingPeriod = 'monthly' | 'yearly';
 
@@ -227,15 +226,24 @@ export default function MicrosoftCallCenterAIContent() {
               <span>Paketleri & Dövizli Fiyatları Gör</span>
               <ArrowRight size={18} />
             </button>
-            <a
-              href="https://wa.me/905303412156?text=Merhaba,%20Microsoft%20Call%20Center%20AI%20hakkında%20canlı%20sesli%20demo%20almak%20istiyorum."
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl border-2 border-emerald-600 bg-white px-6 text-base font-bold text-emerald-700 shadow-sm transition hover:bg-emerald-50 active:scale-[0.98]"
+            <button
+              type="button"
+              onClick={() => {
+                if (typeof window !== 'undefined') {
+                  window.dispatchEvent(
+                    new CustomEvent('cicekana:open-chat', {
+                      detail: {
+                        message: 'Merhaba, Microsoft Call Center AI hakkında canlı sesli demo ve bilgi almak istiyorum.',
+                      },
+                    })
+                  );
+                }
+              }}
+              className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl border-2 border-corp-teal bg-white px-6 text-base font-bold text-corp-teal shadow-sm transition hover:bg-corp-teal/5 active:scale-[0.98]"
             >
-              <MessageCircle size={18} />
+              <Headphones size={18} />
               <span>Canlı Sesli Demo İste</span>
-            </a>
+            </button>
           </div>
         </div>
 
@@ -747,26 +755,26 @@ export default function MicrosoftCallCenterAIContent() {
             <span>Hemen Tanışın</span>
             <Headphones size={18} />
           </button>
-          <a
-            href="https://wa.me/905303412156?text=Merhaba,%20Microsoft%20Call%20Center%20AI%20hakkında%20detaylı%20bilgi%20ve%20kurulum%20danışmanlığı%20almak%20istiyorum."
-            target="_blank"
-            rel="noopener noreferrer"
+          <button
+            type="button"
+            onClick={() => {
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(
+                  new CustomEvent('cicekana:open-chat', {
+                    detail: {
+                      message: 'Merhaba, Microsoft Call Center AI hakkında kurulum danışmanlığı ve detaylı bilgi almak istiyorum.',
+                    },
+                  })
+                );
+              }
+            }}
             className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl border border-white/40 bg-white/10 px-6 text-sm font-bold text-white transition hover:bg-white/20 active:scale-[0.98]"
           >
-            <MessageCircle size={18} />
-            <span>WhatsApp ile Danışın</span>
-          </a>
+            <Headphones size={18} />
+            <span>Müşteri Hizmetlerine Danışın</span>
+          </button>
         </div>
       </section>
-
-      {/* CANLI ZİYARETÇİ ETKİLEŞİMİ: AI Satış Asistanı (Scroll derinliği & zamanlayıcı tetiklemeli) */}
-      <AISalesAssistantWidget
-        planName="Microsoft Call Center AI"
-        planSlug="microsoft-call-center-ai"
-        whatsappNumber="905303412156"
-        whatsappTemplate="Merhaba, Microsoft Call Center AI hakkında detaylı bilgi, sesli demo ve kurulum danışmanlığı almak istiyorum."
-        startingPriceFormatted="₺7.000 / Ay"
-      />
     </div>
   );
 }

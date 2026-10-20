@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ChevronDown, MessageCircle, ArrowRight } from 'lucide-react';
+import { ChevronDown, MessageCircle, ArrowRight, Headphones } from 'lucide-react';
 import { getPlanIcon } from '@/lib/plan-icons';
 
 type Stat = { value: string; label: string };
@@ -346,33 +346,41 @@ export default function StorySections({
         </section>
       ) : null}
 
-      {/* Demo & WhatsApp CTA */}
-      {sectionVisibility.whatsappCta !== false && waUrl ? (
-        <section className="border-t border-border-light bg-gradient-to-r from-emerald-50 to-teal-50 px-4 py-12 sm:px-6 lg:px-8">
-          <div className="mx-auto flex max-w-8xl flex-col items-center justify-between gap-6 rounded-3xl border border-emerald-200/60 bg-white/80 p-8 shadow-card backdrop-blur-sm md:flex-row">
+      {/* Demo & Canlı Destek CTA */}
+      {sectionVisibility.whatsappCta !== false ? (
+        <section className="border-t border-border-light bg-gradient-to-r from-teal-50 to-emerald-50 px-4 py-12 sm:px-6 lg:px-8">
+          <div className="mx-auto flex max-w-8xl flex-col items-center justify-between gap-6 rounded-3xl border border-corp-teal/20 bg-white/90 p-8 shadow-card backdrop-blur-sm md:flex-row">
             <div className="flex items-center gap-4">
-              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-emerald-500 text-white shadow-md">
-                <MessageCircle size={28} />
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-corp-teal text-white shadow-md">
+                <Headphones size={28} />
               </div>
               <div>
                 <h3 className="text-xl font-bold text-corp-teal">
                   Canlı Demo veya Sorularınız mı Var?
                 </h3>
                 <p className="mt-1 text-sm text-corp-gray">
-                  Uzman ekibimizle WhatsApp üzerinden anında görüşün, sistemin çalışma demosunu
-                  birlikte inceleyelim.
+                  Müşteri hizmetleri asistanımızla anında görüşün, sorularınızı yanıtlayalım ve canlı demo planlayalım.
                 </p>
               </div>
             </div>
             <div className="flex shrink-0 flex-wrap gap-3">
-              <Link
-                href={waUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-6 text-sm font-bold text-white shadow-sm transition hover:bg-emerald-700"
+              <button
+                type="button"
+                onClick={() => {
+                  if (typeof window !== 'undefined') {
+                    window.dispatchEvent(
+                      new CustomEvent('cicekana:open-chat', {
+                        detail: {
+                          message: `Merhaba, ${name} hakkında detaylı bilgi ve canlı demo almak istiyorum.`,
+                        },
+                      })
+                    );
+                  }
+                }}
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-corp-teal px-6 text-sm font-bold text-white shadow-sm transition hover:bg-corp-teal/90 active:scale-[0.98]"
               >
-                <MessageCircle size={18} /> WhatsApp ile Görüşün <ArrowRight size={16} />
-              </Link>
+                <Headphones size={18} /> Canlı Destek ile Görüşün <ArrowRight size={16} />
+              </button>
             </div>
           </div>
         </section>

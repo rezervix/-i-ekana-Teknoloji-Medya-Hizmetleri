@@ -15,6 +15,7 @@ import {
   ChevronRight,
   Headphones,
 } from "lucide-react";
+import Logo from "@/components/Logo";
 
 interface ChatMessageItem {
   id: string;
@@ -137,7 +138,7 @@ export default function CustomerSupportChat() {
                 senderType: "BOT",
                 senderName: "Çiçekana Destek",
                 content:
-                  "Merhaba! Size doğru ürünü veya hizmeti bulmanızda yardımcı olabiliriz. Paketler, fiyatlar ve özellikler hakkında sorularınızı yanıtlayabiliriz.",
+                  "Merhaba! Çiçekana Tech Media'ya hoş geldiniz. Ürünlerimiz, otomasyon paketlerimiz, web tasarımı, e-ticaret veya kurumsal çözümlerimiz hakkında sorularınızı yanıtlayabilirim. Size nasıl yardımcı olabilirim?",
                 createdAt: new Date().toISOString(),
               },
             ]);
@@ -157,6 +158,21 @@ export default function CustomerSupportChat() {
       return () => clearTimeout(timer);
     }
   }, [isAdmin, pathname]);
+
+  // Global listener for opening chat from CTA buttons across the website
+  useEffect(() => {
+    const handleOpenChat = (e: any) => {
+      setIsOpen(true);
+      setShowTeaser(false);
+      const customMsg = e?.detail?.message;
+      if (customMsg) {
+        setInputValue(customMsg);
+        setTimeout(() => inputRef.current?.focus(), 250);
+      }
+    };
+    window.addEventListener("cicekana:open-chat", handleOpenChat);
+    return () => window.removeEventListener("cicekana:open-chat", handleOpenChat);
+  }, []);
 
   // Live polling: Check for new agent replies every 6s when chat is open
   useEffect(() => {
@@ -223,33 +239,53 @@ export default function CustomerSupportChat() {
     return null;
   }
 
-  // Page-context aware quick prompts
+  // Page-context aware quick prompts (advisory suggestions that also offer general topics)
   const getContextPrompts = (): string[] => {
-    if (pathname?.includes("/products/midvem")) {
+    if (pathname?.includes("call-center")) {
       return [
-        "Midvem WhatsApp desteği nasıl çalışır?",
-        "Paket fiyatları ve özellikleri neler?",
-        "Canlı demo talep etmek istiyorum",
+        "Call Center AI özellikleri neler?",
+        "Santral kurulumu nasıl yapılır?",
+        "Web tasarımı da yapıyor musunuz?",
+        "Yetkiliyle görüşmek istiyorum",
       ];
     }
-    if (pathname?.includes("/products/sungur")) {
+    if (pathname?.includes("midvem")) {
       return [
-        "Sungur AI hangi görevleri yapabilir?",
-        "Sungur kurulumu ne kadar sürer?",
-        "Özel teklif alabilir miyim?",
+        "Midvem paket fiyatları neler?",
+        "Shopify siparişlerini görebilir miyim?",
+        "Küçük esnafa uygun paket var mı?",
+        "Diğer hizmetleriniz neler?",
       ];
     }
-    if (pathname?.includes("/magaza")) {
+    if (pathname?.includes("ai-automation")) {
       return [
-        "Baskı ürünlerinde kargo ücretsiz mi?",
-        "Kartvizit ve el ilanı teslim süresi",
-        "Toplu siparişlerde özel indirim var mı?",
+        "Yapay zekâ paketleri ve fiyatlar",
+        "Küçük işletmeye uygun çözüm var mı?",
+        "Web sitesi ve e-ticaret çözümleri",
+        "Müşteri temsilcisine bağlan",
+      ];
+    }
+    if (pathname?.includes("e-ticaret")) {
+      return [
+        "ikas e-ticaret altyapısı nedir?",
+        "Shopify ve sepet kurtarma desteği",
+        "E-ticaret paket fiyatları",
+        "Yetkiliyle görüşmek istiyorum",
+      ];
+    }
+    if (pathname?.includes("magaza")) {
+      return [
+        "Baskı ürünlerinde kargo ve teslimat",
+        "Toplu siparişlerde özel indirim",
+        "E-ticaret çözümleriniz neler?",
+        "Yetkiliyle görüşmek istiyorum",
       ];
     }
     return [
-      "Paketler ve fiyatlar",
-      "Bana uygun hizmeti bul",
-      "Bir yetkiliyle görüş",
+      "Sunduğunuz hizmetler neler?",
+      "Midvem ve AI paket fiyatları",
+      "Web sitesi tasarımı yapıyor musunuz?",
+      "Yetkiliyle görüşmek istiyorum",
     ];
   };
 
@@ -435,18 +471,18 @@ export default function CustomerSupportChat() {
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3.5 bg-corp-charcoal text-white border-b border-corp-border/20 flex-shrink-0">
             <div className="flex items-center gap-3">
-              <div className="relative w-9 h-9 rounded-full bg-corp-teal/20 border border-corp-teal/40 flex items-center justify-center">
-                <span className="font-display font-bold text-corp-teal text-sm">Ç</span>
-                <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-400 border-2 border-corp-charcoal rounded-full" />
+              <div className="relative w-9 h-9 rounded-xl bg-white p-1 shadow-xs border border-corp-border/30 flex items-center justify-center flex-shrink-0">
+                <Logo width={26} height={26} className="object-contain" />
+                <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-400 border-2 border-corp-charcoal rounded-full" />
               </div>
               <div>
                 <h3
                   id="chat-title"
-                  className="font-display text-sm font-semibold tracking-wide text-white"
+                  className="font-display text-sm font-semibold tracking-wide text-white leading-tight"
                 >
                   Çiçekana Müşteri Hizmetleri
                 </h3>
-                <div className="flex items-center gap-1.5 text-[11px] text-zinc-400">
+                <div className="flex items-center gap-1.5 text-[11px] text-zinc-400 mt-0.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                   <span>Çevrimiçi Destek Ekibi</span>
                 </div>

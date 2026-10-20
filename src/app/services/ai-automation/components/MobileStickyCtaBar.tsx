@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { ArrowRight, MessageCircle, Sparkles } from 'lucide-react';
+import { ArrowRight, Headphones, Sparkles } from 'lucide-react';
 
 interface MobileStickyCtaBarProps {
   planName: string;
@@ -65,17 +65,24 @@ export default function MobileStickyCtaBar({
 
         {/* Sağ Taraf: Aksiyon Düğmeleri */}
         <div className="flex shrink-0 items-center gap-2">
-          {whatsappUrl && (
-            <a
-              href={whatsappUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="WhatsApp Canlı Demo"
-              className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-emerald-500 bg-emerald-50 text-emerald-700 transition active:scale-95"
-            >
-              <MessageCircle size={20} aria-hidden="true" />
-            </a>
-          )}
+          <button
+            type="button"
+            onClick={() => {
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(
+                  new CustomEvent('cicekana:open-chat', {
+                    detail: {
+                      message: `Merhaba, ${planName} hakkında bilgi ve canlı demo almak istiyorum.`,
+                    },
+                  })
+                );
+              }
+            }}
+            aria-label="Müşteri Hizmetleri Canlı Destek"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-corp-teal/30 bg-corp-teal/10 text-corp-teal transition active:scale-95"
+          >
+            <Headphones size={20} aria-hidden="true" />
+          </button>
 
           {onSelectRecommendedTier && recommendedTierName ? (
             <button

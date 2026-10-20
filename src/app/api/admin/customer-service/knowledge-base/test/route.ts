@@ -32,6 +32,11 @@ export async function POST(req: NextRequest) {
 
     let generatedReply = "";
     let willHandover = false;
+    let aiErrorDiagnosis: {
+      code: string;
+      message: string;
+      status?: number;
+    } | null = null;
 
     if (!verification.sufficient) {
       willHandover = true;
@@ -66,15 +71,26 @@ ${productSnippets || "Ürün yok."}
 Soru: "${trimmedQ}"
 Yanıt:`;
 
+      aiErrorDiagnosis = null;
+
       try {
         const aiRes = await generateAIText(promptContent, {
           systemInstruction,
           temperature: 0.2,
-          maxOutputTokens: 300,
+          maxOutputTokens: 350,
         });
         generatedReply = aiRes.text;
       } catch (err: any) {
-        generatedReply = "[Yapay Zeka Hatası / Fallback]: " + (err?.message || "Yanıt üretilemedi.");
+        aiErrorDiagnosis = {
+          code: err?.code || "AI_GENERATION_FAILED",
+          message: err?.message || "Yapay zekâ yanıtı üretilirken bir hata oluştu.",
+          status: err?.statusCode || (err?.message?.includes("429") ? 429 : 500),
+        };
+        // The customer-facing reply is NEVER the technical error string
+        generatedReply =
+          err?.userFacingMessage ||
+          "Bu konuda size yanlış bilgi vermek istemem. Sorunuzu ilgili uzman ekibimize iletebiliriz. Size ulaşabilmemiz için telefon numaranızı bırakabilir misiniz?";
+        willHandover = true;
       }
     }
 
@@ -98,6 +114,8 @@ Yanıt:`;
         willHandover,
       },
       generatedReply,
+      aiErrorDiagnosis,
+      isFallback: !!aiErrorDiagnosis,
     });
   } catch (err: any) {
     console.error("[AdminKnowledgeTestBenchAPI] Error:", err);

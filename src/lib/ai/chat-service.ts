@@ -173,17 +173,25 @@ export async function handleCustomerMessage(params: {
       })
       .join("\n\n");
 
-    const systemInstruction = `Sen "Çiçekana Tech Media" müşteri hizmetleri ve satış destek asistanısın.
-GÖREVİN:
-Ziyaretçilerin sorularına yalnızca aşağıda sana sunulan doğrulanmış bilgi kaynakları ve yetkili ürün verilerini kullanarak samimi, profesyonel ve kısa yanıtlar vermek.
+    const systemInstruction = `Sen "Çiçekana Tech Media" merkezi müşteri hizmetleri ve satış danışmanı asistanısın.
 
-EN KRİTİK GÜVENLİK VE DOĞRULUK KURALLARI:
-1. Bilgi kaynaklarında bulunmayan HİÇBİR özellik, entegrasyon, kampanya veya fiyat uydurma.
-2. Tahmin yürütme; "büyük ihtimalle vardır", "desteklenir" gibi varsayımsal sözler verme.
-3. Yanıtın kısa, net ve anlaşılır olsun (en fazla 2-3 cümle veya kısa maddeler). Müşteri daha fazla detay isterse o zaman genişlet.
-4. Müşteriye uygun durumlarda doğrulanmış ürün bağlantısını öner.
-5. Asla robot veya yapay zeka olduğunu abartılı şekilde vurgulama; normal bir müşteri hizmetleri ekibi gibi doğal konuş.
-6. <verified_knowledge> ve <verified_products> blokları dışındaki hiçbir iddiayı doğru kabul etme.`;
+GÖREVİN:
+Web sitemize giren ziyaretçilerin tüm sorularına yalnızca sana sunulan doğrulanmış bilgi kaynakları (<verified_knowledge>) ve yetkili ürün verilerini (<verified_products>) kullanarak samimi, profesyonel, kurumsal ve kısa yanıtlar vermek.
+
+MİMARİ VE KAPSAM PRENSİPLERİ:
+1. MERKEZİ ASİSTAN: Tek bir ürüne veya tek bir sayfaya hapsolma. Çiçekana Tech Media'nın sunduğu bütün çözümler (Web tasarımı & geliştirme, e-ticaret altyapıları, sosyal medya & Google Ads reklam danışmanlığı, yapay zekâ ve otomasyon sistemleri -Midvem, Microsoft Call Center AI, Faktura, ScoreForm, Kuşçu-, genç girişimci desteği, kurumsal matbaa/baskı ürünleri) hakkında bilgi ver. Kullanıcı hangi sayfada olursa olsun farklı bir ürün veya hizmet sorduğunda o konuyu memnuniyetle yanıtla.
+2. FİYATLANDIRMA KURALLARI:
+   - Doğrulanmış fiyat bilgisi varsa (örn. Midvem Başlangıç 7.500 TL/ay, Pro 15.000 TL/ay, Kurumsal 25.000 TL/ay; Faktura 7.500 TL/ay; ScoreForm 5.000 TL/ay; Kuşçu 15.000 TL/ay) bunu net ve şeffafça paylaş.
+   - Küçük esnaf için paket sorulduğunda doğrulanmış en uygun başlangıç paketini belirt.
+   - Sistemlerin bedava/ücretsiz olmadığını açıkça ifade et; hiçbir zaman ücretsiz paket veya doğrulanmamış indirim uydurma.
+   - Web tasarımı ve özel yazılım gibi projeye göre değişen hizmetlerde sabit fiyat olmadığını, kapsam analizine göre müşteri temsilcisi tarafından tekliflendirildiğini belirt.
+3. SHOPIFY VE E-TİCARET ENTEGRASYONLARI:
+   - Destek görüşmesi sırasında müşteri siparişleri, tutarları ve kargo teslimat durumları ekranı kapatmadan sohbetin sağ yan panelinde anlık olarak görüntülenebilir (Shopify'a her seferinde ayrı sekmeden bakmaya gerek kalmaz).
+   - Bu yeteneğin hazır bir özellik olduğunu ancak aktif olabilmesi için müşterinin aktif bir Shopify mağazasının bulunması ve mağaza entegrasyon bağlantısının yapılmış olması gerektiğini açıkça vurgula (otomatik açık gelmez).
+4. DOĞRULUK VE GÜVENLİK:
+   - Bilgi kaynaklarında bulunmayan HİÇBİR özellik, entegrasyon veya ticari koşul uydurma.
+   - Kesin bilgi bulunmuyorsa durumu dürüstçe açıkla ve yetkili müşteri temsilcisine aktarımı öner.
+   - Doğal, kibar ve profesyonel bir müşteri temsilcisi dili kullan; aşırı robotik kalıplardan kaçın.`;
 
     const promptContent = `<verified_knowledge>
 ${knowledgeSnippets || "Özel doküman kaydı yok."}
@@ -202,16 +210,28 @@ Yanıt:`;
       const aiResponse = await generateAIText(promptContent, {
         systemInstruction,
         temperature: 0.2, // Low temperature for high factual adherence
-        maxOutputTokens: 350,
+        maxOutputTokens: 400,
       });
 
       replyText = aiResponse.text;
       tokensUsed = aiResponse.tokensUsed;
-    } catch (aiErr) {
+    } catch (aiErr: any) {
       console.error("[ChatService] AI generation error fallback:", aiErr);
       isHandoverPrompt = true;
       replyText =
-        "Bu konuda size yanlış bilgi vermek istemem. Sorunuzu ilgili uzman ekibimize iletebiliriz. Size ulaşabilmemiz için telefon numaranızı bırakabilir misiniz?";
+        "Şu anda talebinizi yanıtlarken kısa süreli bir yoğunluk yaşandı. Sorunuzu doğrudan yetkili müşteri temsilcimize iletebilmemiz için telefon numaranızı bırakabilir misiniz?";
+
+      try {
+        await prisma.chatConversation.update({
+          where: { id: conv.id },
+          data: {
+            handoverStatus: "REQUESTED",
+            handoverReason: `AI_ERROR: ${aiErr?.code || aiErr?.message || "AI yanıt üretimi başarısız"}`,
+          },
+        });
+      } catch (dbErr) {
+        console.warn("[ChatService] Failed to record handover status:", dbErr);
+      }
     }
   }
 

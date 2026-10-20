@@ -517,6 +517,21 @@ export default function AdminKnowledgeBasePage() {
                 </div>
               </div>
 
+              {/* AI Provider Error Diagnosis (Admin Only) */}
+              {testResult.aiErrorDiagnosis && (
+                <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-900 space-y-1">
+                  <div className="font-bold flex items-center gap-1.5 text-rose-700">
+                    <AlertCircle className="w-4 h-4 text-rose-600" />
+                    Yapay Zekâ Sağlayıcı Teşhis Logu: {testResult.aiErrorDiagnosis.code}
+                    {testResult.aiErrorDiagnosis.status ? ` (${testResult.aiErrorDiagnosis.status})` : ""}
+                  </div>
+                  <p className="text-[11px] text-rose-800">{testResult.aiErrorDiagnosis.message}</p>
+                  <p className="text-[10px] text-rose-600 font-medium">
+                    * Not: Son kullanıcıya bu teknik hata yığını gösterilmez; güvenli müşteri destek aktarımı uygulanır.
+                  </p>
+                </div>
+              )}
+
               {/* Generated Reply Preview */}
               <div>
                 <h4 className="text-xs font-bold text-corp-charcoal mb-1">

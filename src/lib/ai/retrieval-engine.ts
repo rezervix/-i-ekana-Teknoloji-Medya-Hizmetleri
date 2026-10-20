@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { formatTryPrice } from "@/lib/plan-pricing";
 import { extractKeywords } from "./doc-parser";
 
 export interface RetrievedChunk {
@@ -47,7 +48,71 @@ function normalizeQuery(text: string): string {
 }
 
 /**
- * Retrieves relevant knowledge chunks from ACTIVE documents and verified DB product data.
+/**
+ * Safely resolves and verifies page context from URL against database records.
+ */
+export async function resolveVerifiedContextFromUrl(pageUrl?: string): Promise<{
+  productId?: string;
+  productType?: "plan" | "product";
+  pageName?: string;
+} | null> {
+  if (!pageUrl) return null;
+  try {
+    let pathname = "";
+    if (pageUrl.startsWith("http://") || pageUrl.startsWith("https://")) {
+      pathname = new URL(pageUrl).pathname;
+    } else {
+      pathname = pageUrl.split("?")[0].split("#")[0];
+    }
+
+    if (pathname.includes("/services/ai-automation/microsoft-call-center-ai")) {
+      return {
+        productId: "microsoft-call-center-ai",
+        productType: "plan",
+        pageName: "Microsoft Call Center AI",
+      };
+    }
+
+    const aiPlanMatch = pathname.match(/\/services\/ai-automation\/([^/?#]+)/);
+    if (aiPlanMatch) {
+      const slug = aiPlanMatch[1];
+      const plan = await prisma.plan.findUnique({
+        where: { slug },
+        select: { id: true, name: true },
+      });
+      if (plan) {
+        return {
+          productId: plan.id,
+          productType: "plan",
+          pageName: plan.name,
+        };
+      }
+    }
+
+    const storeMatch = pathname.match(/\/magaza\/urun\/([^/?#]+)/);
+    if (storeMatch) {
+      const slug = storeMatch[1];
+      const product = await prisma.product.findUnique({
+        where: { slug },
+        select: { id: true, name: true },
+      });
+      if (product) {
+        return {
+          productId: product.id,
+          productType: "product",
+          pageName: product.name,
+        };
+      }
+    }
+  } catch (err) {
+    console.warn("[RetrievalEngine] Context resolution error:", err);
+  }
+  return null;
+}
+
+/**
+ * Retrieves relevant knowledge chunks from ALL ACTIVE documents and verified DB product data.
+ * Page context is used as a relevance booster, but never restricts the search pool.
  */
 export async function retrieveKnowledge(
   query: string,
@@ -56,16 +121,12 @@ export async function retrieveKnowledge(
   const queryKeywords = extractKeywords(query);
   const normalizedQ = normalizeQuery(query);
 
-  // 1. Fetch only ACTIVE documents
-  const whereDoc: any = {
-    status: "ACTIVE",
-  };
-  if (targetProductId) {
-    whereDoc.productId = targetProductId;
-  }
-
+  // 1. Fetch ALL ACTIVE documents across the entire knowledge base
+  // Never restrict search to single product; chatbot serves whole website
   const activeDocs = await prisma.knowledgeDocument.findMany({
-    where: whereDoc,
+    where: {
+      status: "ACTIVE",
+    },
     select: {
       id: true,
       title: true,
@@ -107,9 +168,9 @@ export async function retrieveKnowledge(
         score += 10;
       }
 
-      // C. Target product alignment bonus
+      // C. Target product alignment bonus (helps prioritize current page without locking)
       if (targetProductId && doc.productId === targetProductId) {
-        score += 5;
+        score += 4;
       }
 
       if (score > 0) {
@@ -135,6 +196,13 @@ export async function retrieveKnowledge(
   const verifiedProducts: VerifiedProductInfo[] = [];
 
   try {
+    const isGeneralCatalogQuery =
+      normalizedQ.includes("hizmet") ||
+      normalizedQ.includes("urun") ||
+      normalizedQ.includes("neler") ||
+      normalizedQ.includes("cozum") ||
+      normalizedQ.includes("paket");
+
     // Check SaaS / AI Plans
     const plans = await prisma.plan.findMany({
       where: { isActive: true },
@@ -157,7 +225,8 @@ export async function retrieveKnowledge(
         normalizedQ.includes(planNameNorm) ||
         planNameNorm.includes(normalizedQ) ||
         planWords.some((pw) => normalizedQ.includes(pw)) ||
-        (targetProductId && p.id === targetProductId);
+        (targetProductId && p.id === targetProductId) ||
+        (isGeneralCatalogQuery && verifiedProducts.length < 3);
 
       if (isMatch) {
         verifiedProducts.push({
@@ -166,15 +235,37 @@ export async function retrieveKnowledge(
           slug: p.slug,
           type: "plan",
           description: p.shortDescription,
-          priceFormatted: `${p.priceMonthly.toLocaleString("tr-TR")} TL / ay`,
+          priceFormatted: `${formatTryPrice(p.priceMonthly)} / ay`,
           tiers: p.tiers.map((t) => ({
             name: t.name,
-            priceFormatted: `${t.priceMonthly.toLocaleString("tr-TR")} TL / ay`,
+            priceFormatted: `${formatTryPrice(t.priceMonthly)} / ay`,
             features: Array.isArray(t.features) ? (t.features as string[]) : [],
           })),
           url: `/services/ai-automation/${p.slug}`,
         });
       }
+    }
+
+    // Static / Featured Solution: Microsoft Call Center AI
+    const callCenterKeywords = ["call center", "cagri merkezi", "microsoft", "sesli ai", "santral"];
+    const isCallCenterMatch =
+      callCenterKeywords.some((ckw) => normalizedQ.includes(ckw)) ||
+      (targetProductId && (targetProductId === "microsoft-call-center-ai" || targetProductId.includes("call-center")));
+
+    if (isCallCenterMatch) {
+      verifiedProducts.push({
+        id: "microsoft-call-center-ai",
+        name: "Microsoft Call Center AI",
+        slug: "microsoft-call-center-ai",
+        type: "plan",
+        description: "Müşterilerinizin telefonlarını 7/24 bekletmeden karşılayan, 50+ dili anlayan ve insan doğallığında akıcı konuşan kurumsal sesli yapay zekâ santrali.",
+        priceFormatted: "Dinamik Kur / Kurumsal İhtiyaca Göre",
+        tiers: [
+          { name: "Başlangıç", priceFormatted: "$149 / ay", features: ["1 Eşzamanlı Hat", "Temel Sesli AI", "Mesai Saatleri Dışı"] },
+          { name: "Orta Ölçek", priceFormatted: "$399 / ay", features: ["3 Eşzamanlı Hat", "Gelişmiş Sesli AI", "7/24 Kesintisiz"] },
+        ],
+        url: "/services/ai-automation/microsoft-call-center-ai",
+      });
     }
 
     // Check E-Commerce / Store Products
@@ -203,14 +294,14 @@ export async function retrieveKnowledge(
         prodWords.some((pw) => normalizedQ.includes(pw)) ||
         (targetProductId && prod.id === targetProductId);
 
-      if (isProdMatch) {
+      if (isProdMatch && !verifiedProducts.some((vp) => vp.id === prod.id)) {
         verifiedProducts.push({
           id: prod.id,
           name: prod.name,
           slug: prod.slug,
           type: "product",
           description: prod.description,
-          priceFormatted: `${prod.price.toLocaleString("tr-TR")} TL`,
+          priceFormatted: formatTryPrice(prod.price),
           url: `/magaza/urun/${prod.slug}`,
         });
       }

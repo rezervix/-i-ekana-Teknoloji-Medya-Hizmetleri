@@ -74,19 +74,6 @@ export default function NewAIAutomationList({ plans }: { plans: PlanItem[] }) {
     }
   }, [plans]);
 
-  const handleWhatsAppConsultation = (source: string) => {
-    trackFunnelEvent({
-      event: 'whatsapp_click',
-      metadata: { source },
-    });
-  };
-
-  const defaultWaUrl =
-    'https://wa.me/905303412156?text=' +
-    encodeURIComponent(
-      'Merhaba, Çiçekana AI Otomasyon çözümleri hakkında bilgi ve danışmanlık almak istiyorum.'
-    );
-
   return (
     <div className="min-h-screen bg-bg-soft text-corp-charcoal overflow-x-clip selection:bg-corp-coral-light selection:text-corp-coral">
       <Header />
@@ -104,10 +91,6 @@ export default function NewAIAutomationList({ plans }: { plans: PlanItem[] }) {
 
         {/* Hero Bölümü: Değer Önerisi & Kurumsal Güvence */}
         <header className="mb-10 lg:mb-14">
-          <div className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-corp-border bg-white px-3.5 py-1 text-xs font-bold uppercase tracking-wider text-corp-teal shadow-xs">
-            <Sparkles size={14} className="text-corp-coral" aria-hidden="true" />
-            <span>Yapay Zekâ ve Otomasyon Çözümleri</span>
-          </div>
           <h1 className="font-display text-3xl font-extrabold tracking-tight text-corp-teal sm:text-4xl md:text-5xl lg:text-6xl leading-[1.15]">
             İşletmenizi 7/24 Kesintisiz Büyüten Kurumsal AI Sistemleri
           </h1>
@@ -221,16 +204,24 @@ export default function NewAIAutomationList({ plans }: { plans: PlanItem[] }) {
                     <span>Çözümü & Paketleri İncele</span>
                     <ArrowRight size={15} />
                   </Link>
-                  <a
-                    href="https://wa.me/905303412156?text=Merhaba,%20Microsoft%20Call%20Center%20AI%20hakkında%20canlı%20demo%20almak%20istiyorum."
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={() => handleWhatsAppConsultation('card_call_center_demo')}
-                    className="inline-flex min-h-[40px] w-full items-center justify-center gap-1.5 rounded-xl border border-emerald-500 bg-emerald-50/50 px-3 text-xs font-bold text-emerald-800 transition hover:bg-emerald-100/60"
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (typeof window !== 'undefined') {
+                        window.dispatchEvent(
+                          new CustomEvent('cicekana:open-chat', {
+                            detail: {
+                              message: 'Merhaba, Microsoft Call Center AI hakkında canlı demo ve bilgi almak istiyorum.',
+                            },
+                          })
+                        );
+                      }
+                    }}
+                    className="inline-flex min-h-[40px] w-full items-center justify-center gap-1.5 rounded-xl border border-corp-teal/30 bg-corp-teal/5 px-3 text-xs font-bold text-corp-teal transition hover:bg-corp-teal/10 active:scale-[0.98]"
                   >
-                    <MessageCircle size={15} />
-                    <span>WhatsApp Canlı Demo İste</span>
-                  </a>
+                    <Headphones size={15} />
+                    <span>Canlı Demo İste</span>
+                  </button>
                 </div>
               </article>
             )}
@@ -241,9 +232,6 @@ export default function NewAIAutomationList({ plans }: { plans: PlanItem[] }) {
                 plan.cardSummary?.trim() || plan.shortDescription?.trim() || plan.name;
               const startingPriceText = formatStartingPrice(plan);
               const displayImage = plan.heroMockupUrl || plan.imageUrl;
-              const cleanWaText = encodeURIComponent(
-                `Merhaba, ${plan.name} hakkında detaylı bilgi ve canlı demo almak istiyorum.`
-              );
 
               return (
                 <article
@@ -311,58 +299,28 @@ export default function NewAIAutomationList({ plans }: { plans: PlanItem[] }) {
                       <span>Paketleri & Özellikleri Gör</span>
                       <ArrowRight size={15} />
                     </Link>
-                    <a
-                      href={`https://wa.me/905303412156?text=${cleanWaText}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={() => handleWhatsAppConsultation(`card_${plan.slug}_demo`)}
-                      className="inline-flex min-h-[40px] w-full items-center justify-center gap-1.5 rounded-xl border border-emerald-500 bg-emerald-50/50 px-3 text-xs font-bold text-emerald-800 transition hover:bg-emerald-100/60"
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (typeof window !== 'undefined') {
+                          window.dispatchEvent(
+                            new CustomEvent('cicekana:open-chat', {
+                              detail: {
+                                message: `Merhaba, ${plan.name} hakkında detaylı bilgi ve canlı demo almak istiyorum.`,
+                              },
+                            })
+                          );
+                        }
+                      }}
+                      className="inline-flex min-h-[40px] w-full items-center justify-center gap-1.5 rounded-xl border border-corp-teal/30 bg-corp-teal/5 px-3 text-xs font-bold text-corp-teal transition hover:bg-corp-teal/10 active:scale-[0.98]"
                     >
-                      <MessageCircle size={15} />
-                      <span>WhatsApp Canlı Demo</span>
-                    </a>
+                      <Headphones size={15} />
+                      <span>Canlı Demo İste</span>
+                    </button>
                   </div>
                 </article>
               );
             })}
-          </div>
-        </section>
-
-        {/* Alt Çağrı & Danışmanlık Bandı */}
-        <section
-          aria-label="Özel AI Danışmanlık ve Destek"
-          className="mt-16 sm:mt-24 rounded-3xl bg-gradient-corp px-6 py-10 text-white shadow-luxury sm:px-10 lg:flex lg:items-center lg:justify-between lg:px-14"
-        >
-          <div className="max-w-2xl">
-            <span className="inline-block rounded-full bg-white/15 px-3 py-1 text-xs font-bold uppercase tracking-wider text-white">
-              Kurumsal Çözüm Danışmanlığı
-            </span>
-            <h2 className="mt-3 font-display text-2xl font-bold sm:text-3xl lg:text-4xl">
-              Hangi AI Çözümünün İşinize Uygun Olduğundan Emin Değil misiniz?
-            </h2>
-            <p className="mt-3 text-sm sm:text-base leading-relaxed text-white/80">
-              Uzman mühendislerimiz işletmenizin mevcut yazılımlarını, müşteri hacmini ve iş akışını
-              analiz ederek en yüksek yatırım getirisi (ROI) sağlayacak otomasyonu 15 dakikada
-              planlasın.
-            </p>
-          </div>
-          <div className="mt-6 lg:mt-0 flex shrink-0 flex-col sm:flex-row gap-3">
-            <a
-              href={defaultWaUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => handleWhatsAppConsultation('footer_consultation_wa')}
-              className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl bg-corp-coral px-6 text-sm font-bold text-white shadow-sm transition hover:bg-corp-coral/90 active:scale-[0.98]"
-            >
-              <MessageCircle size={18} />
-              <span>Ücretsiz Danışmanlık Al</span>
-            </a>
-            <Link
-              href="/contact"
-              className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-white/40 bg-white/10 px-6 text-sm font-bold text-white transition hover:bg-white/20 active:scale-[0.98]"
-            >
-              Bize Ulaşın
-            </Link>
           </div>
         </section>
       </main>
