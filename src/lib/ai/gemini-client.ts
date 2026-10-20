@@ -1,72 +1,36 @@
-import { GoogleGenAI } from "@google/genai";
+import {
+  executeDomainGeneration,
+  getDomainConfig,
+  AIGenerationOptions,
+} from "./core/ai-service-manager";
 
-/**
- * Server-side Gemini Client for Customer Support & Knowledge Base.
- * 
- * SECURITY:
- * - API Key is loaded strictly on the server from environment variables.
- * - Never sent or exposed to client-side.
- * - Model is configurable via GEMINI_CHAT_MODEL or GEMINI_MODEL.
- */
+export { getDomainConfig };
 
-const DEFAULT_MODEL = "gemini-2.5-flash";
+export interface GenerateTextOptions extends AIGenerationOptions {}
 
 export function getGeminiModel(): string {
-  return process.env.GEMINI_CHAT_MODEL || process.env.GEMINI_MODEL || DEFAULT_MODEL;
-}
-
-export function getGeminiClient(): GoogleGenAI {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    throw new Error("GEMINI_API_KEY_MISSING: Gemini API anahtarı sunucu ortamında tanımlanmamıştır.");
-  }
-  return new GoogleGenAI({ apiKey });
-}
-
-export interface GenerateTextOptions {
-  systemInstruction?: string;
-  temperature?: number;
-  maxOutputTokens?: number;
+  const cfg = getDomainConfig("SUPPORT");
+  return cfg.model;
 }
 
 /**
- * Executes a controlled generation with Gemini.
- * Catches errors safely and sanitizes internal stack traces before bubbling up.
+ * Executes customer support generation through the central AI service manager.
+ * Guarantees domain isolation, timeout handling, retry logic, and key redaction.
  */
 export async function generateAIText(
   prompt: string,
   options: GenerateTextOptions = {}
-): Promise<{ text: string; tokensUsed?: number }> {
-  const client = getGeminiClient();
-  const model = getGeminiModel();
-
+): Promise<{ text: string; tokensUsed?: number; latencyMs?: number }> {
   try {
-    const config: any = {};
-    if (options.temperature !== undefined) {
-      config.temperature = options.temperature;
-    }
-    if (options.maxOutputTokens !== undefined) {
-      config.maxOutputTokens = options.maxOutputTokens;
-    }
-    if (options.systemInstruction) {
-      config.systemInstruction = options.systemInstruction;
-    }
-
-    const response = await client.models.generateContent({
-      model,
-      contents: prompt,
-      config,
-    });
-
-    const text = response.text || "";
-    const tokensUsed = response.usageMetadata?.totalTokenCount;
-
+    const result = await executeDomainGeneration("SUPPORT", prompt, options);
     return {
-      text: text.trim(),
-      tokensUsed,
+      text: result.text,
+      tokensUsed: result.tokensUsed,
+      latencyMs: result.latencyMs,
     };
   } catch (err: any) {
-    console.error("[GeminiClient] AI generation error:", err?.message || err);
+    // Already redacted by executeDomainGeneration
+    console.error("[GeminiClient] Customer Support AI generation failed:", err?.message || err);
     throw new Error("AI_GENERATION_FAILED: Yapay zekâ yanıtı üretilirken bir hata oluştu.");
   }
 }

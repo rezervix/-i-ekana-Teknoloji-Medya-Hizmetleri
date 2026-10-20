@@ -133,6 +133,21 @@ export default function AdminChatsPage() {
       })
       .catch((err) => console.error("Detail error:", err))
       .finally(() => setDetailLoading(false));
+
+    // Auto-refresh messages every 8 seconds for real-time representative experience
+    const interval = setInterval(() => {
+      fetch(`/api/admin/customer-service/chats/${selectedId}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success && data.conversation) {
+            setMessages(data.conversation.messages || []);
+            setHandovers(data.conversation.handovers || []);
+          }
+        })
+        .catch(() => {});
+    }, 8000);
+
+    return () => clearInterval(interval);
   }, [selectedId]);
 
   const handleSendReply = async (e: React.FormEvent) => {

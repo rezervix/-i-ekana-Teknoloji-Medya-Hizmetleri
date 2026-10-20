@@ -1,11 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { GoogleGenAI } from "@google/genai";
-
-function getClient() {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error("GEMINI_API_KEY is not configured");
-  return new GoogleGenAI({ apiKey });
-}
+import { executeDomainGeneration } from "./ai/core/ai-service-manager";
 
 const TOPICS = [
   "Son teknoloji haberleri ve yazilim dunyasindaki gelismeler",
@@ -47,13 +41,8 @@ Kurallar:
 4. Yaz\u0131 en az 400-500 kelime civar\u0131nda dolgun bir i\u00e7erik olmal\u0131.
 5. Sonunda mutlaka Cicekana Teknoloji & Medya'n\u0131n sundu\u011fu ilgili hizmetlere (\u00f6rne\u011fin e-ticaret, yaz\u0131l\u0131m, reklam) ufak bir \u00e7a\u011fr\u0131 (call-to-action) yap.`;
 
-  const ai = getClient();
-
   try {
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: prompt,
-    });
+    const response = await executeDomainGeneration("CONTENT", prompt);
     let content = response.text || "";
 
     let title = "Guncel Teknoloji ve Medya Haberleri";

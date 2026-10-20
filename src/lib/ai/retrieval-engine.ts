@@ -149,12 +149,17 @@ export async function retrieveKnowledge(
     for (const p of plans) {
       const planNameNorm = normalizeQuery(p.name);
       const planSlugNorm = normalizeQuery(p.slug);
+      const planWords = planNameNorm.split(" ").filter((w) => w.length > 2);
 
-      if (
-        normalizedQ.includes(planNameNorm) ||
+      const isMatch =
         normalizedQ.includes(planSlugNorm) ||
-        (targetProductId && p.id === targetProductId)
-      ) {
+        planSlugNorm.includes(normalizedQ) ||
+        normalizedQ.includes(planNameNorm) ||
+        planNameNorm.includes(normalizedQ) ||
+        planWords.some((pw) => normalizedQ.includes(pw)) ||
+        (targetProductId && p.id === targetProductId);
+
+      if (isMatch) {
         verifiedProducts.push({
           id: p.id,
           name: p.name,
@@ -167,7 +172,7 @@ export async function retrieveKnowledge(
             priceFormatted: `${t.priceMonthly.toLocaleString("tr-TR")} TL / ay`,
             features: Array.isArray(t.features) ? (t.features as string[]) : [],
           })),
-          url: `/products/${p.slug}`,
+          url: `/services/ai-automation/${p.slug}`,
         });
       }
     }
@@ -187,10 +192,18 @@ export async function retrieveKnowledge(
 
     for (const prod of products) {
       const prodNameNorm = normalizeQuery(prod.name);
-      if (
+      const prodSlugNorm = normalizeQuery(prod.slug);
+      const prodWords = prodNameNorm.split(" ").filter((w) => w.length > 2);
+
+      const isProdMatch =
+        normalizedQ.includes(prodSlugNorm) ||
+        prodSlugNorm.includes(normalizedQ) ||
         normalizedQ.includes(prodNameNorm) ||
-        (targetProductId && prod.id === targetProductId)
-      ) {
+        prodNameNorm.includes(normalizedQ) ||
+        prodWords.some((pw) => normalizedQ.includes(pw)) ||
+        (targetProductId && prod.id === targetProductId);
+
+      if (isProdMatch) {
         verifiedProducts.push({
           id: prod.id,
           name: prod.name,
@@ -198,7 +211,7 @@ export async function retrieveKnowledge(
           type: "product",
           description: prod.description,
           priceFormatted: `${prod.price.toLocaleString("tr-TR")} TL`,
-          url: `/magaza/${prod.slug}`,
+          url: `/magaza/urun/${prod.slug}`,
         });
       }
     }
