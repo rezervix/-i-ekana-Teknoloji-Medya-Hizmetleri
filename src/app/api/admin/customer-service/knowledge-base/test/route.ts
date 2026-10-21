@@ -28,6 +28,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       question: trimmedQ,
+      normalizedQuery: result.normalizedQuery,
+      detectedIntent: result.detectedIntent,
+      detectedSubject: result.detectedSubject,
+      uncertaintyNotes: result.uncertaintyNotes || null,
       matchedEvidence: result.matchedEvidence,
       matchedDocuments: result.matchedEvidence
         .filter((e) => e.sourceType === "document_chunk")

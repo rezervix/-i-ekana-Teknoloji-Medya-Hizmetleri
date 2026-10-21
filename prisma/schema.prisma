@@ -1199,4 +1199,23 @@ model UnansweredQuestionLog {
   @@map("unanswered_question_logs")
 }
 
+model KnowledgeTestEvaluation {
+  id              String   @id @default(cuid())
+  question        String   @db.Text
+  normalizedQuery String?  @map("normalized_query") @db.Text
+  detectedIntent  String?  @map("detected_intent")
+  answer          String   @db.Text
+  verdict         String   // "CORRECT" | "PARTIAL" | "INCORRECT" | "IRRELEVANT" | "TOO_LONG" | "MISSING_INFO" | "UNVERIFIED_CLAIM" | "WRONG_PRODUCT"
+  adminNotes      String?  @map("admin_notes") @db.Text
+  confidence      Float?
+  confidenceLevel String?  @map("confidence_level")
+  latencyMs       Int?     @map("latency_ms")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@index([verdict])
+  @@index([createdAt])
+  @@map("knowledge_test_evaluations")
+}
+
+
 

@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { checkCustomerServiceAdminAuth, unauthorizedResponse } from "@/lib/ai/admin-auth";
 import { chunkText, extractKeywords, sanitizeDocContent } from "@/lib/ai/doc-parser";
+import { invalidateKnowledgeCache } from "@/lib/nlp/knowledge-engine";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -88,6 +89,8 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       data: updateData,
     });
 
+    invalidateKnowledgeCache();
+
     return NextResponse.json({
       success: true,
       document: updated,
@@ -108,6 +111,8 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
     await prisma.knowledgeDocument.delete({
       where: { id },
     });
+
+    invalidateKnowledgeCache();
 
     return NextResponse.json({
       success: true,

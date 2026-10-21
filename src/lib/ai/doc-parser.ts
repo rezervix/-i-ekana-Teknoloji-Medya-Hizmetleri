@@ -1,19 +1,38 @@
 import zlib from "zlib";
 
 /**
- * Knowledge Base Document Parser & Chunker
+ * Knowledge Base Document Parser & Semantic Chunker
  * Supports Markdown (.md), Plain Text (.txt), Word (.docx), and PDF (.pdf).
+ * 
+ * Features:
+ * - Semantic section & heading preservation (never cuts sentences or bullet lists mid-stream)
+ * - Automatic detection and extraction of structured Q&As (e.g. Soru X: ... Cevap: ...)
+ * - Contextual section tagging ([Bölüm: 3.1. Çok Kanallı Ortak Gelen Kutusu])
+ * - Preamble / cover title flagging so introductory boilerplates don't outrank substantive features
  */
+
+export interface ParsedQAPair {
+  question: string;
+  answer: string;
+  sectionTitle?: string;
+  category?: string;
+}
+
+export interface ParsedChunk {
+  chunkIndex: number;
+  sectionTitle: string;
+  content: string;
+  keywords: string[];
+  isPreamble: boolean;
+  chunkType: "qa" | "feature" | "table" | "preamble" | "general";
+}
 
 export interface ParsedDocument {
   title: string;
   cleanContent: string;
   rawContent: string;
-  chunks: {
-    chunkIndex: number;
-    content: string;
-    keywords: string[];
-  }[];
+  chunks: ParsedChunk[];
+  extractedQAs: ParsedQAPair[];
 }
 
 // Prompt injection patterns to neutralize in untrusted document uploads
@@ -33,7 +52,6 @@ export function sanitizeDocContent(text: string): string {
   for (const pattern of SUSPICIOUS_PATTERNS) {
     sanitized = sanitized.replace(pattern, "[ENGELENDİ]");
   }
-  // Normalize whitespace
   return sanitized
     .replace(/\r\n/g, "\n")
     .replace(/\r/g, "\n")
@@ -42,16 +60,14 @@ export function sanitizeDocContent(text: string): string {
 }
 
 /**
- * Extracts plain text from a DOCX buffer (DOCX is a zip file with word/document.xml).
+ * Extracts plain text from a DOCX buffer.
  */
 export function extractTextFromDocx(buffer: Buffer): string {
   try {
-    // Basic PK zip parsing without heavy external dependencies
     let text = "";
     let offset = 0;
 
     while (offset < buffer.length - 30) {
-      // Local file header signature = 0x04034b50
       if (buffer.readUInt32LE(offset) !== 0x04034b50) {
         offset++;
         continue;
@@ -64,7 +80,6 @@ export function extractTextFromDocx(buffer: Buffer): string {
 
       const fileNameStart = offset + 30;
       const fileName = buffer.toString("utf8", fileNameStart, fileNameStart + fileNameLength);
-
       const dataStart = fileNameStart + fileNameLength + extraFieldLength;
 
       if (fileName === "word/document.xml") {
@@ -72,15 +87,12 @@ export function extractTextFromDocx(buffer: Buffer): string {
         let xmlData = "";
 
         if (compressionMethod === 8) {
-          // Deflated
           xmlData = zlib.inflateRawSync(compressedData).toString("utf8");
         } else if (compressionMethod === 0) {
-          // Stored
           xmlData = compressedData.toString("utf8");
         }
 
         if (xmlData) {
-          // Extract text inside <w:t> tags
           const textMatches = xmlData.match(/<w:t[^>]*>(.*?)<\/w:t>/g);
           if (textMatches) {
             text = textMatches
@@ -95,7 +107,6 @@ export function extractTextFromDocx(buffer: Buffer): string {
     }
 
     if (!text) {
-      // Fallback: search for readable text strings if zip decompression didn't match
       text = buffer.toString("utf8").replace(/[^\x20-\x7E\u00A0-\u017F\n]/g, " ");
     }
 
@@ -107,14 +118,13 @@ export function extractTextFromDocx(buffer: Buffer): string {
 }
 
 /**
- * Extracts text from a PDF buffer by reading text streams and font encodings.
+ * Extracts text from a PDF buffer.
  */
 export function extractTextFromPdf(buffer: Buffer): string {
   try {
     const raw = buffer.toString("latin1");
     let extractedText = "";
 
-    // Find all stream / endstream blocks
     const streamRegex = /stream[\r\n]+([\s\S]*?)[\r\n]+endstream/g;
     let match: RegExpExecArray | null;
 
@@ -123,7 +133,6 @@ export function extractTextFromPdf(buffer: Buffer): string {
       let decoded = "";
 
       try {
-        // Try inflating FlateDecode
         const streamBuffer = Buffer.from(streamContent, "latin1");
         decoded = zlib.inflateSync(streamBuffer).toString("utf8");
       } catch {
@@ -135,14 +144,12 @@ export function extractTextFromPdf(buffer: Buffer): string {
         }
       }
 
-      // Extract text in TJ or Tj operators
       const tjMatches = decoded.match(/\((.*?)\)\s*Tj/g) || [];
       for (const tj of tjMatches) {
         const t = tj.replace(/\s*Tj$/, "").replace(/^\(/, "").replace(/\)$/, "");
         extractedText += t + " ";
       }
 
-      // Also match text in arrays [ (text) -12 (more text) ] TJ
       const arrayTjMatches = decoded.match(/\[(.*?)\]\s*TJ/g) || [];
       for (const atj of arrayTjMatches) {
         const parts = atj.match(/\((.*?)\)/g) || [];
@@ -153,7 +160,6 @@ export function extractTextFromPdf(buffer: Buffer): string {
     }
 
     if (!extractedText.trim()) {
-      // Fallback: extract plain ascii and unicode sequences
       extractedText = buffer.toString("utf8").replace(/[^\x20-\x7E\u00A0-\u017F\n]/g, " ");
     }
 
@@ -165,7 +171,7 @@ export function extractTextFromPdf(buffer: Buffer): string {
 }
 
 /**
- * Extracts simple keywords (stemmed Turkish-friendly lowercase words).
+ * Extracts Turkish-friendly keywords.
  */
 export function extractKeywords(text: string): string[] {
   const words = text
@@ -178,7 +184,7 @@ export function extractKeywords(text: string): string[] {
     "ve", "ile", "bir", "bu", "şu", "için", "gibi", "kadar", "olan", "daha",
     "çok", "ama", "fakat", "lakin", "ancak", "veya", "ya", "hem", "de", "da",
     "ise", "ki", "mi", "mı", "mu", "mü", "ne", "nasıl", "neden", "biz", "siz",
-    "onlar", "tarafından", "üzerine", "göre"
+    "onlar", "tarafından", "üzerine", "göre", "yani", "olarak"
   ]);
 
   const unique = Array.from(new Set(words.filter((w) => !stopWords.has(w))));
@@ -186,58 +192,147 @@ export function extractKeywords(text: string): string[] {
 }
 
 /**
- * Chunks text intelligently respecting paragraphs and headings.
+ * Automatically extracts structured Q&A pairs from text.
+ * Matches patterns:
+ * Soru \d+: ... \n Cevap: ...
+ * or ### Soru: ... \n Cevap: ...
  */
-export function chunkText(
-  text: string,
-  maxChunkSize: number = 800,
-  overlap: number = 100
-): { chunkIndex: number; content: string; keywords: string[] }[] {
-  const paragraphs = text.split(/\n\s*\n+/);
-  const chunks: { chunkIndex: number; content: string; keywords: string[] }[] = [];
+export function extractQAPairsFromText(text: string): ParsedQAPair[] {
+  const qas: ParsedQAPair[] = [];
+  const lines = text.split("\n");
 
-  let currentChunk = "";
-  let chunkIdx = 0;
+  let currentQuestion = "";
+  let currentAnswer = "";
+  let isCollectingAnswer = false;
 
-  for (const para of paragraphs) {
-    const trimmed = para.trim();
-    if (!trimmed) continue;
+  const questionRegex = /^(?:#{1,4}\s*)?(?:Soru\s*\d*[:.]?|Q\s*[:.]?)\s*(.+)$/i;
+  const answerRegex = /^(?:#{1,4}\s*)?(?:Cevap\s*[:.]?|A\s*[:.]?)\s*(.+)$/i;
 
-    if (currentChunk.length + trimmed.length + 1 <= maxChunkSize) {
-      currentChunk += (currentChunk ? "\n\n" : "") + trimmed;
-    } else {
-      if (currentChunk) {
-        chunks.push({
-          chunkIndex: chunkIdx++,
-          content: currentChunk,
-          keywords: extractKeywords(currentChunk),
+  for (const line of lines) {
+    const trimmed = line.trim();
+    const qMatch = trimmed.match(questionRegex);
+    const aMatch = trimmed.match(answerRegex);
+
+    if (qMatch) {
+      // Save previous QA if exists
+      if (currentQuestion && currentAnswer) {
+        qas.push({
+          question: currentQuestion.trim(),
+          answer: currentAnswer.trim(),
         });
-        // Keep an overlap from the tail of currentChunk
-        const tail = currentChunk.slice(-overlap);
-        currentChunk = tail + "\n\n" + trimmed;
-      } else {
-        // If single paragraph is larger than maxChunkSize, split by sentence or length
-        let start = 0;
-        while (start < trimmed.length) {
-          const slice = trimmed.slice(start, start + maxChunkSize);
-          chunks.push({
-            chunkIndex: chunkIdx++,
-            content: slice,
-            keywords: extractKeywords(slice),
+      }
+      currentQuestion = qMatch[1].trim();
+      currentAnswer = "";
+      isCollectingAnswer = false;
+    } else if (aMatch) {
+      currentAnswer = aMatch[1].trim();
+      isCollectingAnswer = true;
+    } else if (isCollectingAnswer) {
+      if (trimmed.startsWith("#") || trimmed.startsWith("Kategori") || trimmed.startsWith("---")) {
+        // Section end
+        if (currentQuestion && currentAnswer) {
+          qas.push({
+            question: currentQuestion.trim(),
+            answer: currentAnswer.trim(),
           });
-          start += maxChunkSize - overlap;
+          currentQuestion = "";
+          currentAnswer = "";
         }
-        currentChunk = "";
+        isCollectingAnswer = false;
+      } else if (trimmed) {
+        currentAnswer += "\n" + trimmed;
       }
     }
   }
 
-  if (currentChunk.trim()) {
+  if (currentQuestion && currentAnswer) {
+    qas.push({
+      question: currentQuestion.trim(),
+      answer: currentAnswer.trim(),
+    });
+  }
+
+  return qas;
+}
+
+/**
+ * Intelligent semantic chunking respecting section headings, paragraphs, and lists.
+ */
+export function chunkText(
+  text: string,
+  maxChunkSize: number = 1000
+): ParsedChunk[] {
+  const chunks: ParsedChunk[] = [];
+  const lines = text.split("\n");
+
+  let currentSectionTitle = "Genel";
+  let currentBlock = "";
+  let chunkIdx = 0;
+
+  // Regex to detect markdown or numbered section headings
+  const headingRegex = /^(?:#{1,4}\s+|(?:\d+\.)+\s+)([^\n]+)$/;
+
+  const flushCurrentBlock = () => {
+    const trimmed = currentBlock.trim();
+    if (!trimmed || trimmed.length < 20) {
+      currentBlock = "";
+      return;
+    }
+
+    const isPreamble =
+      chunkIdx === 0 ||
+      trimmed.includes("Ürünün Adı ve Kısa Tanımı") ||
+      trimmed.includes("Müşteri Bilgi Tabanı ve Ürün Dokümantasyonu") ||
+      trimmed.includes("1. Ürünün Adı");
+
+    let chunkType: ParsedChunk["chunkType"] = "general";
+    if (isPreamble) {
+      chunkType = "preamble";
+    } else if (trimmed.includes("Soru") && trimmed.includes("Cevap")) {
+      chunkType = "qa";
+    } else if (trimmed.includes("Özelliğin Amacı") || trimmed.includes("Müşteriye Sağladığı Fayda")) {
+      chunkType = "feature";
+    } else if (trimmed.includes("|") && trimmed.includes("---")) {
+      chunkType = "table";
+    }
+
     chunks.push({
       chunkIndex: chunkIdx++,
-      content: currentChunk.trim(),
-      keywords: extractKeywords(currentChunk),
+      sectionTitle: currentSectionTitle,
+      content: trimmed,
+      keywords: extractKeywords(trimmed),
+      isPreamble,
+      chunkType,
     });
+
+    currentBlock = "";
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const headingMatch = line.trim().match(headingRegex);
+
+    if (headingMatch && line.trim().length < 120) {
+      // Flush previous block before starting a new section
+      if (currentBlock.trim().length > 100) {
+        flushCurrentBlock();
+      }
+      currentSectionTitle = headingMatch[1].trim();
+      currentBlock += (currentBlock ? "\n\n" : "") + `[Bölüm: ${currentSectionTitle}]\n` + line;
+      continue;
+    }
+
+    // Check size limit: only flush on paragraph break (empty line), never inside a sentence
+    if (currentBlock.length > maxChunkSize && line.trim() === "") {
+      flushCurrentBlock();
+      continue;
+    }
+
+    currentBlock += (currentBlock ? "\n" : "") + line;
+  }
+
+  if (currentBlock.trim()) {
+    flushCurrentBlock();
   }
 
   return chunks;
@@ -277,11 +372,13 @@ export async function parseKnowledgeFile(
   }
 
   const chunks = chunkText(cleanContent);
+  const extractedQAs = extractQAPairsFromText(cleanContent);
 
   return {
     title,
     rawContent,
     cleanContent,
     chunks,
+    extractedQAs,
   };
 }

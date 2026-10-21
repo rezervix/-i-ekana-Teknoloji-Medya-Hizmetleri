@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { checkCustomerServiceAdminAuth, unauthorizedResponse } from "@/lib/ai/admin-auth";
 import { parseKnowledgeFile } from "@/lib/ai/doc-parser";
+import { invalidateKnowledgeCache } from "@/lib/nlp/knowledge-engine";
 
 export async function GET(req: NextRequest) {
   const auth = await checkCustomerServiceAdminAuth(req);
@@ -165,6 +166,8 @@ export async function POST(req: NextRequest) {
         _count: { select: { chunks: true } },
       },
     });
+
+    invalidateKnowledgeCache();
 
     return NextResponse.json({
       success: true,
