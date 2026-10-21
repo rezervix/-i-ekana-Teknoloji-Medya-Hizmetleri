@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
+import Logo from "@/components/Logo";
 
 interface Product {
   id: string;
@@ -552,8 +553,11 @@ export default function ReviewList({ initialReviews }: ReviewListProps) {
                             {review.adminReply && (
                               <div className="p-3 rounded-xl bg-teal-50/70 border border-teal-200/60 text-xs">
                                 <div className="flex items-center justify-between mb-1">
-                                  <span className="font-semibold text-corp-teal flex items-center gap-1 text-[11px]">
-                                    <MessageCircle size={12} /> Mağaza Yanıtınız
+                                  <span className="font-semibold text-corp-teal flex items-center gap-1.5 text-[11px]">
+                                    <div className="w-4 h-4 rounded-full bg-white border border-corp-teal/30 flex items-center justify-center overflow-hidden p-0.5 shrink-0 shadow-2xs">
+                                      <Logo width={12} height={12} priority={false} className="w-full h-full object-contain" />
+                                    </div>
+                                    <span>Çiçekana Teknoloji & Medya</span>
                                   </span>
                                   <div className="flex items-center gap-2">
                                     <button
@@ -745,8 +749,10 @@ export default function ReviewList({ initialReviews }: ReviewListProps) {
                       <div className="p-3 sm:p-3.5 rounded-xl bg-teal-50/80 border border-teal-200/70 text-xs space-y-1.5">
                         <div className="flex items-center justify-between">
                           <span className="font-bold text-corp-teal flex items-center gap-1.5 text-xs">
-                            <MessageCircle size={13} />
-                            <span>Mağaza Yanıtınız</span>
+                            <div className="w-4 h-4 rounded-full bg-white border border-corp-teal/30 flex items-center justify-center overflow-hidden p-0.5 shrink-0 shadow-2xs">
+                              <Logo width={12} height={12} priority={false} className="w-full h-full object-contain" />
+                            </div>
+                            <span>Çiçekana Teknoloji & Medya</span>
                           </span>
                           <div className="flex items-center gap-2">
                             <button

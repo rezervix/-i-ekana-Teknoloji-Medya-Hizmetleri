@@ -1,8 +1,9 @@
 "use client";
 
 import React from "react";
-import { Star, MessageSquare, MessageCircle } from "lucide-react";
+import { Star, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import Logo from "@/components/Logo";
 
 interface ProductReviewsSectionProps {
   reviews: any[];
@@ -77,10 +78,14 @@ export default function ProductReviewsSection({
                 {rev.comment || rev.text}
               </p>
               {rev.adminReply && (
-                <div className="mt-2.5 p-3 rounded-xl bg-corp-teal/5 dark:bg-white/5 border border-corp-teal/20 dark:border-corp-teal/30 space-y-1">
-                  <div className="flex items-center gap-1.5 text-[11px] font-bold text-corp-teal">
-                    <MessageCircle size={13} />
-                    <span>Mağaza Yanıtı</span>
+                <div className="mt-2.5 p-3 rounded-xl bg-corp-teal/5 dark:bg-white/5 border border-corp-teal/20 dark:border-corp-teal/30 space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <div className="w-5 h-5 rounded-full bg-white dark:bg-white/95 border border-corp-teal/30 flex items-center justify-center overflow-hidden p-0.5 shrink-0 shadow-2xs">
+                      <Logo width={14} height={14} priority={false} className="w-full h-full object-contain" />
+                    </div>
+                    <span className="text-[11px] font-bold text-corp-teal">
+                      Çiçekana Teknoloji & Medya
+                    </span>
                   </div>
                   <p className="text-xs text-corp-charcoal dark:text-white/90 italic leading-relaxed pl-1">
                     "{rev.adminReply}"
