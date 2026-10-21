@@ -1165,3 +1165,38 @@ model KnowledgeChunk {
   @@map("knowledge_chunks")
 }
 
+model KnowledgeQA {
+  id         String   @id @default(cuid())
+  question   String   @db.Text
+  answer     String   @db.Text
+  category   String   @default("Genel")
+  productId  String?  @map("product_id")
+  variations String[] @default([])
+  isActive   Boolean  @default(true) @map("is_active")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@index([category])
+  @@index([productId])
+  @@index([isActive])
+  @@map("knowledge_qas")
+}
+
+model UnansweredQuestionLog {
+  id             String   @id @default(cuid())
+  question       String   @db.Text
+  conversationId String?  @map("conversation_id")
+  matchedScore   Float?   @map("matched_score")
+  candidateDocId String?  @map("candidate_doc_id")
+  confidence     Float?
+  status         String   @default("PENDING")
+  adminNotes     String?  @map("admin_notes") @db.Text
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@index([createdAt])
+  @@map("unanswered_question_logs")
+}
+
+
