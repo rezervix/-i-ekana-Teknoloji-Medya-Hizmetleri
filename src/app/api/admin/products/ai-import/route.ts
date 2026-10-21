@@ -26,9 +26,25 @@ export async function POST(request: Request) {
     );
   }
 
-  // 2. Özel API Anahtarı Kontrolü (Chatbot veya diğer servis anahtarlarıyla ASLA karıştırılmaz)
-  const apiKey = process.env.GEMINI_PRODUCT_IMPORT_API_KEY?.trim();
-  if (!apiKey || apiKey === "BURAYA_YENI_GEMINI_API_KEY_YAPISTIRILACAK") {
+  // 2. Güvenli ve Hiyerarşik API Anahtarı Çözümleme
+  // Öncelik 1: GEMINI_PRODUCT_IMPORT_API_KEY ortam değişkeni
+  // Öncelik 2: GEMINI_PRODUCT_IMPORT_KEY ortam değişkeni
+  // Öncelik 3: GEMINI_API_KEY veya GEMINI_SUPPORT_API_KEY ortam değişkeni
+  const configuredImportKey =
+    process.env.GEMINI_PRODUCT_IMPORT_API_KEY?.trim() ||
+    process.env.GEMINI_PRODUCT_IMPORT_KEY?.trim();
+  const fallbackEnvKey =
+    process.env.GEMINI_API_KEY?.trim() ||
+    process.env.GEMINI_SUPPORT_API_KEY?.trim();
+
+  let apiKey = "";
+  if (configuredImportKey && configuredImportKey !== "BURAYA_YENI_GEMINI_API_KEY_YAPISTIRILACAK") {
+    apiKey = configuredImportKey;
+  } else if (fallbackEnvKey && fallbackEnvKey !== "BURAYA_YENI_GEMINI_API_KEY_YAPISTIRILACAK") {
+    apiKey = fallbackEnvKey;
+  }
+
+  if (!apiKey) {
     return NextResponse.json(
       {
         error:
@@ -39,7 +55,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const model = process.env.GEMINI_PRODUCT_IMPORT_MODEL?.trim() || "gemini-3.8-flash";
+  const model = process.env.GEMINI_PRODUCT_IMPORT_MODEL?.trim() || "gemini-flash-lite-latest";
 
   try {
     // 3. Dosya Doğrulaması
@@ -130,16 +146,45 @@ KESİN İŞ KURALLARI:
       ];
     }
 
-    // 6. Gemini API Çağrısı
-    const response = await client.models.generateContent({
-      model,
-      contents,
-      config: {
-        systemInstruction,
-        responseMimeType: "application/json",
-        temperature: 0.1,
-      },
-    });
+    // 6. Gemini API Çağrısı (Otomatik Model Devri ile)
+    let response: any;
+    let modelUsed = model;
+
+    try {
+      response = await client.models.generateContent({
+        model,
+        contents,
+        config: {
+          systemInstruction,
+          responseMimeType: "application/json",
+          temperature: 0.1,
+        },
+      });
+    } catch (primaryErr: any) {
+      const errMsg = primaryErr?.message || String(primaryErr);
+      const isTemporaryDemandOrNotFound =
+        errMsg.includes("503") ||
+        errMsg.includes("UNAVAILABLE") ||
+        errMsg.includes("NOT_FOUND") ||
+        errMsg.includes("high demand") ||
+        errMsg.includes("not found");
+
+      if (isTemporaryDemandOrNotFound && model !== "gemini-flash-lite-latest") {
+        console.warn(`[AI-Import] ${model} geçici olarak yanıt vermedi, gemini-flash-lite-latest modeline devrediliyor...`);
+        modelUsed = "gemini-flash-lite-latest";
+        response = await client.models.generateContent({
+          model: modelUsed,
+          contents,
+          config: {
+            systemInstruction,
+            responseMimeType: "application/json",
+            temperature: 0.1,
+          },
+        });
+      } else {
+        throw primaryErr;
+      }
+    }
 
     const rawText = (response?.text || "").trim();
     if (!rawText) {
@@ -322,7 +367,7 @@ KESİN İŞ KURALLARI:
       meta: {
         fileName: file.name,
         fileSize: file.size,
-        modelUsed: model,
+        modelUsed: modelUsed,
       },
     });
   } catch (err: any) {
