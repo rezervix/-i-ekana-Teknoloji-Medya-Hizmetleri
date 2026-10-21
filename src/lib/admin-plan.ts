@@ -5,91 +5,113 @@ import { PLAN_ICON_NAMES } from "@/lib/plan-icons";
 
 export const roles = new Set(["SUPER_ADMIN", "ADMIN", "EDITOR"]);
 
-const icon = z.enum(PLAN_ICON_NAMES).optional().default("Sparkles");
-const text = (max: number) => z.string().trim().max(max);
-const nullableText = (max: number) => z.preprocess((value) => value ?? "", text(max));
-const url = z.preprocess((value) => value ?? "", z.string().trim().refine((value) => !value || /^(https?:\/\/|mailto:|tel:|\/|#)/i.test(value), "Yalnızca güvenli bağlantılar kullanılabilir").default(""));
-const stringList = (maxItems: number, maxLength: number) => z.array(text(maxLength)).max(maxItems).default([]);
+import { formatPlanZodError, parseGenericPlanError, type FormErrorDetail } from "@/lib/plan-validation-helper";
 
-const stats = z.array(z.object({ value: text(80), label: text(80) })).max(4).default([]);
+export { formatPlanZodError, parseGenericPlanError, type FormErrorDetail };
+
+const icon = z.enum(PLAN_ICON_NAMES).optional().default("Sparkles");
+const text = (max: number, label?: string) =>
+  z.string()
+    .trim()
+    .max(max, `${label || 'Bu alan'} en fazla ${max} karakter olabilir`);
+
+const nullableText = (max: number, label?: string) =>
+  z.preprocess((value) => value ?? "", text(max, label));
+
+const url = z.preprocess(
+  (value) => value ?? "",
+  z.string().trim().refine(
+    (value) => !value || /^(https?:\/\/|mailto:|tel:|\/|#)/i.test(value),
+    "Yalnızca geçerli ve güvenli bağlantılar kullanılabilir (http, https, /, #)"
+  ).default("")
+);
+
+const stringList = (maxItems: number, maxLength: number, label?: string) =>
+  z.array(text(maxLength, label)).max(maxItems, `${label || 'Liste'} en fazla ${maxItems} madde içerebilir`).default([]);
+
+const stats = z.array(z.object({
+  value: text(80, "İstatistik değeri"),
+  label: text(80, "İstatistik etiketi"),
+})).max(4, "En fazla 4 adet istatistik eklenebilir").default([]);
+
 const benefits = z.array(z.object({
   icon,
-  title: text(80),
-  description: text(160), // 1 cümle kuralı
+  title: text(80, "Fayda kartı başlığı"),
+  description: text(160, "Fayda kartı açıklaması"), // 1 cümle kuralı
   order: z.number().int().default(0),
-})).max(6).default([]);
+})).max(6, "En fazla 6 adet fayda kartı eklenebilir").default([]);
 
 const highlights = z.array(z.object({
   icon,
-  title: text(80),
-  description: text(300),
-  badge: text(80).optional().default(""),
-})).max(8).default([]);
+  title: text(80, "Özellik başlığı"),
+  description: text(300, "Özellik açıklaması"),
+  badge: text(80, "Özellik rozeti").optional().default(""),
+})).max(8, "En fazla 8 adet öne çıkan özellik eklenebilir").default([]);
 
 const steps = z.array(z.object({
   icon: icon.optional(),
-  title: text(80),
-  description: text(300),
+  title: text(80, "Adım başlığı"),
+  description: text(300, "Adım açıklaması"),
   order: z.number().int().default(0),
-})).max(4).default([]);
+})).max(4, "En fazla 4 adet nasıl çalışır adımı eklenebilir").default([]);
 
 const demoScreenshots = z.array(z.object({
   url: z.string().trim(),
-  caption: text(160).optional().default(""),
-  alt: text(120).optional().default(""),
+  caption: text(160, "Ekran görüntüsü başlığı").optional().default(""),
+  alt: text(120, "Ekran görüntüsü görsel açıklaması (alt)").optional().default(""),
   order: z.number().int().default(0),
-})).max(6).default([]);
+})).max(6, "En fazla 6 adet ekran görüntüsü eklenebilir").default([]);
 
 const trustBlocks = z.array(z.object({
   key: z.string().trim(),
-  title: text(100),
-  text: text(300),
+  title: text(100, "Güven bloğu başlığı"),
+  text: text(300, "Güven bloğu açıklaması"),
   icon: z.string().default("ShieldCheck"),
   isEnabled: z.boolean().default(true),
 })).default([]);
 
 const comparisonFeatureKeys = z.array(z.object({
   key: z.string().trim(),
-  label: text(100),
+  label: text(100, "Karşılaştırma özelliği başlığı"),
   order: z.number().int().default(0),
 })).default([]);
 
 const faqs = z.array(z.object({
-  question: text(120),
-  answer: text(1000),
+  question: text(140, "SSS sorusu"),
+  answer: text(1000, "SSS cevabı"),
   order: z.number().int().default(0),
-})).max(15).default([]);
+})).max(15, "En fazla 15 adet SSS eklenebilir").default([]);
 
 export const planSchema = z.object({
-  name: z.string().trim().min(1, "Hizmet adı zorunludur").max(120),
-  slug: z.string().trim().min(1, "Slug zorunludur").max(140).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Slug yalnızca küçük harf, rakam ve tire içerebilir"),
-  shortDescription: z.string().trim().min(1, "Açıklama zorunludur").max(300),
-  cardSummary: nullableText(120), // Liste kartı için kısa özet (max 120)
-  category: nullableText(80),
+  name: z.string().trim().min(1, "Hizmet adı zorunludur").max(120, "Hizmet adı en fazla 120 karakter olabilir"),
+  slug: z.string().trim().min(1, "Slug zorunludur").max(140, "Slug en fazla 140 karakter olabilir").regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Slug yalnızca küçük harf, rakam ve tire içerebilir"),
+  shortDescription: z.string().trim().min(1, "Açıklama zorunludur").max(300, "Açıklama en fazla 300 karakter olabilir"),
+  cardSummary: nullableText(200, "Liste kartı kısa özeti"), // Liste kartı için kısa özet (max 200 karakter)
+  category: nullableText(80, "Kategori"),
   isListed: z.boolean().default(true),
   isFeatured: z.boolean().default(false),
   status: z.enum(["DRAFT", "PUBLISHED"]).default("PUBLISHED"),
-  displayOrder: z.coerce.number().int().min(0).default(0),
+  displayOrder: z.coerce.number().int().min(0, "Sıralama 0 veya pozitif bir tamsayı olmalıdır").default(0),
   isActive: z.boolean().default(true),
-  priceMonthly: z.coerce.number().int().nonnegative().default(0),
+  priceMonthly: z.coerce.number().int().nonnegative("Aylık fiyat 0 veya daha büyük olmalıdır").default(0),
   fullContentHtml: z.string().default(""),
   features: z.unknown().optional().default([]),
   imageUrl: z.preprocess((value) => value ?? "", z.string().trim().url("Geçerli bir logo URL'si girin").or(z.literal(""))),
 
   // Hero Bölümü
-  tagline: nullableText(120),
-  heroHeadline: nullableText(70), // Sonuç odaklı ana başlık (max 70)
-  heroSubheadline: nullableText(160), // Alt metin (max 160)
-  primaryCtaLabel: nullableText(60).default("Paketleri İncele"),
+  tagline: nullableText(120, "Hero üst rozet / slogan"),
+  heroHeadline: nullableText(120, "Hero ana başlık"), // Sonuç odaklı ana başlık (max 120)
+  heroSubheadline: nullableText(250, "Hero alt metin"), // Alt metin (max 250)
+  primaryCtaLabel: nullableText(60, "Birincil buton metni").default("Paketleri İncele"),
   primaryCtaUrl: url.default("#paketler"),
-  secondaryCtaLabel: nullableText(60),
+  secondaryCtaLabel: nullableText(60, "İkincil buton metni"),
   secondaryCtaUrl: url,
   heroMockupUrl: z.preprocess((value) => value ?? "", z.string().trim().url("Geçerli bir hero görsel URL'si girin").or(z.literal(""))),
-  heroImageAlt: nullableText(120),
+  heroImageAlt: nullableText(120, "Hero görsel açıklaması"),
   showStartingPrice: z.boolean().default(true),
 
   // Bölümler
-  trustPoints: stringList(5, 120),
+  trustPoints: stringList(5, 120, "Güven maddesi"),
   stats,
   benefits,
   highlights,
@@ -100,13 +122,13 @@ export const planSchema = z.object({
   faqs,
 
   // Demo & WhatsApp
-  whatsappNumber: nullableText(30).default("+90 530 341 21 56"),
-  whatsappTemplate: nullableText(300).default("Merhaba, {ürün} hakkında bilgi almak istiyorum."),
+  whatsappNumber: nullableText(30, "WhatsApp numarası").default("+90 530 341 21 56"),
+  whatsappTemplate: nullableText(300, "WhatsApp mesaj şablonu").default("Merhaba, {ürün} hakkında bilgi almak istiyorum."),
   isDemoFormActive: z.boolean().default(false),
 
   // SEO & Görünürlük
-  metaTitle: nullableText(100),
-  metaDescription: nullableText(200),
+  metaTitle: nullableText(100, "SEO başlığı (Meta Title)"),
+  metaDescription: nullableText(200, "SEO açıklaması (Meta Description)"),
   ogImageUrl: z.preprocess((value) => value ?? "", z.string().trim().url("Geçerli bir paylaşım görseli URL'si girin").or(z.literal(""))),
   sectionVisibility: z.object({
     hero: z.boolean().default(true),
@@ -128,8 +150,8 @@ export const planSchema = z.object({
     whatsappCta: true,
   }),
 
-  vatNote: nullableText(160),
-  disclaimer: nullableText(800),
+  vatNote: nullableText(160, "KDV bilgi notu"),
+  disclaimer: nullableText(800, "Yasal uyarı ve şartlar"),
 });
 
 export async function requireAdmin() {

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { planSchema, requireAdmin } from "@/lib/admin-plan";
+import { planSchema, requireAdmin, formatPlanZodError } from "@/lib/admin-plan";
 import { normalizeTiers } from "../route";
 import { revalidatePath } from "next/cache";
 
@@ -29,7 +29,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   // Partial validation
   const parsed = planSchema.partial().safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Geçersiz veri" }, { status: 400 });
+    const formatted = formatPlanZodError(parsed.error, body);
+    return NextResponse.json(formatted, { status: 400 });
   }
 
   try {
@@ -51,7 +52,17 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     // Doğrudan Canlıya Uygulama veya Yayınlama
     const tiers = normalizeTiers(body.tiers);
     if (body.tiers !== undefined && !tiers.length) {
-      return NextResponse.json({ error: "Her ürünün en az bir fiyat paketi olmalı" }, { status: 400 });
+      return NextResponse.json({
+        error: "[Paketler & Fiyat] Her ürünün en az bir fiyat paketi olmalıdır.",
+        tab: "pricing",
+        tabLabel: "Paketler & Fiyat",
+        field: "tiers",
+        fieldLabel: "Fiyatlandırma Paketleri",
+        elementId: "field-tiers",
+        message: "Her ürünün en az bir fiyat paketi olmalıdır.",
+        fullMessage: "[Paketler & Fiyat] Fiyatlandırma Paketleri: En az bir fiyat paketi olmalıdır.",
+        issues: [],
+      }, { status: 400 });
     }
 
     const result = await prisma.$transaction(async (tx) => {
@@ -150,10 +161,30 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json(result);
   } catch (error: unknown) {
     if (error instanceof Error && error.message === "ACTIVE_TIER_SUBSCRIPTIONS") {
-      return NextResponse.json({ error: "Bu pakete bağlı aktif abonelik var, önce pasife alın" }, { status: 409 });
+      return NextResponse.json({
+        error: "[Paketler & Fiyat] Bu pakete bağlı aktif müşteri abonelikleri var, silinemez. Önce paketi pasife alınız.",
+        tab: "pricing",
+        tabLabel: "Paketler & Fiyat",
+        field: "tiers",
+        fieldLabel: "Fiyatlandırma Paketleri",
+        elementId: "field-tiers",
+        message: "Bu pakete bağlı aktif müşteri abonelikleri var, silinemez. Önce paketi pasife alınız.",
+        fullMessage: "[Paketler & Fiyat] Bu pakete bağlı aktif müşteri abonelikleri var, silinemez.",
+        issues: [],
+      }, { status: 409 });
     }
     if (typeof error === "object" && error && "code" in error && error.code === "P2002") {
-      return NextResponse.json({ error: "Bu slug zaten kullanılıyor" }, { status: 409 });
+      return NextResponse.json({
+        error: "[Genel Bilgiler] Bu URL adresi (slug) zaten başka bir ürün veya hizmet tarafından kullanılıyor.",
+        tab: "general",
+        tabLabel: "Genel Bilgiler",
+        field: "slug",
+        fieldLabel: "URL Adresi (Slug)",
+        elementId: "field-slug",
+        message: "Bu URL adresi (slug) zaten kullanılıyor. Lütfen benzersiz bir slug belirleyin.",
+        fullMessage: "[Genel Bilgiler] URL Adresi (Slug): Bu slug zaten kullanılıyor.",
+        issues: [],
+      }, { status: 409 });
     }
     if (typeof error === "object" && error && "code" in error && error.code === "P2025") {
       return NextResponse.json({ error: "Hizmet bulunamadı" }, { status: 404 });

@@ -33,6 +33,11 @@ import {
 } from 'lucide-react';
 import { PLAN_ICON_NAMES, getPlanIcon } from '@/lib/plan-icons';
 import PlanDemoScreenshotsUploader from '@/components/admin/PlanDemoScreenshotsUploader';
+import {
+  PLAN_TABS,
+  parseGenericPlanError,
+  type FormErrorDetail,
+} from '@/lib/plan-validation-helper';
 
 // ─── TİP TANIMLARI ────────────────────────────────────────────────────────────
 
@@ -345,6 +350,8 @@ export default function AdminProductsPage() {
   const [uploadingField, setUploadingField] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [formError, setFormError] = useState<FormErrorDetail | null>(null);
+  const [highlightedFieldId, setHighlightedFieldId] = useState<string | null>(null);
 
   // Editör Durumları
   const [editing, setEditing] = useState<Plan | null>(null);
@@ -534,8 +541,70 @@ export default function AdminProductsPage() {
     }
     setActiveTab('general');
     setIsEditorOpen(true);
+    setFormError(null);
+    setHighlightedFieldId(null);
     setError('');
     setSuccessMsg('');
+  }
+
+  // Hatanın kaynağı olan sekmeye ve alana otomatik git, yumuşak kaydır ve odaklan
+  function jumpToField(tabId: string, elementId: string) {
+    setActiveTab(tabId);
+
+    setTimeout(() => {
+      let el = document.getElementById(elementId);
+      if (!el) {
+        const clean = elementId.replace(/^field-/, '');
+        el = document.querySelector(`[name="${clean}"]`) as HTMLElement;
+      }
+      if (!el && elementId.startsWith('field-tiers')) {
+        el = document.getElementById('field-tiers');
+      }
+
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (typeof (el as any).focus === 'function') {
+          (el as any).focus();
+        }
+        setHighlightedFieldId(elementId);
+        setTimeout(() => {
+          setHighlightedFieldId((curr) => (curr === elementId ? null : curr));
+        }, 6000);
+      }
+    }, 150);
+  }
+
+  // API veya yerel hataları çözümleyip yönlendirme tetikleyici
+  function handleFormErrorResponse(data: any, fallbackMessage: string) {
+    let resolvedError: FormErrorDetail | null = null;
+
+    if (data?.tab && data?.elementId) {
+      resolvedError = {
+        error: data.error || fallbackMessage,
+        tab: data.tab,
+        tabLabel: data.tabLabel || 'İlgili Bölüm',
+        field: data.field || '',
+        fieldLabel: data.fieldLabel || 'İlgili Alan',
+        elementId: data.elementId,
+        message: data.message || data.error || fallbackMessage,
+        fullMessage: data.fullMessage || data.error || fallbackMessage,
+        issues: data.issues || [],
+      };
+    } else if (typeof data?.error === 'string') {
+      const parsed = parseGenericPlanError(data.error, form);
+      if (parsed) {
+        resolvedError = parsed;
+      }
+    }
+
+    if (resolvedError) {
+      setFormError(resolvedError);
+      setError(resolvedError.fullMessage || resolvedError.message);
+      jumpToField(resolvedError.tab, resolvedError.elementId);
+    } else {
+      setError(data?.error || fallbackMessage);
+      setFormError(null);
+    }
   }
 
   // Görsel Yükleme (Sharp ile WebP'ye dönüştürür ve optimize eder)
@@ -574,6 +643,7 @@ export default function AdminProductsPage() {
   // Taslak Olarak Kaydet (Canlı sayfayı bozmaz)
   async function saveDraft() {
     setError('');
+    setFormError(null);
     setSaving(true);
     try {
       const payload = {
@@ -598,15 +668,20 @@ export default function AdminProductsPage() {
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Taslak kaydedilemedi');
+      if (!res.ok) {
+        handleFormErrorResponse(data, 'Taslak kaydedilemedi');
+        return;
+      }
 
+      setFormError(null);
+      setHighlightedFieldId(null);
       setSuccessMsg('Taslak değişiklikler güvenle kaydedildi! Henüz canlıya alınmadı.');
       await loadPlans();
       if (!editing && data.id) {
         setEditing(data);
       }
     } catch (err: any) {
-      setError(err.message || 'Taslak kaydetme hatası');
+      handleFormErrorResponse({ error: err.message }, 'Taslak kaydetme hatası');
     } finally {
       setSaving(false);
     }
@@ -615,21 +690,61 @@ export default function AdminProductsPage() {
   // Canlıda Yayınla (Değişiklikleri aktarır, snapshot kaydeder)
   async function publishPlan() {
     setError('');
+    setFormError(null);
     setPublishing(true);
 
-    // Temel doğrulamalar
+    // Temel doğrulamalar ve otomatik odaklanma
     if (!form.name.trim()) {
-      setError('Hizmet adı zorunludur.');
+      const err: FormErrorDetail = {
+        error: '[Genel Bilgiler] Hizmet Adı zorunludur.',
+        tab: 'general',
+        tabLabel: 'Genel Bilgiler',
+        field: 'name',
+        fieldLabel: 'Hizmet Adı',
+        elementId: 'field-name',
+        message: 'Lütfen bir hizmet adı giriniz.',
+        fullMessage: '[Genel Bilgiler] Hizmet Adı: Bu alan zorunludur.',
+        issues: [],
+      };
+      setFormError(err);
+      setError(err.fullMessage);
+      jumpToField('general', 'field-name');
       setPublishing(false);
       return;
     }
     if (form.benefits.length > 0 && form.benefits.length < 3) {
-      setError('Fayda kartları eklenecekse en az 3 adet girilmelidir.');
+      const err: FormErrorDetail = {
+        error: '[Fayda Kartları] Fayda kartları eklenecekse en az 3 adet girilmelidir.',
+        tab: 'benefits',
+        tabLabel: 'Fayda Kartları',
+        field: 'benefits',
+        fieldLabel: 'Fayda Kartları',
+        elementId: 'field-benefits',
+        message: 'Fayda kartları bölümü etkinse en az 3 adet fayda kartı eklenmelidir.',
+        fullMessage: '[Fayda Kartları] En az 3 adet kart girilmelidir.',
+        issues: [],
+      };
+      setFormError(err);
+      setError(err.fullMessage);
+      jumpToField('benefits', 'field-benefits');
       setPublishing(false);
       return;
     }
     if (form.steps.length > 0 && form.steps.length < 3) {
-      setError('Nasıl çalışır adımları eklenecekse en az 3 adım girilmelidir.');
+      const err: FormErrorDetail = {
+        error: '[Nasıl Çalışır] Adımlar eklenecekse en az 3 adım girilmelidir.',
+        tab: 'steps',
+        tabLabel: 'Nasıl Çalışır',
+        field: 'steps',
+        fieldLabel: 'Nasıl Çalışır Adımları',
+        elementId: 'field-steps',
+        message: 'Nasıl çalışır adımları eklenecekse en az 3 adım girilmelidir.',
+        fullMessage: '[Nasıl Çalışır] En az 3 adım girilmelidir.',
+        issues: [],
+      };
+      setFormError(err);
+      setError(err.fullMessage);
+      jumpToField('steps', 'field-steps');
       setPublishing(false);
       return;
     }
@@ -658,15 +773,20 @@ export default function AdminProductsPage() {
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Yayınlama başarısız oldu');
+      if (!res.ok) {
+        handleFormErrorResponse(data, 'Yayınlama başarısız oldu');
+        return;
+      }
 
+      setFormError(null);
+      setHighlightedFieldId(null);
       setSuccessMsg('Tebrikler! Hizmet başarıyla YAYINLANDI ve yeni bir sürüm kaydı oluşturuldu.');
       await loadPlans();
       if (!editing && data.id) {
         setEditing(data);
       }
     } catch (err: any) {
-      setError(err.message || 'Yayınlama hatası');
+      handleFormErrorResponse({ error: err.message }, 'Yayınlama hatası');
     } finally {
       setPublishing(false);
     }
@@ -1224,7 +1344,78 @@ export default function AdminProductsPage() {
       </header>
 
       {/* Bildirim Mesajları */}
-      {error && (
+      {formError ? (
+        <div className="rounded-2xl border-2 border-rose-300 bg-rose-50/95 p-4 shadow-sm text-rose-900 transition-all">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-xl bg-rose-100 text-rose-600 shrink-0 mt-0.5">
+                <AlertTriangle size={20} className="animate-pulse" />
+              </div>
+              <div className="space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold bg-rose-200 text-rose-900">
+                    Bölüm: {formError.tabLabel}
+                  </span>
+                  <span className="text-xs font-semibold text-rose-700">
+                    › {formError.fieldLabel}
+                  </span>
+                </div>
+                <p className="text-sm font-bold text-rose-900">
+                  {formError.message}
+                </p>
+                <p className="text-xs text-rose-700 flex items-center gap-1">
+                  <span>⚡ Hatanın bulunduğu bölüme otomatik geçildi.</span>
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+              <button
+                type="button"
+                onClick={() => jumpToField(formError.tab, formError.elementId)}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-sm transition active:scale-95"
+              >
+                <span>Hata Alanına Odaklan 🎯</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setFormError(null);
+                  setError('');
+                }}
+                className="p-2 rounded-xl hover:bg-rose-100 text-rose-500 transition"
+                title="Kapat"
+              >
+                <X size={18} />
+              </button>
+            </div>
+          </div>
+
+          {/* Birden fazla hata varsa listeleme */}
+          {formError.issues && formError.issues.length > 1 && (
+            <div className="mt-3 pt-3 border-t border-rose-200/80 space-y-1.5">
+              <p className="text-xs font-bold text-rose-800">
+                Diğer Düzeltilmesi Gereken Alanlar ({formError.issues.length} adet):
+              </p>
+              <div className="grid gap-1 sm:grid-cols-2">
+                {formError.issues.slice(1).map((issue, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => jumpToField(issue.tab, issue.elementId)}
+                    className="flex items-center justify-between text-left text-xs bg-white/80 hover:bg-white rounded-lg p-2 border border-rose-200 text-rose-800 transition"
+                  >
+                    <span className="truncate pr-2">
+                      <strong className="text-rose-900">[{issue.tabLabel}]</strong> {issue.fieldLabel}: {issue.message}
+                    </span>
+                    <span className="text-corp-teal font-bold shrink-0">Git →</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      ) : error ? (
         <div className="flex items-center justify-between rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
           <div className="flex items-center gap-2">
             <AlertTriangle size={18} className="text-rose-600 shrink-0" />
@@ -1234,7 +1425,7 @@ export default function AdminProductsPage() {
             <X size={16} />
           </button>
         </div>
-      )}
+      ) : null}
 
       {successMsg && (
         <div className="flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
@@ -1264,32 +1455,30 @@ export default function AdminProductsPage() {
 
       {/* Sekmeler (Tabs) */}
       <nav className="flex overflow-x-auto rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm scrollbar-none">
-        {[
-          { id: 'general', label: 'Genel Bilgiler' },
-          { id: 'hero', label: 'Hero & Giriş' },
-          { id: 'benefits', label: 'Fayda Kartları' },
-          { id: 'steps', label: 'Nasıl Çalışır' },
-          { id: 'screenshots', label: 'Demo & Görseller' },
-          { id: 'pricing', label: 'Paketler & Fiyat' },
-          { id: 'trust', label: 'Güven Blokları' },
-          { id: 'faqs', label: 'SSS' },
-          { id: 'whatsapp', label: 'WhatsApp & Demo' },
-          { id: 'seo', label: 'SEO & Paylaşım' },
-          { id: 'visibility', label: 'Bölüm Ayarları' },
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => setActiveTab(tab.id)}
-            className={`whitespace-nowrap rounded-xl px-4 py-2.5 text-xs font-bold transition ${
-              activeTab === tab.id
-                ? 'bg-corp-teal text-white shadow-sm'
-                : 'text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+        {PLAN_TABS.map((tab) => {
+          const hasError = formError && (formError.tab === tab.id || formError.issues?.some((i) => i.tab === tab.id));
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
+              className={`whitespace-nowrap rounded-xl px-4 py-2.5 text-xs font-bold transition flex items-center gap-1.5 ${
+                activeTab === tab.id
+                  ? 'bg-corp-teal text-white shadow-sm'
+                  : hasError
+                    ? 'bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100'
+                    : 'text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              <span>{tab.label}</span>
+              {hasError && (
+                <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-rose-600 text-[10px] text-white">
+                  !
+                </span>
+              )}
+            </button>
+          );
+        })}
       </nav>
 
       {/* ─── TAB 1: GENEL BİLGİLER ────────────────────────────────────────── */}
@@ -1306,6 +1495,7 @@ export default function AdminProductsPage() {
             <div>
               <label className="text-xs font-bold text-slate-700">Hizmet Adı *</label>
               <input
+                id="field-name"
                 type="text"
                 required
                 maxLength={120}
@@ -1315,14 +1505,25 @@ export default function AdminProductsPage() {
                   if (!slugManuallyEdited) update('slug', slugify(e.target.value));
                 }}
                 placeholder="Örn: Microsoft Call Center AI"
-                className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-sm outline-none focus:border-corp-teal"
+                className={`mt-1 w-full rounded-xl border p-3 text-sm outline-none transition ${
+                  highlightedFieldId === 'field-name'
+                    ? 'ring-4 ring-rose-500 border-rose-500 bg-rose-50/60 animate-pulse'
+                    : 'border-slate-200 focus:border-corp-teal'
+                }`}
               />
+              {highlightedFieldId === 'field-name' && (
+                <p className="text-xs font-bold text-rose-600 flex items-center gap-1 mt-1">
+                  <AlertTriangle size={13} />
+                  {formError?.message || 'Hizmet adı zorunludur ve en fazla 120 karakter olabilir.'}
+                </p>
+              )}
               <FieldHelp text="Müşteriye gösterilen resmi hizmet başlığı." />
             </div>
 
             <div>
               <label className="text-xs font-bold text-slate-700">URL Slug *</label>
               <input
+                id="field-slug"
                 type="text"
                 required
                 maxLength={140}
@@ -1332,38 +1533,64 @@ export default function AdminProductsPage() {
                   update('slug', slugify(e.target.value));
                 }}
                 placeholder="Örn: microsoft-call-center-ai"
-                className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-sm font-mono outline-none focus:border-corp-teal"
+                className={`mt-1 w-full rounded-xl border p-3 text-sm font-mono outline-none transition ${
+                  highlightedFieldId === 'field-slug'
+                    ? 'ring-4 ring-rose-500 border-rose-500 bg-rose-50/60 animate-pulse'
+                    : 'border-slate-200 focus:border-corp-teal'
+                }`}
               />
+              {highlightedFieldId === 'field-slug' && (
+                <p className="text-xs font-bold text-rose-600 flex items-center gap-1 mt-1">
+                  <AlertTriangle size={13} />
+                  {formError?.message || 'Geçerli bir slug giriniz (küçük harf, rakam ve tire).'}
+                </p>
+              )}
               <FieldHelp text="Sayfa adresi. Yalnızca küçük harf, rakam ve tire içerebilir." />
             </div>
 
             <div className="sm:col-span-2">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-bold text-slate-700">
-                  Liste Kartı İçin Kısa Özet (Max 120 Karakter) *
+                  Liste Kartı İçin Kısa Özet (Max 200 Karakter) *
                 </label>
-                <CharCounter current={form.cardSummary?.length || 0} max={120} />
+                <CharCounter current={form.cardSummary?.length || 0} max={200} />
               </div>
               <textarea
-                maxLength={120}
+                id="field-cardSummary"
+                maxLength={200}
                 rows={2}
                 value={form.cardSummary || ''}
                 onChange={(e) => update('cardSummary', e.target.value)}
                 placeholder="Örn: Müşterilerinizin telefonlarını 7/24 bekletmeden karşılayan, insan doğallığında konuşan yapay zeka."
-                className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-sm outline-none focus:border-corp-teal"
+                className={`mt-1 w-full rounded-xl border p-3 text-sm outline-none transition ${
+                  highlightedFieldId === 'field-cardSummary'
+                    ? 'ring-4 ring-rose-500 border-rose-500 bg-rose-50/60 animate-pulse'
+                    : 'border-slate-200 focus:border-corp-teal'
+                }`}
               />
+              {highlightedFieldId === 'field-cardSummary' && (
+                <p className="text-xs font-bold text-rose-600 flex items-center gap-1 mt-1">
+                  <AlertTriangle size={13} />
+                  {formError?.message || 'Liste kartı özeti en fazla 200 karakter olmalıdır.'}
+                </p>
+              )}
               <FieldHelp text="Tüm hizmetler listesinde kart üzerinde görünecek özlü, dikkat çekici cümle." />
             </div>
 
             <div>
               <label className="text-xs font-bold text-slate-700">Kategori / Etiket</label>
               <input
+                id="field-category"
                 type="text"
                 maxLength={80}
                 value={form.category || ''}
                 onChange={(e) => update('category', e.target.value)}
                 placeholder="Örn: AI Çağrı Merkezi, Finans & Analiz, Müşteri Deneyimi"
-                className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-sm outline-none focus:border-corp-teal"
+                className={`mt-1 w-full rounded-xl border p-3 text-sm outline-none transition ${
+                  highlightedFieldId === 'field-category'
+                    ? 'ring-4 ring-rose-500 border-rose-500 bg-rose-50/60 animate-pulse'
+                    : 'border-slate-200 focus:border-corp-teal'
+                }`}
               />
               <FieldHelp text="Hizmetin ait olduğu uzmanlık alanı veya rozet etiketi." />
             </div>
@@ -1371,6 +1598,7 @@ export default function AdminProductsPage() {
             <div>
               <label className="text-xs font-bold text-slate-700">Liste Sırası (Öncelik)</label>
               <input
+                id="field-displayOrder"
                 type="number"
                 min="0"
                 value={form.displayOrder}
@@ -1434,42 +1662,65 @@ export default function AdminProductsPage() {
             <div className="sm:col-span-2">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-bold text-slate-700">
-                  Sonuç Odaklı Ana Başlık (Max 70 Karakter) *
+                  Sonuç Odaklı Ana Başlık (Max 120 Karakter) *
                 </label>
-                <CharCounter current={form.heroHeadline?.length || 0} max={70} />
+                <CharCounter current={form.heroHeadline?.length || 0} max={120} />
               </div>
               <input
+                id="field-heroHeadline"
                 type="text"
-                maxLength={70}
+                maxLength={120}
                 value={form.heroHeadline || ''}
                 onChange={(e) => update('heroHeadline', e.target.value)}
                 placeholder="Örn: Telefonları 7/24 Kaçırmayın, Satışlarınızı Katlayın"
-                className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-sm outline-none focus:border-corp-teal"
+                className={`mt-1 w-full rounded-xl border p-3 text-sm outline-none transition ${
+                  highlightedFieldId === 'field-heroHeadline'
+                    ? 'ring-4 ring-rose-500 border-rose-500 bg-rose-50/60 animate-pulse'
+                    : 'border-slate-200 focus:border-corp-teal'
+                }`}
               />
+              {highlightedFieldId === 'field-heroHeadline' && (
+                <p className="text-xs font-bold text-rose-600 flex items-center gap-1 mt-1">
+                  <AlertTriangle size={13} />
+                  {formError?.message || 'Hero ana başlığı en fazla 120 karakter olabilir.'}
+                </p>
+              )}
               <FieldHelp text="Ziyaretçiyi yakalayan net, fayda ve sonuç odaklı ana manşet." />
             </div>
 
             <div className="sm:col-span-2">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-bold text-slate-700">
-                  Hero Alt Açıklama Metni (Max 160 Karakter) *
+                  Hero Alt Açıklama Metni (Max 250 Karakter) *
                 </label>
-                <CharCounter current={form.heroSubheadline?.length || 0} max={160} />
+                <CharCounter current={form.heroSubheadline?.length || 0} max={250} />
               </div>
               <textarea
-                maxLength={160}
+                id="field-heroSubheadline"
+                maxLength={250}
                 rows={2}
                 value={form.heroSubheadline || ''}
                 onChange={(e) => update('heroSubheadline', e.target.value)}
                 placeholder="Örn: Gelen çağrıları anında yanıtlayan, randevu oluşturan ve CRM entegrasyonuyla tüm veriyi işleyen yeni nesil sesli yapay zeka."
-                className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-sm outline-none focus:border-corp-teal"
+                className={`mt-1 w-full rounded-xl border p-3 text-sm outline-none transition ${
+                  highlightedFieldId === 'field-heroSubheadline'
+                    ? 'ring-4 ring-rose-500 border-rose-500 bg-rose-50/60 animate-pulse'
+                    : 'border-slate-200 focus:border-corp-teal'
+                }`}
               />
+              {highlightedFieldId === 'field-heroSubheadline' && (
+                <p className="text-xs font-bold text-rose-600 flex items-center gap-1 mt-1">
+                  <AlertTriangle size={13} />
+                  {formError?.message || 'Hero alt açıklaması en fazla 250 karakter olabilir.'}
+                </p>
+              )}
               <FieldHelp text="Ana başlığın hemen altındaki 1-2 cümlelik açıklama." />
             </div>
 
             <div>
               <label className="text-xs font-bold text-slate-700">Birincil Düğme Metni</label>
               <input
+                id="field-primaryCtaLabel"
                 type="text"
                 value={form.primaryCtaLabel || ''}
                 onChange={(e) => update('primaryCtaLabel', e.target.value)}
@@ -1481,6 +1732,7 @@ export default function AdminProductsPage() {
             <div>
               <label className="text-xs font-bold text-slate-700">Birincil Düğme Bağlantısı</label>
               <input
+                id="field-primaryCtaUrl"
                 type="text"
                 value={form.primaryCtaUrl || ''}
                 onChange={(e) => update('primaryCtaUrl', e.target.value)}
@@ -1494,6 +1746,7 @@ export default function AdminProductsPage() {
                 İkincil Düğme Metni (İsteğe Bağlı)
               </label>
               <input
+                id="field-secondaryCtaLabel"
                 type="text"
                 value={form.secondaryCtaLabel || ''}
                 onChange={(e) => update('secondaryCtaLabel', e.target.value)}
@@ -1507,6 +1760,7 @@ export default function AdminProductsPage() {
                 İkincil Düğme Bağlantısı (İsteğe Bağlı)
               </label>
               <input
+                id="field-secondaryCtaUrl"
                 type="text"
                 value={form.secondaryCtaUrl || ''}
                 onChange={(e) => update('secondaryCtaUrl', e.target.value)}
@@ -1532,6 +1786,7 @@ export default function AdminProductsPage() {
                 ) : null}
                 <div className="flex-1 space-y-2">
                   <input
+                    id="field-heroMockupUrl"
                     type="url"
                     value={form.heroMockupUrl || ''}
                     onChange={(e) => update('heroMockupUrl', e.target.value)}
@@ -1573,6 +1828,7 @@ export default function AdminProductsPage() {
                   Hero Görseli Alt Metni (SEO & Erişilebilirlik)
                 </label>
                 <input
+                  id="field-heroImageAlt"
                   type="text"
                   maxLength={120}
                   value={form.heroImageAlt || ''}
@@ -1589,6 +1845,7 @@ export default function AdminProductsPage() {
                 Hizmet Logosu / İkonu (URL)
               </label>
               <input
+                id="field-imageUrl"
                 type="url"
                 value={form.imageUrl || ''}
                 onChange={(e) => update('imageUrl', e.target.value)}
@@ -1616,7 +1873,7 @@ export default function AdminProductsPage() {
 
       {/* ─── TAB 3: FAYDA KARTLARI (3 - 6 ADET) ─────────────────────────── */}
       {activeTab === 'benefits' && (
-        <section className="grid gap-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <section id="field-benefits" className="grid gap-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between border-b border-slate-100 pb-4">
             <div>
               <div className="flex items-center gap-2">
@@ -1645,6 +1902,7 @@ export default function AdminProductsPage() {
             {form.benefits.map((item, index) => (
               <div
                 key={index}
+                id={`field-benefits-${index}`}
                 className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50/50 p-4"
               >
                 <div className="flex items-center justify-between">
@@ -1685,6 +1943,7 @@ export default function AdminProductsPage() {
                     Başlık (Max 80 Karakter)
                   </label>
                   <input
+                    id={`field-benefits-${index}-title`}
                     type="text"
                     maxLength={80}
                     value={item.title}
@@ -1697,7 +1956,11 @@ export default function AdminProductsPage() {
                       )
                     }
                     placeholder="Örn: %100 Yanıtlama Oranı"
-                    className="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2.5 text-sm outline-none"
+                    className={`mt-1 w-full rounded-xl border bg-white p-2.5 text-sm outline-none transition ${
+                      highlightedFieldId === `field-benefits-${index}-title`
+                        ? 'ring-4 ring-rose-500 border-rose-500 bg-rose-50/60 animate-pulse'
+                        : 'border-slate-200 focus:border-corp-teal'
+                    }`}
                   />
                 </div>
 
@@ -1709,6 +1972,7 @@ export default function AdminProductsPage() {
                     <CharCounter current={item.description.length} max={160} />
                   </div>
                   <textarea
+                    id={`field-benefits-${index}-description`}
                     maxLength={160}
                     rows={2}
                     value={item.description}
@@ -1721,7 +1985,11 @@ export default function AdminProductsPage() {
                       )
                     }
                     placeholder="Örn: Eşzamanlı yüzlerce çağrıyı tek bir saniye bekletmeden karşılayarak müşteri memnuniyetini zirveye çıkarın."
-                    className="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2.5 text-sm outline-none"
+                    className={`mt-1 w-full rounded-xl border bg-white p-2.5 text-sm outline-none transition ${
+                      highlightedFieldId === `field-benefits-${index}-description`
+                        ? 'ring-4 ring-rose-500 border-rose-500 bg-rose-50/60 animate-pulse'
+                        : 'border-slate-200 focus:border-corp-teal'
+                    }`}
                   />
                 </div>
               </div>
@@ -1747,7 +2015,7 @@ export default function AdminProductsPage() {
 
       {/* ─── TAB 4: NASIL ÇALIŞIR ADIMLARI (3 - 4 ADET) ─────────────────── */}
       {activeTab === 'steps' && (
-        <section className="grid gap-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <section id="field-steps" className="grid gap-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between border-b border-slate-100 pb-4">
             <div>
               <div className="flex items-center gap-2">
@@ -1775,6 +2043,7 @@ export default function AdminProductsPage() {
             {form.steps.map((step, index) => (
               <div
                 key={index}
+                id={`field-steps-${index}`}
                 className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50/50 p-4"
               >
                 <div className="flex items-center justify-between">
@@ -1800,6 +2069,7 @@ export default function AdminProductsPage() {
                     Adım Başlığı (Max 80 Karakter)
                   </label>
                   <input
+                    id={`field-steps-${index}-title`}
                     type="text"
                     maxLength={80}
                     value={step.title}
@@ -1812,13 +2082,18 @@ export default function AdminProductsPage() {
                       )
                     }
                     placeholder="Örn: 1. Paket Seçimi & Kayıt"
-                    className="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2.5 text-sm outline-none"
+                    className={`mt-1 w-full rounded-xl border bg-white p-2.5 text-sm outline-none transition ${
+                      highlightedFieldId === `field-steps-${index}-title`
+                        ? 'ring-4 ring-rose-500 border-rose-500 bg-rose-50/60 animate-pulse'
+                        : 'border-slate-200 focus:border-corp-teal'
+                    }`}
                   />
                 </div>
 
                 <div>
                   <label className="text-xs font-bold text-slate-600">Açıklama (1-2 Cümle)</label>
                   <textarea
+                    id={`field-steps-${index}-description`}
                     maxLength={300}
                     rows={2}
                     value={step.description}
@@ -1831,7 +2106,11 @@ export default function AdminProductsPage() {
                       )
                     }
                     placeholder="Örn: İhtiyacınıza uygun paketi belirleyin, güvenli ödeme ile aboneliğinizi başlatın."
-                    className="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2.5 text-sm outline-none"
+                    className={`mt-1 w-full rounded-xl border bg-white p-2.5 text-sm outline-none transition ${
+                      highlightedFieldId === `field-steps-${index}-description`
+                        ? 'ring-4 ring-rose-500 border-rose-500 bg-rose-50/60 animate-pulse'
+                        : 'border-slate-200 focus:border-corp-teal'
+                    }`}
                   />
                 </div>
               </div>
@@ -1857,7 +2136,7 @@ export default function AdminProductsPage() {
 
       {/* ─── TAB 5: DEMO & EKRAN GÖRÜNTÜLERİ (0 - 8 ADET) ──────────────── */}
       {activeTab === 'screenshots' && (
-        <section className="grid gap-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <section id="field-demoScreenshots" className="grid gap-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between border-b border-slate-100 pb-4">
             <div>
               <div className="flex items-center gap-2">
@@ -1895,7 +2174,7 @@ export default function AdminProductsPage() {
 
       {/* ─── TAB 6: FİYAT PAKETLERİ (TIERS) ─────────────────────────────── */}
       {activeTab === 'pricing' && (
-        <section className="grid gap-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <section id="field-tiers" className="grid gap-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between border-b border-slate-100 pb-4">
             <div>
               <h2 className="text-base font-bold text-slate-800">Fiyatlandırma & Paketler</h2>
@@ -1921,10 +2200,13 @@ export default function AdminProductsPage() {
             {form.tiers.map((tier, index) => (
               <div
                 key={tier.id || index}
+                id={`field-tiers-${index}`}
                 className={`flex flex-col gap-4 rounded-2xl border p-5 transition ${
-                  tier.isRecommended
-                    ? 'border-corp-teal ring-2 ring-corp-teal/20 bg-slate-50/50'
-                    : 'border-slate-200 bg-white'
+                  highlightedFieldId === `field-tiers-${index}`
+                    ? 'ring-4 ring-rose-500 border-rose-500 bg-rose-50/50'
+                    : tier.isRecommended
+                      ? 'border-corp-teal ring-2 ring-corp-teal/20 bg-slate-50/50'
+                      : 'border-slate-200 bg-white'
                 }`}
               >
                 <div className="flex items-center justify-between">
@@ -1950,6 +2232,7 @@ export default function AdminProductsPage() {
                 <div>
                   <label className="text-xs font-bold text-slate-700">Paket Adı *</label>
                   <input
+                    id={`field-tiers-${index}-name`}
                     type="text"
                     required
                     value={tier.name}
@@ -1960,14 +2243,25 @@ export default function AdminProductsPage() {
                       )
                     }
                     placeholder="Örn: Başlangıç Paketi"
-                    className="mt-1 w-full rounded-xl border border-slate-200 p-2.5 text-sm font-bold outline-none focus:border-corp-teal"
+                    className={`mt-1 w-full rounded-xl border p-2.5 text-sm font-bold outline-none transition ${
+                      highlightedFieldId === `field-tiers-${index}-name`
+                        ? 'ring-4 ring-rose-500 border-rose-500 bg-rose-50/60 animate-pulse'
+                        : 'border-slate-200 focus:border-corp-teal'
+                    }`}
                   />
+                  {highlightedFieldId === `field-tiers-${index}-name` && (
+                    <p className="text-xs font-bold text-rose-600 flex items-center gap-1 mt-1">
+                      <AlertTriangle size={13} />
+                      {formError?.message || 'Paket adı zorunludur.'}
+                    </p>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="text-xs font-bold text-slate-700">Aylık Fiyat (TL) *</label>
                     <input
+                      id={`field-tiers-${index}-priceMonthly`}
                       type="number"
                       step="0.01"
                       min="0"
@@ -1982,13 +2276,24 @@ export default function AdminProductsPage() {
                         )
                       }
                       placeholder="Örn: 5000"
-                      className="mt-1 w-full rounded-xl border border-slate-200 p-2.5 text-sm font-extrabold text-corp-teal outline-none"
+                      className={`mt-1 w-full rounded-xl border p-2.5 text-sm font-extrabold text-corp-teal outline-none transition ${
+                        highlightedFieldId === `field-tiers-${index}-priceMonthly`
+                          ? 'ring-4 ring-rose-500 border-rose-500 bg-rose-50/60 animate-pulse'
+                          : 'border-slate-200 focus:border-corp-teal'
+                      }`}
                     />
+                    {highlightedFieldId === `field-tiers-${index}-priceMonthly` && (
+                      <p className="text-xs font-bold text-rose-600 flex items-center gap-1 mt-1">
+                        <AlertTriangle size={13} />
+                        {formError?.message || 'Geçerli bir aylık fiyat giriniz.'}
+                      </p>
+                    )}
                   </div>
 
                   <div>
                     <label className="text-xs font-bold text-slate-700">Rozet Metni</label>
                     <input
+                      id={`field-tiers-${index}-badge`}
                       type="text"
                       maxLength={80}
                       value={tier.badge || ''}
@@ -2001,7 +2306,7 @@ export default function AdminProductsPage() {
                         )
                       }
                       placeholder="Örn: En Popüler"
-                      className="mt-1 w-full rounded-xl border border-slate-200 p-2.5 text-sm outline-none"
+                      className="mt-1 w-full rounded-xl border border-slate-200 p-2.5 text-sm outline-none focus:border-corp-teal"
                     />
                   </div>
                 </div>
@@ -2029,6 +2334,7 @@ export default function AdminProductsPage() {
                 <div>
                   <label className="text-xs font-bold text-slate-700">KDV Notu</label>
                   <input
+                    id={`field-tiers-${index}-vatNote`}
                     type="text"
                     value={tier.vatNote || ''}
                     onChange={(e) =>
@@ -2040,13 +2346,14 @@ export default function AdminProductsPage() {
                       )
                     }
                     placeholder="Örn: + %20 KDV"
-                    className="mt-1 w-full rounded-xl border border-slate-200 p-2.5 text-xs outline-none"
+                    className="mt-1 w-full rounded-xl border border-slate-200 p-2.5 text-xs outline-none focus:border-corp-teal"
                   />
                 </div>
 
                 <div>
                   <label className="text-xs font-bold text-slate-700">Yenileme / İptal Notu</label>
                   <input
+                    id={`field-tiers-${index}-renewalNote`}
                     type="text"
                     value={tier.renewalNote || ''}
                     onChange={(e) =>
@@ -2058,13 +2365,14 @@ export default function AdminProductsPage() {
                       )
                     }
                     placeholder="Örn: Dilediğiniz zaman tek tıkla iptal"
-                    className="mt-1 w-full rounded-xl border border-slate-200 p-2.5 text-xs outline-none"
+                    className="mt-1 w-full rounded-xl border border-slate-200 p-2.5 text-xs outline-none focus:border-corp-teal"
                   />
                 </div>
 
                 <div>
                   <label className="text-xs font-bold text-slate-700">Buton Metni</label>
                   <input
+                    id={`field-tiers-${index}-buttonText`}
                     type="text"
                     value={tier.buttonText || ''}
                     onChange={(e) =>
@@ -2076,7 +2384,7 @@ export default function AdminProductsPage() {
                       )
                     }
                     placeholder={`Varsayılan: ${tier.name || 'Paket'} Aboneliğini Başlat`}
-                    className="mt-1 w-full rounded-xl border border-slate-200 p-2.5 text-xs outline-none"
+                    className="mt-1 w-full rounded-xl border border-slate-200 p-2.5 text-xs outline-none focus:border-corp-teal"
                   />
                 </div>
 
@@ -2293,7 +2601,7 @@ export default function AdminProductsPage() {
 
       {/* ─── TAB 7: GÜVEN VE İTİRAZ BLOKLARI ─────────────────────────────── */}
       {activeTab === 'trust' && (
-        <section className="grid gap-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <section id="field-trustBlocks" className="grid gap-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between border-b border-slate-100 pb-4">
             <div>
               <h2 className="text-base font-bold text-slate-800">Güven ve İtiraz Blokları</h2>
@@ -2317,6 +2625,7 @@ export default function AdminProductsPage() {
             {form.trustBlocks.map((block, index) => (
               <div
                 key={block.key}
+                id={`field-trustBlocks-${index}`}
                 className={`flex flex-col gap-3 rounded-2xl border p-4 transition ${
                   block.isEnabled
                     ? 'border-slate-200 bg-white'
@@ -2348,6 +2657,7 @@ export default function AdminProductsPage() {
                 <div>
                   <label className="text-xs font-bold text-slate-600">Başlık</label>
                   <input
+                    id={`field-trustBlocks-${index}-title`}
                     type="text"
                     value={block.title}
                     onChange={(e) =>
@@ -2358,13 +2668,18 @@ export default function AdminProductsPage() {
                         )
                       )
                     }
-                    className="mt-1 w-full rounded-xl border border-slate-200 p-2 text-sm font-semibold outline-none"
+                    className={`mt-1 w-full rounded-xl border bg-white p-2 text-sm font-semibold outline-none transition ${
+                      highlightedFieldId === `field-trustBlocks-${index}-title`
+                        ? 'ring-4 ring-rose-500 border-rose-500 bg-rose-50/60 animate-pulse'
+                        : 'border-slate-200 focus:border-corp-teal'
+                    }`}
                   />
                 </div>
 
                 <div>
                   <label className="text-xs font-bold text-slate-600">Açıklama Metni</label>
                   <textarea
+                    id={`field-trustBlocks-${index}-text`}
                     rows={3}
                     value={block.text}
                     onChange={(e) =>
@@ -2375,7 +2690,11 @@ export default function AdminProductsPage() {
                         )
                       )
                     }
-                    className="mt-1 w-full rounded-xl border border-slate-200 p-2 text-xs outline-none"
+                    className={`mt-1 w-full rounded-xl border bg-white p-2 text-xs outline-none transition ${
+                      highlightedFieldId === `field-trustBlocks-${index}-text`
+                        ? 'ring-4 ring-rose-500 border-rose-500 bg-rose-50/60 animate-pulse'
+                        : 'border-slate-200 focus:border-corp-teal'
+                    }`}
                   />
                 </div>
               </div>
@@ -2386,7 +2705,7 @@ export default function AdminProductsPage() {
 
       {/* ─── TAB 8: SIKÇA SORULAN SORULAR (SSS) ─────────────────────────── */}
       {activeTab === 'faqs' && (
-        <section className="grid gap-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <section id="field-faqs" className="grid gap-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between border-b border-slate-100 pb-4">
             <div>
               <h2 className="text-base font-bold text-slate-800">Sıkça Sorulan Sorular (SSS)</h2>
@@ -2409,6 +2728,7 @@ export default function AdminProductsPage() {
             {form.faqs.map((faq, index) => (
               <div
                 key={index}
+                id={`field-faqs-${index}`}
                 className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50/50 p-4"
               >
                 <div className="flex items-center justify-between">
@@ -2432,6 +2752,7 @@ export default function AdminProductsPage() {
                 <div>
                   <label className="text-xs font-bold text-slate-700">Soru *</label>
                   <input
+                    id={`field-faqs-${index}-question`}
                     type="text"
                     required
                     value={faq.question}
@@ -2444,13 +2765,24 @@ export default function AdminProductsPage() {
                       )
                     }
                     placeholder="Örn: Kurulum için teknik ekibe ihtiyacım var mı?"
-                    className="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2.5 text-sm font-semibold outline-none"
+                    className={`mt-1 w-full rounded-xl border bg-white p-2.5 text-sm font-semibold outline-none transition ${
+                      highlightedFieldId === `field-faqs-${index}-question`
+                        ? 'ring-4 ring-rose-500 border-rose-500 bg-rose-50/60 animate-pulse'
+                        : 'border-slate-200 focus:border-corp-teal'
+                    }`}
                   />
+                  {highlightedFieldId === `field-faqs-${index}-question` && (
+                    <p className="text-xs font-bold text-rose-600 flex items-center gap-1 mt-1">
+                      <AlertTriangle size={13} />
+                      {formError?.message || 'Soru alanı en fazla 140 karakter olmalıdır.'}
+                    </p>
+                  )}
                 </div>
 
                 <div>
                   <label className="text-xs font-bold text-slate-700">Cevap *</label>
                   <textarea
+                    id={`field-faqs-${index}-answer`}
                     rows={3}
                     required
                     value={faq.answer}
@@ -2463,7 +2795,11 @@ export default function AdminProductsPage() {
                       )
                     }
                     placeholder="Örn: Hayır, tüm teknik entegrasyonu Çiçekana ekibi 24 saat içinde anahtar teslim tamamlar."
-                    className="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2.5 text-sm outline-none"
+                    className={`mt-1 w-full rounded-xl border bg-white p-2.5 text-sm outline-none transition ${
+                      highlightedFieldId === `field-faqs-${index}-answer`
+                        ? 'ring-4 ring-rose-500 border-rose-500 bg-rose-50/60 animate-pulse'
+                        : 'border-slate-200 focus:border-corp-teal'
+                    }`}
                   />
                 </div>
               </div>
@@ -2507,11 +2843,16 @@ export default function AdminProductsPage() {
             <div>
               <label className="text-xs font-bold text-slate-700">WhatsApp Telefon Numarası</label>
               <input
+                id="field-whatsappNumber"
                 type="text"
                 value={form.whatsappNumber || ''}
                 onChange={(e) => update('whatsappNumber', e.target.value)}
                 placeholder="+90 530 341 21 56"
-                className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-sm font-semibold outline-none"
+                className={`mt-1 w-full rounded-xl border p-3 text-sm font-semibold outline-none transition ${
+                  highlightedFieldId === 'field-whatsappNumber'
+                    ? 'ring-4 ring-rose-500 border-rose-500 bg-rose-50/60 animate-pulse'
+                    : 'border-slate-200 focus:border-corp-teal'
+                }`}
               />
               <FieldHelp text="Müşterinin yönlendirileceği WhatsApp hattı." />
             </div>
@@ -2521,11 +2862,16 @@ export default function AdminProductsPage() {
                 Ön Metin Şablonu ({'{ürün}'} yer tutucusu)
               </label>
               <input
+                id="field-whatsappTemplate"
                 type="text"
                 value={form.whatsappTemplate || ''}
                 onChange={(e) => update('whatsappTemplate', e.target.value)}
                 placeholder="Merhaba, {ürün} hakkında bilgi almak istiyorum."
-                className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-sm outline-none"
+                className={`mt-1 w-full rounded-xl border p-3 text-sm outline-none transition ${
+                  highlightedFieldId === 'field-whatsappTemplate'
+                    ? 'ring-4 ring-rose-500 border-rose-500 bg-rose-50/60 animate-pulse'
+                    : 'border-slate-200 focus:border-corp-teal'
+                }`}
               />
               <FieldHelp text="{ürün} yazan yere otomatik olarak bu hizmetin adı yerleştirilecektir." />
             </div>
@@ -2566,12 +2912,17 @@ export default function AdminProductsPage() {
                 <CharCounter current={form.metaTitle?.length || 0} max={80} />
               </div>
               <input
+                id="field-metaTitle"
                 type="text"
                 maxLength={80}
                 value={form.metaTitle || ''}
                 onChange={(e) => update('metaTitle', e.target.value)}
                 placeholder={`${form.name || 'Hizmet Adı'} | Çiçekana Teknoloji`}
-                className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-sm outline-none"
+                className={`mt-1 w-full rounded-xl border p-3 text-sm outline-none transition ${
+                  highlightedFieldId === 'field-metaTitle'
+                    ? 'ring-4 ring-rose-500 border-rose-500 bg-rose-50/60 animate-pulse'
+                    : 'border-slate-200 focus:border-corp-teal'
+                }`}
               />
               <FieldHelp text="Google sekmesinde ve arama sonuçlarında görünen başlık." />
             </div>
@@ -2584,12 +2935,17 @@ export default function AdminProductsPage() {
                 <CharCounter current={form.metaDescription?.length || 0} max={160} />
               </div>
               <textarea
+                id="field-metaDescription"
                 maxLength={160}
                 rows={2}
                 value={form.metaDescription || ''}
                 onChange={(e) => update('metaDescription', e.target.value)}
                 placeholder="Google snippet ve arama sonuçlarında görünen açıklama."
-                className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-sm outline-none"
+                className={`mt-1 w-full rounded-xl border p-3 text-sm outline-none transition ${
+                  highlightedFieldId === 'field-metaDescription'
+                    ? 'ring-4 ring-rose-500 border-rose-500 bg-rose-50/60 animate-pulse'
+                    : 'border-slate-200 focus:border-corp-teal'
+                }`}
               />
             </div>
 
@@ -2598,11 +2954,16 @@ export default function AdminProductsPage() {
                 Sosyal Medya Paylaşım Görseli (OG Image)
               </label>
               <input
+                id="field-ogImageUrl"
                 type="url"
                 value={form.ogImageUrl || ''}
                 onChange={(e) => update('ogImageUrl', e.target.value)}
                 placeholder="https://..."
-                className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-sm outline-none"
+                className={`mt-1 w-full rounded-xl border p-3 text-sm outline-none transition ${
+                  highlightedFieldId === 'field-ogImageUrl'
+                    ? 'ring-4 ring-rose-500 border-rose-500 bg-rose-50/60 animate-pulse'
+                    : 'border-slate-200 focus:border-corp-teal'
+                }`}
               />
             </div>
 

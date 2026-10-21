@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { planSchema, requireAdmin } from "@/lib/admin-plan";
+import { planSchema, requireAdmin, formatPlanZodError } from "@/lib/admin-plan";
 import { revalidatePath } from "next/cache";
 
 export function normalizeTiers(value: unknown) {
@@ -45,14 +45,25 @@ export async function POST(request: Request) {
   const body = await request.json();
   const parsed = planSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Geçersiz veri" }, { status: 400 });
+    const formatted = formatPlanZodError(parsed.error, body);
+    return NextResponse.json(formatted, { status: 400 });
   }
 
   try {
     const data = parsed.data;
     const tiers = normalizeTiers(body.tiers);
     if (!tiers.length) {
-      return NextResponse.json({ error: "Her ürünün en az bir fiyat paketi olmalı" }, { status: 400 });
+      return NextResponse.json({
+        error: "[Paketler & Fiyat] Her ürünün en az bir fiyat paketi olmalıdır.",
+        tab: "pricing",
+        tabLabel: "Paketler & Fiyat",
+        field: "tiers",
+        fieldLabel: "Fiyatlandırma Paketleri",
+        elementId: "field-tiers",
+        message: "Her ürünün en az bir fiyat paketi olmalıdır.",
+        fullMessage: "[Paketler & Fiyat] Fiyatlandırma Paketleri: En az bir fiyat paketi olmalıdır.",
+        issues: [],
+      }, { status: 400 });
     }
 
     const plan = await prisma.$transaction(async (tx) => {
@@ -102,7 +113,17 @@ export async function POST(request: Request) {
     return NextResponse.json(plan, { status: 201 });
   } catch (error: unknown) {
     if (typeof error === "object" && error && "code" in error && error.code === "P2002") {
-      return NextResponse.json({ error: "Bu slug zaten kullanılıyor" }, { status: 409 });
+      return NextResponse.json({
+        error: "[Genel Bilgiler] Bu URL adresi (slug) zaten başka bir ürün veya hizmet tarafından kullanılıyor.",
+        tab: "general",
+        tabLabel: "Genel Bilgiler",
+        field: "slug",
+        fieldLabel: "URL Adresi (Slug)",
+        elementId: "field-slug",
+        message: "Bu URL adresi (slug) zaten kullanılıyor. Lütfen benzersiz bir slug belirleyin.",
+        fullMessage: "[Genel Bilgiler] URL Adresi (Slug): Bu slug zaten kullanılıyor.",
+        issues: [],
+      }, { status: 409 });
     }
     console.error("[api/admin/plans] Plan oluşturma hatası:", error);
     return NextResponse.json({ error: "Hizmet oluşturulamadı" }, { status: 500 });
