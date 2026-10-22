@@ -51,7 +51,11 @@ export const metadata: Metadata = {
 
 const GOOGLE_ADS_ID =
   process.env.NEXT_PUBLIC_GOOGLE_ADS_ID || 'AW-18495983175';
-const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
+const rawGaId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
+const GA_MEASUREMENT_ID =
+  rawGaId && rawGaId.startsWith('G-') && !rawGaId.includes('your-google-analytics')
+    ? rawGaId
+    : 'G-44S1R08S20';
 
 export default function RootLayout({
   children,
