@@ -48,9 +48,19 @@ export const metadata: Metadata = {
   },
 };
 
+const cleanAdsId = (process.env.NEXT_PUBLIC_GOOGLE_ADS_ID || '')
+  .replace(/['"]/g, '')
+  .trim();
 const GOOGLE_ADS_ID =
-  process.env.NEXT_PUBLIC_GOOGLE_ADS_ID || 'AW-18495983175';
-const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
+  cleanAdsId.startsWith('AW-') ? cleanAdsId : 'AW-18495983175';
+
+const cleanGaId = (process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || '')
+  .replace(/['"]/g, '')
+  .trim();
+const GA_MEASUREMENT_ID =
+  cleanGaId.startsWith('G-') && !cleanGaId.includes('your-google-analytics')
+    ? cleanGaId
+    : 'G-44S1R08S20';
 
 export default function RootLayout({
   children,

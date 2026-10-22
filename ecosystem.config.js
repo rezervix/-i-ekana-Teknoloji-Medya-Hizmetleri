@@ -24,7 +24,7 @@ module.exports = {
       OPENAI_API_KEY: "your-openai-api-key-here",
       GEMINI_API_KEY: "AIzaSyAgcDNHqgkK0Sn2cWaozYalttcP6j7q5tw",
       ANTHROPIC_API_KEY: "your-anthropic-api-key-here",
-      NEXT_PUBLIC_GA_MEASUREMENT_ID: "your-google-analytics-id-here",
+      NEXT_PUBLIC_GA_MEASUREMENT_ID: "G-44S1R08S20",
       NEXT_PUBLIC_ADSENSE_ID: "your-adsense-id-here",
       PERPLEXITY_API_KEY: "your-perplexity-api-key-here",
       NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: "your-stripe-publishable-key-here"
