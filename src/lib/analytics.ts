@@ -304,7 +304,8 @@ export async function trackFunnelEvent(payload: FunnelPayload): Promise<void> {
         payload.metadata?.applicationNumber;
 
       // Google Ads doğrudan dönüşüm etiketi desteği (Ortam değişkeninde tanımlıysa)
-      const adsId = process.env.NEXT_PUBLIC_GOOGLE_ADS_ID || "AW-18495983175";
+      const rawAdsId = process.env.NEXT_PUBLIC_GOOGLE_ADS_ID?.replace(/['"]/g, '').trim();
+      const adsId = rawAdsId && rawAdsId.startsWith('AW-') ? rawAdsId : "AW-18495983175";
       let sendTo: string | undefined = undefined;
       if (payload.event === GA4_EVENTS.PURCHASE) {
         const purchaseLabel =
