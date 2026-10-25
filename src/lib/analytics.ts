@@ -283,9 +283,15 @@ export async function trackFunnelEvent(payload: FunnelPayload): Promise<void> {
   const utmSource = getUtmSource();
   const variant = payload.variant || getABVariant("cta_button");
 
-  // 1. GA4 Event (Çerez Onayına Saygılı)
+  // Consent Mode uyumlu olay gönderimi:
+  // E-ticaret/lead conversion olaylarını gtag kuyruğuna her zaman bırakırız.
+  // Varsayılan consent durumu layout.tsx tarafından denied olabilir; Google bu
+  // sinyali Consent Mode üzerinden işler. Diğer analitik olaylar izin gerektirir.
   const consentGiven = hasAnalyticsConsent();
-  if (consentGiven && typeof (window as any).gtag === "function") {
+  const isConversionEvent =
+    payload.event === GA4_EVENTS.PURCHASE ||
+    payload.event === GA4_EVENTS.GENERATE_LEAD;
+  if ((consentGiven || isConversionEvent) && typeof (window as any).gtag === "function") {
     try {
       const ga4Items = (payload.items || []).map((item, index) => ({
         item_id: item.id,
@@ -303,26 +309,24 @@ export async function trackFunnelEvent(payload: FunnelPayload): Promise<void> {
         payload.metadata?.leadId ||
         payload.metadata?.applicationNumber;
 
-      // Google Ads doğrudan dönüşüm etiketi desteği (Ortam değişkeninde tanımlıysa)
       const rawAdsId = process.env.NEXT_PUBLIC_GOOGLE_ADS_ID?.replace(/['"]/g, '').trim();
-      const adsId = rawAdsId && rawAdsId.startsWith('AW-') ? rawAdsId : "AW-18495983175";
-      let sendTo: string | undefined = undefined;
-      if (payload.event === GA4_EVENTS.PURCHASE) {
-        const purchaseLabel =
-          process.env.NEXT_PUBLIC_GOOGLE_ADS_PURCHASE_CONVERSION_LABEL ||
-          process.env.NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_LABEL;
-        if (purchaseLabel) sendTo = `${adsId}/${purchaseLabel}`;
-      } else if (payload.event === GA4_EVENTS.GENERATE_LEAD) {
-        const leadLabel = process.env.NEXT_PUBLIC_GOOGLE_ADS_LEAD_CONVERSION_LABEL;
-        if (leadLabel) sendTo = `${adsId}/${leadLabel}`;
-      }
+      const adsId = rawAdsId && rawAdsId.startsWith("AW-") ? rawAdsId : "AW-18495983175";
+      const purchaseLabel =
+        process.env.NEXT_PUBLIC_GOOGLE_ADS_PURCHASE_CONVERSION_LABEL ||
+        process.env.NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_LABEL;
+      const leadLabel = process.env.NEXT_PUBLIC_GOOGLE_ADS_LEAD_CONVERSION_LABEL;
+      const conversionLabel =
+        payload.event === GA4_EVENTS.PURCHASE
+          ? purchaseLabel
+          : payload.event === GA4_EVENTS.GENERATE_LEAD
+            ? leadLabel
+            : undefined;
 
       const ga4Data: Record<string, any> = {
         currency: payload.currency || "TRY",
         value: payload.value !== undefined ? Number(payload.value) : undefined,
         items: ga4Items.length > 0 ? ga4Items : undefined,
         transaction_id: transactionId,
-        send_to: sendTo,
         variant,
         session_id: sessionId,
         ...(payload.metadata || {}),
@@ -333,7 +337,20 @@ export async function trackFunnelEvent(payload: FunnelPayload): Promise<void> {
         (key) => ga4Data[key] === undefined && delete ga4Data[key]
       );
 
+      // GA4 event (separately from any direct Google Ads conversion action).
       (window as any).gtag("event", payload.event, ga4Data);
+
+      // Direct Google Ads conversion action requires the real label from Ads.
+      // Never invent a label: when absent, the GA4 event still fires and can be
+      // imported as a conversion if that is configured in Google Ads.
+      if (isConversionEvent && conversionLabel) {
+        (window as any).gtag("event", "conversion", {
+          send_to: `${adsId}/${conversionLabel}`,
+          value: payload.value !== undefined ? Number(payload.value) : undefined,
+          currency: payload.currency || "TRY",
+          transaction_id: transactionId,
+        });
+      }
     } catch (err) {
       console.warn("[analytics] GA4 event error:", err);
     }
