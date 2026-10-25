@@ -3,6 +3,8 @@
  * Optimizes for Google Rich Results, AI Overviews, Perplexity, and ChatGPT Search (GEO).
  */
 
+import { getSiteUrl } from "@/lib/site-url";
+
 export interface SchemaTier {
   id?: string;
   name?: string;
@@ -33,8 +35,7 @@ export interface SchemaPlan {
   updatedAt?: string | Date;
 }
 
-export const DEFAULT_SITE_URL =
-  (process.env.NEXT_PUBLIC_SITE_URL || "https://cicekanatechmedia.com").replace(/\/$/, "");
+export const DEFAULT_SITE_URL = getSiteUrl();
 
 export const ORGANIZATION_SCHEMA = {
   "@type": "Organization",

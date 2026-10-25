@@ -5,6 +5,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import SocialApplicationForm from "./components/SocialApplicationForm";
 import QuickApplicationForm from "./components/QuickApplicationForm";
+import CityHeroHeading from "./components/CityHeroHeading";
 import {
   ArrowRight,
   CheckCircle,
@@ -290,9 +291,7 @@ export default function SocialMediaServicePage() {
               </div>
 
               {/* H1 */}
-              <h1 className="font-display text-3xl sm:text-4xl md:text-5xl lg:text-[44px] xl:text-[50px] text-corp-charcoal font-bold tracking-tight leading-[1.15]">
-                Sosyal Medya & Reklam Danışmanlığı
-              </h1>
+              <CityHeroHeading />
 
               {/* Alt mesaj */}
               <p className="font-body text-base sm:text-lg text-corp-gray leading-relaxed font-normal">
