@@ -105,9 +105,14 @@ export async function middleware(request: NextRequest) {
 
   // 2. Resolve Country for Store routes & Header state
   const country = resolveCountry(request);
+  const isPaytrTokenRoute = pathname.startsWith("/api/paytr/get-token");
   let isAllowedCountry = false;
 
-  if (!STORE_ENABLED) {
+  if (isPaytrTokenRoute) {
+    // PayTR token creation also serves paid subscriptions. Do not geo-block this API:
+    // PayTR account permissions and server-side validation remain the payment gate.
+    isAllowedCountry = true;
+  } else if (!STORE_ENABLED) {
     isAllowedCountry = true;
   } else if (!country) {
     // Fail-open for unknown countries
@@ -129,9 +134,7 @@ export async function middleware(request: NextRequest) {
 
   // 3. Coğrafi Kısıtlama: /magaza (ve alt sayfaları) ile sipariş/ödeme API'leri
   const isStorePageRoute = pathname.startsWith("/magaza") && pathname !== "/magaza/restricted";
-  const isStoreApiRoute =
-    pathname.startsWith("/api/orders/create") ||
-    pathname.startsWith("/api/paytr/get-token");
+  const isStoreApiRoute = pathname.startsWith("/api/orders/create");
 
   if (!isAllowedCountry && (isStorePageRoute || isStoreApiRoute)) {
     // Structured KVKK-compliant log for PM2
