@@ -310,7 +310,7 @@ export async function trackFunnelEvent(payload: FunnelPayload): Promise<void> {
         payload.metadata?.applicationNumber;
 
       const rawAdsId = process.env.NEXT_PUBLIC_GOOGLE_ADS_ID?.replace(/['"]/g, '').trim();
-      const adsId = rawAdsId && rawAdsId.startsWith("AW-") ? rawAdsId : "AW-18495983175";
+      const adsId = rawAdsId && rawAdsId.startsWith("AW-") ? rawAdsId : "AW-7822771615";
       const purchaseLabel =
         process.env.NEXT_PUBLIC_GOOGLE_ADS_PURCHASE_CONVERSION_LABEL ||
         process.env.NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_LABEL;
