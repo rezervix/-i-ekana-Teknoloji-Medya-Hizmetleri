@@ -38,7 +38,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://www.cicekanatechmedia.com'),
+  metadataBase: new URL(getSiteUrl()),
   title: 'Çiçekana — Daha Fazlasını Hak Edenler İçin',
   description: 'Çiçekana Teknoloji ve Medya Hizmetleri — Microsoft, THY ve Casper gibi devlerle çalışmış ekip ile markanızı zirveye taşıyoruz.',
   icons: {
@@ -115,10 +115,7 @@ export default function RootLayout({
           <CartDrawer />
           <CookieConsent />
           <MicrosoftClarity />
-        </NextAuthProvider>
-
-        <script type="module" async src="https://static.rocket.new/rocket-web.js?_cfg=https%3A%2F%2Fcicekana2069back.builtwithrocket.new&_be=https%3A%2F%2Fappanalytics.rocket.new&_v=0.1.17" />
-        <script type="module" defer src="https://static.rocket.new/rocket-shot.js?v=0.0.2" /></body>
+        </NextAuthProvider></body>
     </html>
   );
 }
