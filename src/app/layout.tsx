@@ -10,6 +10,7 @@ import CartDrawer from "@/components/CartDrawer";
 import CookieConsent from "@/components/ui/CookieConsent";
 import MicrosoftClarity from "@/components/analytics/MicrosoftClarity";
 import CartRecoveryListener from "@/components/analytics/CartRecoveryListener";
+import { getSiteUrl } from "@/lib/site-url";
 
 const inter = localFont({
   src: '../fonts/Inter-Variable.woff2',
