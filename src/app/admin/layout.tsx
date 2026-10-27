@@ -8,7 +8,7 @@ import {
   LayoutDashboard, FileText, FolderOpen, Package, Wrench, Users2, MessageSquareQuote,
   Image, Mail, BarChart3, Settings, LogOut, Menu, X, ChevronRight,
   Brain, UserSquare2, HelpCircle, Building2, Briefcase, LifeBuoy, FolderGit2, Receipt, ExternalLink, Sliders,
-  ShoppingBag, Share2
+  ShoppingBag, Share2, MessageSquare, BookOpen
 } from "lucide-react";
 import DatabaseStatus from "./components/DatabaseStatus";
 import Logo from "@/components/Logo";
@@ -69,6 +69,14 @@ const navSections = [
       { icon: Users2,    label: "Lead / CRM", href: "/admin/leads" },
       { icon: Share2,    label: "Sosyal Medya Başvuruları", href: "/admin/social-applications" },
       { icon: Briefcase, label: "Teklifler",   href: "/admin/quotes" },
+    ],
+  },
+  {
+    label: "Müşteri Hizmetleri",
+    items: [
+      { icon: MessageSquare, label: "Sohbetler ve Talepler", href: "/admin/customer-service/chats" },
+      { icon: BookOpen, label: "AI Bilgi Bankası", href: "/admin/customer-service/knowledge-base" },
+      { icon: BarChart3, label: "Görüşme Analitiği", href: "/admin/customer-service/analytics" },
     ],
   },
   {
