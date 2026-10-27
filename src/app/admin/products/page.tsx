@@ -932,15 +932,8 @@ export default function AdminProductsPage() {
             </div>
           </div>
         )}
-      </div>
-    );
-  }
 
-  // ─── EDİTÖR EKRANI ───────────────────────────────────────────────────────────
-
-  return (
-    <div className="flex flex-col gap-6 pb-20">
-      {/* AI ile Ürün İçe Aktarma Modalı */}
+        {/* AI ile Ürün İçe Aktarma Modalı */}
         {aiImportModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
             <div className="w-full max-w-xl rounded-3xl bg-white p-6 md:p-8 shadow-2xl border border-slate-100">
