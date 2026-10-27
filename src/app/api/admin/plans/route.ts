@@ -1,30 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { planSchema, requireAdmin } from "@/lib/admin-plan";
+import { planSchema, requireAdmin, normalizeTiers } from "@/lib/admin-plan";
 import { revalidatePath } from "next/cache";
-
-export function normalizeTiers(value: unknown) {
-  if (!Array.isArray(value)) return [];
-  return value.map((tier, index) => ({
-    id: typeof tier?.id === "string" ? tier.id : undefined,
-    name: String(tier?.name ?? "").trim(),
-    description: String(tier?.description ?? "").trim().slice(0, 300) || null,
-    priceMonthly: Math.round(Number(tier?.priceMonthly) * 100),
-    badge: String(tier?.badge ?? "").trim() || null,
-    isRecommended: Boolean(tier?.isRecommended),
-    vatNote: String(tier?.vatNote ?? "").trim() || null,
-    renewalNote: String(tier?.renewalNote ?? "").trim() || null,
-    buttonText: String(tier?.buttonText ?? "").trim() || null,
-    displayOrder: Number.isInteger(Number(tier?.displayOrder)) ? Number(tier.displayOrder) : index,
-    isActive: tier?.isActive !== false,
-    features: Array.isArray(tier?.features)
-      ? tier.features.map(String).map((item: string) => item.trim()).filter(Boolean)
-      : [],
-    comparisonFeatures: Array.isArray(tier?.comparisonFeatures)
-      ? tier.comparisonFeatures
-      : [],
-  })).filter((tier) => tier.name && tier.priceMonthly > 0);
-}
 
 export async function GET() {
   if (!(await requireAdmin())) return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });

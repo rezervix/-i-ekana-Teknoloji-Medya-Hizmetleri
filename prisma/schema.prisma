@@ -44,6 +44,7 @@ model User {
   activityLogs       ActivityLog[]
   teamMembers        ClientTeamMember[]
   subscriptions      Subscription[]
+  chatConversations  ChatConversation[]
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
 }
@@ -1007,4 +1008,211 @@ model SocialMediaApplicationNote {
 
   @@index([applicationId])
   @@map("social_media_application_notes")
+}
+
+
+// ─── AI customer support and knowledge base additions ─────────────────────
+enum ChatConversationStatus {
+  ACTIVE
+  HANDED_OVER
+  CLOSED
+  RESOLVED
+}
+
+enum ChatSenderType {
+  VISITOR
+  BOT
+  AGENT
+  SYSTEM
+}
+
+enum ChatHandoverStatus {
+  NONE
+  REQUESTED
+  PENDING_CONTACT
+  CONTACTED
+  RESOLVED
+  CANCELLED
+}
+
+enum HandoverStatus {
+  NEW
+  IN_REVIEW
+  CONTACTED
+  RESOLVED
+  CLOSED
+}
+
+enum KnowledgeDocStatus {
+  DRAFT
+  PROCESSING
+  ACTIVE
+  DISABLED
+  ERROR
+}
+
+model ChatConversation {
+  id             String                 @id @default(cuid())
+  sessionId      String                 @map("session_id")
+  userId         String?                @map("user_id")
+  user           User?                  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  title          String?
+  pageUrl        String?                @map("page_url")
+  productId      String?                @map("product_id")
+  status         ChatConversationStatus @default(ACTIVE)
+  customerName   String?                @map("customer_name")
+  customerPhone  String?                @map("customer_phone")
+  customerEmail  String?                @map("customer_email")
+  handoverStatus ChatHandoverStatus     @default(NONE) @map("handover_status")
+  handoverReason String?                @map("handover_reason")
+  assignedTo     String?                @map("assigned_to")
+  internalNotes  String?                @map("internal_notes") @db.Text
+  messages       ChatMessage[]
+  handovers      ChatHandover[]
+  createdAt      DateTime               @default(now()) @map("created_at")
+  updatedAt      DateTime               @updatedAt @map("updated_at")
+
+  @@index([sessionId])
+  @@index([status])
+  @@index([handoverStatus])
+  @@index([createdAt])
+  @@map("chat_conversations")
+}
+
+model ChatMessage {
+  id                 String           @id @default(cuid())
+  conversationId     String           @map("conversation_id")
+  conversation       ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderType         ChatSenderType   @default(VISITOR) @map("sender_type")
+  senderName         String?          @map("sender_name")
+  content            String           @db.Text
+  isDelivered        Boolean          @default(true) @map("is_delivered")
+  tokensUsed         Int?             @map("tokens_used")
+  suggestedProducts  Json?            @map("suggested_products")
+  usedDocumentIds    String[]         @default([]) @map("used_document_ids")
+  evidenceConfidence Float?           @map("evidence_confidence")
+  isHandoverPrompt   Boolean          @default(false) @map("is_handover_prompt")
+  createdAt          DateTime         @default(now()) @map("created_at")
+
+  @@index([conversationId])
+  @@index([senderType])
+  @@index([createdAt])
+  @@map("chat_messages")
+}
+
+model ChatHandover {
+  id                  String           @id @default(cuid())
+  conversationId      String           @map("conversation_id")
+  conversation        ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  customerName        String?          @map("customer_name")
+  customerPhone       String           @map("customer_phone")
+  customerEmail       String?          @map("customer_email")
+  relatedProduct      String?          @map("related_product")
+  unansweredQuestion  String           @map("unanswered_question") @db.Text
+  conversationSummary String?          @map("conversation_summary") @db.Text
+  handoverReason      String           @map("handover_reason")
+  status              HandoverStatus   @default(NEW)
+  assignedAgent       String?          @map("assigned_agent")
+  agentNotes          String?          @map("agent_notes") @db.Text
+  contactedAt         DateTime?        @map("contacted_at")
+  createdAt           DateTime         @default(now()) @map("created_at")
+  updatedAt           DateTime         @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@index([customerPhone])
+  @@index([createdAt])
+  @@map("chat_handovers")
+}
+
+model KnowledgeDocument {
+  id            String             @id @default(cuid())
+  title         String
+  description   String?            @db.Text
+  fileName      String             @map("file_name")
+  fileType      String             @map("file_type")
+  fileSize      Int                @map("file_size")
+  rawContent    String             @map("raw_content") @db.Text
+  cleanContent  String             @map("clean_content") @db.Text
+  productId     String?            @map("product_id")
+  productType   String?            @map("product_type") // "product" | "plan" | "general"
+  category      String?
+  status        KnowledgeDocStatus @default(DRAFT)
+  statusMessage String?            @map("status_message")
+  version       Int                @default(1)
+  uploadedBy    String?            @map("uploaded_by")
+  chunkCount    Int                @default(0) @map("chunk_count")
+  chunks        KnowledgeChunk[]
+  createdAt     DateTime           @default(now()) @map("created_at")
+  updatedAt     DateTime           @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@index([productId])
+  @@index([category])
+  @@map("knowledge_documents")
+}
+
+model KnowledgeChunk {
+  id         String            @id @default(cuid())
+  documentId String            @map("document_id")
+  document   KnowledgeDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  chunkIndex Int               @map("chunk_index")
+  content    String            @db.Text
+  tokens     Int?
+  keywords   String[]          @default([])
+  createdAt  DateTime          @default(now()) @map("created_at")
+
+  @@index([documentId])
+  @@map("knowledge_chunks")
+}
+
+model KnowledgeQA {
+  id         String   @id @default(cuid())
+  question   String   @db.Text
+  answer     String   @db.Text
+  category   String   @default("Genel")
+  productId  String?  @map("product_id")
+  variations String[] @default([])
+  isActive   Boolean  @default(true) @map("is_active")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@index([category])
+  @@index([productId])
+  @@index([isActive])
+  @@map("knowledge_qas")
+}
+
+model UnansweredQuestionLog {
+  id             String   @id @default(cuid())
+  question       String   @db.Text
+  conversationId String?  @map("conversation_id")
+  matchedScore   Float?   @map("matched_score")
+  candidateDocId String?  @map("candidate_doc_id")
+  confidence     Float?
+  status         String   @default("PENDING")
+  adminNotes     String?  @map("admin_notes") @db.Text
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@index([createdAt])
+  @@map("unanswered_question_logs")
+}
+
+model KnowledgeTestEvaluation {
+  id              String   @id @default(cuid())
+  question        String   @db.Text
+  normalizedQuery String?  @map("normalized_query") @db.Text
+  detectedIntent  String?  @map("detected_intent")
+  answer          String   @db.Text
+  verdict         String   // "CORRECT" | "PARTIAL" | "INCORRECT" | "IRRELEVANT" | "TOO_LONG" | "MISSING_INFO" | "UNVERIFIED_CLAIM" | "WRONG_PRODUCT"
+  adminNotes      String?  @map("admin_notes") @db.Text
+  confidence      Float?
+  confidenceLevel String?  @map("confidence_level")
+  latencyMs       Int?     @map("latency_ms")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@index([verdict])
+  @@index([createdAt])
+  @@map("knowledge_test_evaluations")
 }

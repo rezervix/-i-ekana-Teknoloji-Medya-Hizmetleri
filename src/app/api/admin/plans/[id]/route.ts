@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { planSchema, requireAdmin } from "@/lib/admin-plan";
-import { normalizeTiers } from "../route";
+import { planSchema, requireAdmin, normalizeTiers } from "@/lib/admin-plan";
 import { revalidatePath } from "next/cache";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
