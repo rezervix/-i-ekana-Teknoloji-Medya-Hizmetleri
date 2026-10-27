@@ -7,6 +7,7 @@ import localFont from "next/font/local";
 import { cn } from "@/lib/utils";
 import NextAuthProvider from "@/components/SessionProvider";
 import CartDrawer from "@/components/CartDrawer";
+import CustomerSupportChat from "@/components/chat/CustomerSupportChat";
 import CookieConsent from "@/components/ui/CookieConsent";
 import MicrosoftClarity from "@/components/analytics/MicrosoftClarity";
 import CartRecoveryListener from "@/components/analytics/CartRecoveryListener";
@@ -113,6 +114,7 @@ export default function RootLayout({
           </Suspense>
           {children}
           <MeetingScheduler />
+          <CustomerSupportChat />
           <CartDrawer />
           <CookieConsent />
           <MicrosoftClarity />
