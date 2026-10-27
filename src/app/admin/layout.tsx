@@ -74,8 +74,8 @@ const navSections = [
   {
     label: "Müşteri Hizmetleri",
     items: [
-      { icon: MessageSquare, label: "Sohbetler ve Talepler", href: "/admin/customer-service/chats" },
-      { icon: BookOpen, label: "AI Bilgi Bankası", href: "/admin/customer-service/knowledge-base" },
+      { icon: MessageSquare, label: "Canlı Sohbet / Destek Merkezi", href: "/admin/customer-service/chats" },
+      { icon: BookOpen, label: "Bilgi Bankası / Doküman Yönetimi", href: "/admin/customer-service/knowledge-base" },
       { icon: BarChart3, label: "Görüşme Analitiği", href: "/admin/customer-service/analytics" },
     ],
   },
