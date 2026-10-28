@@ -30,6 +30,7 @@ export async function GET() {
     keyConfigured: Boolean(apiKey),
     keySource,
     keyPreview,
+    apiKey: apiKey || '', // Yetkili admin için kayıtlı anahtarı döndür
     lastDiagnostic: settings.lastDiagnostic || null,
   });
 }
@@ -78,17 +79,32 @@ export async function POST(request: Request) {
           ? body.timeoutSeconds
           : existingConfig.timeoutSeconds,
       lastDiagnostic: existingConfig.lastDiagnostic,
+      apiKey: existingConfig.apiKey,
     };
+
+    // API Anahtarı güncellenmek isteniyorsa
+    let newApiKey: string | undefined = undefined;
+    if (typeof body.apiKey === 'string') {
+      const trimmed = body.apiKey.trim();
+      if (trimmed.length > 0) {
+        newApiKey = trimmed;
+        updatedConfig.apiKey = trimmed;
+      }
+    }
 
     // Varsayılan modelin öncelik listesinde yer almasını sağla
     if (!updatedConfig.modelPriority.includes(updatedConfig.defaultModel)) {
       updatedConfig.modelPriority.unshift(updatedConfig.defaultModel);
     }
 
-    const updatedData = {
+    const updatedData: any = {
       ...currentData,
       aiProductImportConfig: updatedConfig,
     };
+
+    if (newApiKey) {
+      updatedData.geminiApiKey = newApiKey;
+    }
 
     await prisma.siteSettings.upsert({
       where: { id: 'singleton' },
@@ -101,10 +117,16 @@ export async function POST(request: Request) {
       },
     });
 
+    const savedKey = updatedConfig.apiKey || '';
+    const keyPreview = savedKey ? `${savedKey.slice(0, 6)}...${savedKey.slice(-4)}` : 'Tanımlanmamış';
+
     return NextResponse.json({
       success: true,
       settings: updatedConfig,
-      message: 'AI model ve fallback ayarları başarıyla kaydedildi.',
+      keyConfigured: Boolean(savedKey),
+      keyPreview,
+      apiKey: savedKey,
+      message: 'AI ayarları ve API anahtarı başarıyla kaydedildi.',
     });
   } catch (err: any) {
     console.error('[AI-Settings Error]:', err);

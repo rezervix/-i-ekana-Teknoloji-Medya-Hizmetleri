@@ -55,6 +55,7 @@ export async function POST(request: Request) {
     // 2. Dosya Ayrıştırma ve Doğrulama
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
+    const customApiKey = (formData.get('apiKey') as string | null)?.trim() || undefined;
 
     if (!file) {
       return NextResponse.json(
@@ -108,6 +109,7 @@ export async function POST(request: Request) {
       fileName: file.name,
       fileSize: file.size,
       mimeType: file.type || 'application/octet-stream',
+      apiKey: customApiKey,
     };
 
     if (lowerName.endsWith('.pdf') || file.type === 'application/pdf') {

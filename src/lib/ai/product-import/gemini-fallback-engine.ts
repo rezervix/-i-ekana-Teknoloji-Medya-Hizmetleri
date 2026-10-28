@@ -60,6 +60,7 @@ export interface AIProductImportSettings {
   maxAttempts: number;
   timeoutSeconds: number;
   lastDiagnostic?: ImportDiagnosticReport;
+  apiKey?: string;
 }
 
 // ─── DOĞRULANMIŞ VE KULLANIMDAN KALDIRILMIŞ MODELLER ─────────────────────────
@@ -176,13 +177,35 @@ export function classifyGeminiError(error: any, model: string): ClassifiedError 
   const rawMessage = redactSensitive(error?.message || String(error));
   const lowerMsg = rawMessage.toLowerCase();
 
-  // 1. API Anahtarı ve Genel Kimlik Doğrulama Hataları (Tüm modelleri durdur)
+  // 1. API Anahtarı Askıya Alınmış (Consumer Suspended) veya İptal Edilmiş
+  const isSuspended =
+    lowerMsg.includes('suspended') ||
+    lowerMsg.includes('has been suspended') ||
+    (lowerMsg.includes('consumer') && lowerMsg.includes('permission denied')) ||
+    (lowerMsg.includes('consumer') && lowerMsg.includes('api_key')) ||
+    (lowerMsg.includes('consumer') && lowerMsg.includes('suspended'));
+
+  if (isSuspended) {
+    return {
+      category: 'AUTH_GLOBAL',
+      httpStatus: 403,
+      shouldHaltAllModels: true,
+      shouldRetrySameModel: false,
+      shouldFallbackNextModel: false,
+      safeMessage: `Google Gemini API anahtarı askıya alınmış (Consumer Suspended): ${rawMessage.slice(0, 200)}`,
+      userExplanation:
+        'Kullandığınız Google Gemini API anahtarı Google tarafından askıya alınmış veya devre dışı bırakılmış ("Consumer suspended"). Bu nedenle yapay zeka istekleri reddedildi.',
+      suggestedAction:
+        'Lütfen modal içerisindeki "Google Gemini API Anahtarı" alanına Google AI Studio (aistudio.google.com) üzerinden aldığınız yeni ve geçerli bir API anahtarı girip "Kaydet" butonuna tıklayın.',
+    };
+  }
+
+  // 1b. API Anahtarı ve Genel Kimlik Doğrulama Hataları (Tüm modelleri durdur)
   const isGlobalAuth =
     rawStatus === 401 ||
     lowerMsg.includes('api key not valid') ||
     lowerMsg.includes('api_key_invalid') ||
     lowerMsg.includes('unauthenticated') ||
-    lowerMsg.includes('has been suspended') ||
     lowerMsg.includes('api has not been used in project') ||
     lowerMsg.includes('generative language api has not been enabled');
 
@@ -195,9 +218,9 @@ export function classifyGeminiError(error: any, model: string): ClassifiedError 
       shouldFallbackNextModel: false,
       safeMessage: `Kimlik doğrulama reddedildi: ${rawMessage.slice(0, 200)}`,
       userExplanation:
-        'Google Gemini API anahtarıyla kimlik doğrulaması başarısız oldu. Bu genel bir hesap veya anahtar yetkilendirme sorunudur; modelleri değiştirmek sorunu çözmez.',
+        'Google Gemini API anahtarıyla kimlik doğrulaması başarısız oldu. API anahtarı geçersiz veya yetkisiz.',
       suggestedAction:
-        "1) Google AI Studio veya Google Cloud Console üzerinden API anahtarınızın aktif olduğunu doğrulayın.\n2) 'Generative Language API' servisinin etkinleştirildiğinden emin olun.\n3) Sunucu ortam değişkenlerindeki GEMINI_PRODUCT_IMPORT_API_KEY değerini güncelleyin.",
+        'Lütfen arayüzdeki "Google Gemini API Anahtarı" alanına yeni ve geçerli bir API anahtarı girip kaydedin.',
     };
   }
 
@@ -346,35 +369,21 @@ export function classifyGeminiError(error: any, model: string): ClassifiedError 
 
 // ─── AYARLARI ÇÖZÜMLEME (ENV + SITESETTINGS) ──────────────────────────────────
 
-export async function resolveImportConfig(): Promise<{
+export const isValidGeminiKey = (k?: string | null): boolean =>
+  Boolean(k && k.trim().length > 15 && !k.includes('BURAYA') && !k.includes('YOUR_'));
+
+export async function resolveImportConfig(overrideApiKey?: string): Promise<{
   apiKey: string;
   settings: AIProductImportSettings;
   keySource: string;
 }> {
-  // 1. API Anahtarı Önceliği
-  const keyProductImport = process.env.GEMINI_PRODUCT_IMPORT_API_KEY?.trim();
-  const keyProductImportAlt = process.env.GEMINI_PRODUCT_IMPORT_KEY?.trim();
-  const keyGeneral = process.env.GEMINI_API_KEY?.trim();
-  const keySupport = process.env.GEMINI_SUPPORT_API_KEY?.trim();
-
   let apiKey = '';
   let keySource = 'none';
 
-  const isValidKey = (k?: string) =>
-    Boolean(k && k.length > 20 && !k.includes('BURAYA') && !k.includes('YOUR_'));
-
-  if (isValidKey(keyProductImport)) {
-    apiKey = keyProductImport!;
-    keySource = 'GEMINI_PRODUCT_IMPORT_API_KEY';
-  } else if (isValidKey(keyProductImportAlt)) {
-    apiKey = keyProductImportAlt!;
-    keySource = 'GEMINI_PRODUCT_IMPORT_KEY';
-  } else if (isValidKey(keyGeneral)) {
-    apiKey = keyGeneral!;
-    keySource = 'GEMINI_API_KEY';
-  } else if (isValidKey(keySupport)) {
-    apiKey = keySupport!;
-    keySource = 'GEMINI_SUPPORT_API_KEY';
+  // 1. İstekten gelen doğrudan override anahtar kontrolü
+  if (isValidGeminiKey(overrideApiKey)) {
+    apiKey = overrideApiKey!.trim();
+    keySource = 'REQUEST_CUSTOM';
   }
 
   // 2. Veritabanından SiteSettings Yapılandırmasını Çek
@@ -394,6 +403,23 @@ export async function resolveImportConfig(): Promise<{
 
     if (siteSettings?.data && typeof siteSettings.data === 'object') {
       const data = siteSettings.data as any;
+
+      // Veritabanında kayıtlı API anahtarı kontrolü (override yoksa)
+      const dbKey =
+        typeof data.aiProductImportConfig?.apiKey === 'string' && data.aiProductImportConfig.apiKey.trim()
+          ? data.aiProductImportConfig.apiKey.trim()
+          : typeof data.geminiApiKey === 'string' && data.geminiApiKey.trim()
+            ? data.geminiApiKey.trim()
+            : '';
+
+      if (dbKey) {
+        settings.apiKey = dbKey;
+        if (!apiKey && isValidGeminiKey(dbKey)) {
+          apiKey = dbKey;
+          keySource = 'DATABASE';
+        }
+      }
+
       if (data.aiProductImportConfig) {
         const stored = data.aiProductImportConfig;
         if (stored.defaultModel && typeof stored.defaultModel === 'string') {
@@ -423,6 +449,28 @@ export async function resolveImportConfig(): Promise<{
     console.warn('[AI-Import] SiteSettings okunamadı, varsayılan yapılandırma kullanılıyor:', err);
   }
 
+  // 3. Veritabanında yoksa veya geçersizse .env ortam değişkenlerine bak
+  if (!apiKey) {
+    const keyProductImport = process.env.GEMINI_PRODUCT_IMPORT_API_KEY?.trim();
+    const keyProductImportAlt = process.env.GEMINI_PRODUCT_IMPORT_KEY?.trim();
+    const keyGeneral = process.env.GEMINI_API_KEY?.trim();
+    const keySupport = process.env.GEMINI_SUPPORT_API_KEY?.trim();
+
+    if (isValidGeminiKey(keyProductImport)) {
+      apiKey = keyProductImport!;
+      keySource = 'GEMINI_PRODUCT_IMPORT_API_KEY';
+    } else if (isValidGeminiKey(keyProductImportAlt)) {
+      apiKey = keyProductImportAlt!;
+      keySource = 'GEMINI_PRODUCT_IMPORT_KEY';
+    } else if (isValidGeminiKey(keyGeneral)) {
+      apiKey = keyGeneral!;
+      keySource = 'GEMINI_API_KEY';
+    } else if (isValidGeminiKey(keySupport)) {
+      apiKey = keySupport!;
+      keySource = 'GEMINI_SUPPORT_API_KEY';
+    }
+  }
+
   // Öncelik listesinin geçerliliğini sağla
   if (!settings.modelPriority.includes(settings.defaultModel)) {
     settings.modelPriority.unshift(settings.defaultModel);
@@ -433,6 +481,62 @@ export async function resolveImportConfig(): Promise<{
   );
 
   return { apiKey, settings, keySource };
+}
+
+// ─── GEMINI API ANAHTARINI VERİTABANINA SAKLAMA ───────────────────────────────
+
+export async function saveGeminiApiKey(newKey: string): Promise<{
+  success: boolean;
+  keyPreview: string;
+  error?: string;
+}> {
+  try {
+    const cleanKey = newKey.trim();
+    if (!isValidGeminiKey(cleanKey)) {
+      return {
+        success: false,
+        keyPreview: '',
+        error: 'Lütfen geçerli bir Google Gemini API anahtarı girin (en az 16 karakter).',
+      };
+    }
+
+    const current = await prisma.siteSettings.findUnique({
+      where: { id: 'singleton' },
+    });
+
+    const currentData = (current?.data as any) || {};
+    const existingConfig: AIProductImportSettings = currentData.aiProductImportConfig || {
+      ...DEFAULT_AI_IMPORT_SETTINGS,
+    };
+
+    const updatedConfig: AIProductImportSettings = {
+      ...existingConfig,
+      apiKey: cleanKey,
+    };
+
+    const updatedData = {
+      ...currentData,
+      geminiApiKey: cleanKey,
+      aiProductImportConfig: updatedConfig,
+    };
+
+    await prisma.siteSettings.upsert({
+      where: { id: 'singleton' },
+      create: {
+        id: 'singleton',
+        data: updatedData,
+      },
+      update: {
+        data: updatedData,
+      },
+    });
+
+    const keyPreview = `${cleanKey.slice(0, 6)}...${cleanKey.slice(-4)}`;
+    return { success: true, keyPreview };
+  } catch (err: any) {
+    console.error('[saveGeminiApiKey] Hata:', err);
+    return { success: false, keyPreview: '', error: err?.message || 'Anahtar kaydedilemedi.' };
+  }
 }
 
 // ─── TEŞHİS KAYDINI SAKLAMA ──────────────────────────────────────────────────
@@ -721,6 +825,7 @@ export interface ProductImportExecutionInput {
   mimeType: string;
   pdfBase64?: string;
   rawText?: string;
+  apiKey?: string;
 }
 
 export interface ProductImportExecutionResult {
@@ -737,8 +842,13 @@ export async function executeProductImportWithFallback(
   const overallStartTime = Date.now();
   const attempts: ImportAttemptRecord[] = [];
 
-  // 1. Yapılandırmayı Çözümle
-  const { apiKey, settings, keySource } = await resolveImportConfig();
+  // 1. Yapılandırmayı Çözümle (İstekten gelen anahtarı öncelikle kullan)
+  const { apiKey, settings, keySource } = await resolveImportConfig(input.apiKey);
+
+  // İstekten yeni geçerli bir anahtar geldiyse veritabanına da kalıcı kaydet
+  if (input.apiKey && isValidGeminiKey(input.apiKey) && keySource === 'REQUEST_CUSTOM') {
+    void saveGeminiApiKey(input.apiKey);
+  }
 
   // API Anahtarı Kontrolü
   if (!apiKey) {
@@ -749,11 +859,11 @@ export async function executeProductImportWithFallback(
       primaryModel: settings.defaultModel,
       category: 'AUTH_GLOBAL',
       userExplanation:
-        'Sunucuda geçerli bir Google Gemini API anahtarı yapılandırılmamış. Lütfen ortam değişkenlerini kontrol edin.',
+        'Geçerli bir Google Gemini API anahtarı tanımlanmamış veya boş bırakılmış.',
       technicalDetail:
-        'GEMINI_PRODUCT_IMPORT_API_KEY veya GEMINI_API_KEY tanımlı değil veya boş/varsayılan yer tutucu değerinde.',
+        'Arayüzden girilen anahtar, veritabanı (SiteSettings) veya .env ortam değişkenlerinde geçerli bir API anahtarı bulunamadı.',
       suggestedAction:
-        'Sunucu ortam değişkenlerine (ör. .env veya Vercel Settings) GEMINI_PRODUCT_IMPORT_API_KEY anahtarınızı ekleyin ve servisi yeniden başlatın.',
+        'Lütfen modal içerisindeki "Google Gemini API Anahtarı" alanına aktif bir Gemini API anahtarı girip Kaydet butonuna tıklayın.',
       durationTotalMs: Date.now() - overallStartTime,
       attempts: [],
       recommendedModels: VERIFIED_ACTIVE_MODELS,
@@ -1035,6 +1145,7 @@ export async function testGeminiConnectionAndModels(testKey?: string): Promise<{
   success: boolean;
   apiKeyConfigured: boolean;
   discoveredModelsCount: number;
+  keyPreview?: string;
   results: Array<{
     model: string;
     status: 'ACTIVE' | 'QUOTA_EXCEEDED' | 'HIGH_DEMAND' | 'DEPRECATED' | 'ERROR';
@@ -1042,10 +1153,11 @@ export async function testGeminiConnectionAndModels(testKey?: string): Promise<{
     errorSummary?: string;
   }>;
   diagnosticId: string;
+  error?: string;
 }> {
   const diagnosticId = generateDiagnosticId();
-  const { apiKey: envApiKey } = await resolveImportConfig();
-  const keyToUse = testKey?.trim() || envApiKey;
+  const { apiKey: resolvedKey } = await resolveImportConfig(testKey);
+  const keyToUse = testKey?.trim() || resolvedKey;
 
   if (!keyToUse) {
     return {
@@ -1054,8 +1166,11 @@ export async function testGeminiConnectionAndModels(testKey?: string): Promise<{
       discoveredModelsCount: 0,
       results: [],
       diagnosticId,
+      error: 'Test edilecek geçerli bir Google Gemini API anahtarı bulunamadı. Lütfen bir anahtar girin.',
     };
   }
+
+  const keyPreview = `${keyToUse.slice(0, 6)}...${keyToUse.slice(-4)}`;
 
   const client = new GoogleGenAI({ apiKey: keyToUse });
   let discoveredCount = 0;
@@ -1120,6 +1235,7 @@ export async function testGeminiConnectionAndModels(testKey?: string): Promise<{
   return {
     success: hasAtLeastOneActive,
     apiKeyConfigured: true,
+    keyPreview,
     discoveredModelsCount: discoveredCount,
     results,
     diagnosticId,

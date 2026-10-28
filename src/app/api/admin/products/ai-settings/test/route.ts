@@ -14,6 +14,8 @@ export async function POST(request: Request) {
       const body = await request.json();
       if (body.customKey && typeof body.customKey === 'string') {
         customKey = body.customKey.trim();
+      } else if (body.apiKey && typeof body.apiKey === 'string') {
+        customKey = body.apiKey.trim();
       }
     } catch {
       // JSON body opsiyonel

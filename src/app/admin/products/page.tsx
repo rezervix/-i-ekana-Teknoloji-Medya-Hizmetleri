@@ -9,9 +9,11 @@ import {
   ChevronDown,
   Clock,
   Eye,
+  EyeOff,
   ExternalLink,
   History,
   ImagePlus,
+  Key,
   Loader2,
   Lock,
   MessageCircle,
@@ -374,6 +376,19 @@ export default function AdminProductsPage() {
   const [showTechnicalDetails, setShowTechnicalDetails] = useState(false);
   const [copiedDiagId, setCopiedDiagId] = useState(false);
 
+  // Gemini API Anahtarı Yönetimi
+  const [geminiApiKey, setGeminiApiKey] = useState('');
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [apiKeySaving, setApiKeySaving] = useState(false);
+  const [apiKeySavedSuccess, setApiKeySavedSuccess] = useState(false);
+  const [apiKeyTesting, setApiKeyTesting] = useState(false);
+  const [apiKeyTestResult, setApiKeyTestResult] = useState<{
+    success: boolean;
+    message: string;
+    discoveredCount?: number;
+    activeCount?: number;
+  } | null>(null);
+
   // AI Model & Fallback Ayarları Durumları
   const [aiSettingsModalOpen, setAiSettingsModalOpen] = useState(false);
   const [aiSettingsData, setAiSettingsData] = useState<any>(null);
@@ -393,6 +408,12 @@ export default function AdminProductsPage() {
       const data = await res.json();
       if (res.ok) {
         setAiSettingsData(data);
+        if (data.apiKey) {
+          setGeminiApiKey(data.apiKey);
+          try {
+            localStorage.setItem('admin_gemini_api_key', data.apiKey);
+          } catch {}
+        }
       } else {
         setAiSettingsError(data.error || 'AI ayarları yüklenemedi.');
       }
@@ -400,6 +421,108 @@ export default function AdminProductsPage() {
       setAiSettingsError('Sunucu bağlantısı sırasında hata oluştu.');
     } finally {
       setAiSettingsLoading(false);
+    }
+  }
+
+  // API Anahtarını Veritabanına ve LocalStorage'a Kaydet
+  async function handleSaveApiKey(explicitKey?: string) {
+    const keyToSave = (explicitKey !== undefined ? explicitKey : geminiApiKey).trim();
+    if (!keyToSave) {
+      setApiKeyTestResult({
+        success: false,
+        message: 'Lütfen bir Google Gemini API anahtarı girin.',
+      });
+      return;
+    }
+
+    setApiKeySaving(true);
+    setApiKeySavedSuccess(false);
+    setApiKeyTestResult(null);
+
+    try {
+      // LocalStorage'a hemen kaydet (istemci tarafı hemen hatırlar)
+      try {
+        localStorage.setItem('admin_gemini_api_key', keyToSave);
+      } catch {}
+
+      // Veritabanına kaydet
+      const res = await fetch('/api/admin/products/ai-settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          apiKey: keyToSave,
+          ...(aiSettingsData?.settings || {}),
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setApiKeySavedSuccess(true);
+        setAiSettingsData((prev: any) => ({
+          ...prev,
+          keyConfigured: true,
+          keyPreview: data.keyPreview,
+          keySource: 'DATABASE',
+          apiKey: keyToSave,
+          settings: data.settings || prev?.settings,
+        }));
+        setTimeout(() => setApiKeySavedSuccess(false), 4000);
+      } else {
+        setApiKeyTestResult({
+          success: false,
+          message: data.error || 'API anahtarı veritabanına kaydedilemedi.',
+        });
+      }
+    } catch {
+      setApiKeyTestResult({
+        success: false,
+        message: 'Sunucuya bağlanırken hata oluştu.',
+      });
+    } finally {
+      setApiKeySaving(false);
+    }
+  }
+
+  // Canlı Model ve Bağlantı Testi (Özel veya Kayıtlı Key ile)
+  async function handleTestApiKey(explicitKey?: string) {
+    const keyToTest = (explicitKey !== undefined ? explicitKey : geminiApiKey).trim();
+    setApiKeyTesting(true);
+    setApiKeyTestResult(null);
+
+    try {
+      const res = await fetch('/api/admin/products/ai-settings/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey: keyToTest }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        const activeCount = data.results?.filter((r: any) => r.status === 'ACTIVE').length || 0;
+        setApiKeyTestResult({
+          success: true,
+          message: `Bağlantı başarılı! Google Gemini API aktif (${activeCount} doğrulanmış model hazır).`,
+          discoveredCount: data.discoveredModelsCount,
+          activeCount,
+        });
+        setAiTestResults(data);
+      } else {
+        const firstErr =
+          data.results?.find((r: any) => r.errorSummary)?.errorSummary ||
+          data.error ||
+          'API anahtarı doğrulanamadı veya yetkisiz.';
+        setApiKeyTestResult({
+          success: false,
+          message: firstErr,
+        });
+      }
+    } catch {
+      setApiKeyTestResult({
+        success: false,
+        message: 'Bağlantı testi sırasında sunucuya erişilemedi.',
+      });
+    } finally {
+      setApiKeyTesting(false);
     }
   }
 
@@ -413,12 +536,20 @@ export default function AdminProductsPage() {
       const res = await fetch('/api/admin/products/ai-settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(aiSettingsData.settings),
+        body: JSON.stringify({
+          ...aiSettingsData.settings,
+          apiKey: geminiApiKey.trim() || undefined,
+        }),
       });
       const data = await res.json();
       if (res.ok) {
         setAiSettingsSuccess('AI model ve fallback ayarları başarıyla kaydedildi.');
-        setAiSettingsData((prev: any) => ({ ...prev, settings: data.settings }));
+        setAiSettingsData((prev: any) => ({
+          ...prev,
+          settings: data.settings,
+          keyConfigured: data.keyConfigured,
+          keyPreview: data.keyPreview,
+        }));
         setTimeout(() => setAiSettingsSuccess(''), 4000);
       } else {
         setAiSettingsError(data.error || 'Ayarlar kaydedilemedi.');
@@ -438,6 +569,8 @@ export default function AdminProductsPage() {
     try {
       const res = await fetch('/api/admin/products/ai-settings/test', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey: geminiApiKey.trim() || undefined }),
       });
       const data = await res.json();
       setAiTestResults(data);
@@ -465,6 +598,11 @@ export default function AdminProductsPage() {
 
   useEffect(() => {
     void loadPlans();
+    try {
+      const cached = localStorage.getItem('admin_gemini_api_key');
+      if (cached) setGeminiApiKey(cached);
+    } catch {}
+    void loadAiSettings();
   }, []);
 
   // AI ile Dokümandan Ürün Oluştur
@@ -483,6 +621,9 @@ export default function AdminProductsPage() {
     try {
       const data = new FormData();
       data.append('file', aiImportFile);
+      if (geminiApiKey.trim()) {
+        data.append('apiKey', geminiApiKey.trim());
+      }
 
       const res = await fetch('/api/admin/products/ai-import', {
         method: 'POST',
@@ -1093,20 +1234,27 @@ export default function AdminProductsPage() {
 
         {/* AI ile Ürün İçe Aktarma Modalı */}
         {aiImportModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs overflow-y-auto">
-            <div className="w-full max-w-2xl rounded-3xl bg-white p-6 md:p-8 shadow-2xl border border-slate-100 my-8">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-3 sm:p-4 md:p-6 backdrop-blur-sm animate-in fade-in duration-150">
+            <div
+              className="relative flex flex-col w-full max-w-2xl max-h-[92vh] sm:max-h-[88vh] rounded-3xl bg-white shadow-2xl border border-slate-200/80 overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Sabit Header */}
+              <div className="flex items-center justify-between border-b border-slate-100 px-5 sm:px-7 py-4 bg-white shrink-0">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-corp-teal/10 text-corp-teal">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-corp-teal/20 to-corp-teal/5 text-corp-teal shadow-2xs">
                     <Sparkles size={20} />
                   </div>
                   <div>
-                    <h2 className="text-lg font-bold text-slate-900">AI ile Ürün Oluştur</h2>
+                    <h2 className="text-base sm:text-lg font-bold text-slate-900 leading-tight">
+                      AI ile Ürün Oluştur
+                    </h2>
                     <p className="text-xs text-slate-500">
                       Doküman yükleyin, Gemini AI form alanlarını akıllı fallback ile doldursun.
                     </p>
                   </div>
                 </div>
+
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
@@ -1130,21 +1278,174 @@ export default function AdminProductsPage() {
                       }
                     }}
                     disabled={aiImportLoading}
-                    className="text-slate-400 hover:text-slate-600 disabled:opacity-50 p-1"
+                    className="rounded-xl p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-50 transition"
                   >
                     <X size={20} />
                   </button>
                 </div>
               </div>
 
-              <div className="mt-5 space-y-4">
+              {/* Scroll Edilebilir Gövde */}
+              <div className="flex-1 overflow-y-auto p-5 sm:p-7 space-y-4 overscroll-contain text-slate-700">
+                {/* 1. API Anahtarı Yönetim Kartı */}
+                <div
+                  className={`rounded-2xl border p-4 sm:p-5 transition-all ${
+                    aiImportDiagnostics?.category === 'AUTH_GLOBAL' ||
+                    aiImportError.toLowerCase().includes('suspended')
+                      ? 'border-rose-300 bg-rose-50/50 shadow-xs'
+                      : geminiApiKey
+                        ? 'border-emerald-200/90 bg-emerald-50/30'
+                        : 'border-amber-300 bg-amber-50/40'
+                  }`}
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className={`flex h-7 w-7 items-center justify-center rounded-xl text-white ${
+                          aiImportDiagnostics?.category === 'AUTH_GLOBAL' ||
+                          aiImportError.toLowerCase().includes('suspended')
+                            ? 'bg-rose-600'
+                            : geminiApiKey
+                              ? 'bg-emerald-600'
+                              : 'bg-amber-500'
+                        }`}
+                      >
+                        <Key size={14} />
+                      </div>
+                      <span className="text-xs font-bold text-slate-900">
+                        Google Gemini API Anahtarı
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {aiImportDiagnostics?.category === 'AUTH_GLOBAL' ||
+                      aiImportError.toLowerCase().includes('suspended') ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 border border-rose-200 px-2.5 py-0.5 text-[10px] font-bold text-rose-800">
+                          <AlertTriangle size={11} /> Anahtar Askıya Alındı / Geçersiz
+                        </span>
+                      ) : geminiApiKey ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 border border-emerald-200 px-2.5 py-0.5 text-[10px] font-bold text-emerald-800">
+                          <CheckCircle2 size={11} /> Kayıtlı ve Hazır
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 border border-amber-200 px-2.5 py-0.5 text-[10px] font-bold text-amber-800">
+                          <AlertTriangle size={11} /> API Anahtarı Gerekli
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <p className="text-[11px] text-slate-600 mb-2.5 leading-relaxed">
+                    AI ile ürün oluşturmak için kendi Google Gemini API anahtarınızı girin. Girilen
+                    anahtar veritabanında güvenle saklanır, sistem tarafından hatırlanır ve dilediğiniz zaman güncellenebilir.
+                  </p>
+
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <div className="relative flex-1">
+                      <input
+                        type={showApiKey ? 'text' : 'password'}
+                        value={geminiApiKey}
+                        onChange={(e) => {
+                          setGeminiApiKey(e.target.value);
+                          setApiKeyTestResult(null);
+                        }}
+                        placeholder="AIzaSy... (Google Gemini API Anahtarınızı buraya girin)"
+                        className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-3 pr-10 text-xs font-mono text-slate-800 placeholder:text-slate-400 focus:border-corp-teal focus:ring-1 focus:ring-corp-teal outline-none transition"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowApiKey(!showApiKey)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 rounded transition"
+                        title={showApiKey ? 'Gizle' : 'Göster'}
+                      >
+                        {showApiKey ? <EyeOff size={15} /> : <Eye size={15} />}
+                      </button>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => void handleSaveApiKey()}
+                        disabled={apiKeySaving || !geminiApiKey.trim()}
+                        className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-slate-900 px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:bg-slate-800 disabled:opacity-50 transition"
+                      >
+                        {apiKeySaving ? (
+                          <Loader2 size={13} className="animate-spin text-corp-teal" />
+                        ) : (
+                          <Save size={13} />
+                        )}
+                        <span>{apiKeySavedSuccess ? 'Kaydedildi!' : 'Kaydet'}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => void handleTestApiKey()}
+                        disabled={apiKeyTesting || !geminiApiKey.trim()}
+                        className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700 shadow-2xs hover:bg-slate-50 disabled:opacity-50 transition"
+                        title="Bağlantıyı ve modelleri Google API üzerinden canlı test et"
+                      >
+                        {apiKeyTesting ? (
+                          <Loader2 size={13} className="animate-spin text-corp-teal" />
+                        ) : (
+                          <RefreshCw size={13} className="text-corp-teal" />
+                        )}
+                        <span>Test Et</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Yardım Linki & Bilgilendirme */}
+                  <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 text-[11px]">
+                    <a
+                      href="https://aistudio.google.com/app/apikey"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 font-semibold text-corp-teal hover:underline"
+                    >
+                      <span>Google AI Studio&apos;dan Ücretsiz API Anahtarı Alın</span>
+                      <ExternalLink size={12} />
+                    </a>
+                    {aiSettingsData?.keyPreview && (
+                      <span className="font-mono text-slate-500 text-[10px]">
+                        Veritabanı Önizleme: {aiSettingsData.keyPreview}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Canlı Test ve Kayıt Geri Bildirimleri */}
+                  {apiKeySavedSuccess && (
+                    <div className="mt-2.5 rounded-xl bg-emerald-100/80 border border-emerald-200 px-3 py-2 text-xs font-semibold text-emerald-900 flex items-center gap-2 animate-in fade-in">
+                      <CheckCircle2 size={15} className="text-emerald-700 shrink-0" />
+                      <span>API anahtarı veritabanına başarıyla kaydedildi ve hatırlandı.</span>
+                    </div>
+                  )}
+
+                  {apiKeyTestResult && (
+                    <div
+                      className={`mt-2.5 rounded-xl border px-3 py-2 text-xs font-medium flex items-start gap-2 animate-in fade-in ${
+                        apiKeyTestResult.success
+                          ? 'bg-emerald-100/80 border-emerald-200 text-emerald-900'
+                          : 'bg-rose-100/90 border-rose-300 text-rose-950'
+                      }`}
+                    >
+                      {apiKeyTestResult.success ? (
+                        <CheckCircle2 size={15} className="text-emerald-700 shrink-0 mt-0.5" />
+                      ) : (
+                        <AlertTriangle size={15} className="text-rose-600 shrink-0 mt-0.5" />
+                      )}
+                      <div className="leading-snug">{apiKeyTestResult.message}</div>
+                    </div>
+                  )}
+                </div>
+
+                {/* 2. Bilgilendirme Kutusu */}
                 <div className="rounded-2xl border border-teal-100 bg-teal-50/60 p-4 text-xs text-teal-900 flex items-start gap-3">
                   <Info size={18} className="text-corp-teal shrink-0 mt-0.5" />
                   <div className="space-y-1">
                     <p className="font-semibold text-corp-charcoal">
                       Otomatik Doldurulacak Alanlar:
                     </p>
-                    <p className="text-slate-600">
+                    <p className="text-slate-600 leading-relaxed">
                       Ürün adı, slug, özet, hero başlığı, faydalar, adımlar, öne çıkan özellikler,
                       SSS ve SEO etiketleri.
                     </p>
@@ -1155,6 +1456,7 @@ export default function AdminProductsPage() {
                   </div>
                 </div>
 
+                {/* 3. Doküman Yükleme Alanı */}
                 <div
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={(e) => {
@@ -1243,7 +1545,7 @@ export default function AdminProductsPage() {
 
                 {/* Ayrıntılı Hata Teşhis Paneli */}
                 {aiImportError && (
-                  <div className="rounded-2xl border border-rose-200 bg-rose-50/80 p-5 text-xs text-rose-950 space-y-3.5 shadow-xs">
+                  <div className="rounded-2xl border border-rose-200 bg-rose-50/80 p-5 text-xs text-rose-950 space-y-3.5 shadow-2xs">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-start gap-2.5">
                         <AlertTriangle size={18} className="shrink-0 mt-0.5 text-rose-600" />
@@ -1409,19 +1711,20 @@ export default function AdminProductsPage() {
                 )}
               </div>
 
-              <div className="mt-6 flex items-center justify-between border-t border-slate-100 pt-4">
+              {/* Sabit Footer */}
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 px-5 sm:px-7 py-3.5 bg-slate-50/90 shrink-0">
                 <button
                   type="button"
                   onClick={() => {
                     setAiSettingsModalOpen(true);
                     void loadAiSettings();
                   }}
-                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800"
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 transition"
                 >
                   <Sliders size={14} /> AI Model Sıralaması ve Ayarları
                 </button>
 
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 sm:gap-3">
                   <button
                     type="button"
                     onClick={() => {
@@ -1431,15 +1734,15 @@ export default function AdminProductsPage() {
                       setAiImportDiagnostics(null);
                     }}
                     disabled={aiImportLoading}
-                    className="rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                    className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 disabled:opacity-50 transition"
                   >
                     Kapat
                   </button>
                   <button
                     type="button"
                     onClick={() => void handleAiImport()}
-                    disabled={!aiImportFile || aiImportLoading}
-                    className="inline-flex items-center gap-2 rounded-xl bg-corp-teal px-5 py-2.5 text-xs font-bold text-white shadow-md hover:bg-corp-teal/90 disabled:opacity-50 transition-all"
+                    disabled={!aiImportFile || aiImportLoading || !geminiApiKey.trim()}
+                    className="inline-flex items-center gap-2 rounded-xl bg-corp-teal px-5 py-2 text-xs font-bold text-white shadow-xs hover:bg-corp-teal/90 disabled:opacity-50 transition-all"
                   >
                     {aiImportLoading ? (
                       <>
@@ -1461,88 +1764,145 @@ export default function AdminProductsPage() {
 
         {/* ─── AI MODEL & FALLBACK AYARLARI MODALI ───────────────────────── */}
         {aiSettingsModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs overflow-y-auto">
-            <div className="w-full max-w-2xl rounded-3xl bg-white p-6 md:p-8 shadow-2xl border border-slate-100 my-8">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-3 sm:p-4 md:p-6 backdrop-blur-sm animate-in fade-in duration-150">
+            <div
+              className="relative flex flex-col w-full max-w-2xl max-h-[92vh] sm:max-h-[88vh] rounded-3xl bg-white shadow-2xl border border-slate-200/80 overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Sabit Header */}
+              <div className="flex items-center justify-between border-b border-slate-100 px-5 sm:px-7 py-4 bg-white shrink-0">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-700">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-700 shadow-2xs">
                     <Settings size={20} />
                   </div>
                   <div>
-                    <h2 className="text-lg font-bold text-slate-900">
+                    <h2 className="text-base sm:text-lg font-bold text-slate-900 leading-tight">
                       AI Model ve Fallback Yapılandırması
                     </h2>
                     <p className="text-xs text-slate-500">
-                      Google Gemini modellerini, öncelik sırasını ve otomatik fallback kurallarını
-                      yönetin.
+                      Google Gemini modellerini, API anahtarını ve fallback kurallarını yönetin.
                     </p>
                   </div>
                 </div>
                 <button
                   onClick={() => setAiSettingsModalOpen(false)}
-                  className="text-slate-400 hover:text-slate-600 p-1"
+                  className="rounded-xl p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition"
                 >
                   <X size={20} />
                 </button>
               </div>
 
               {aiSettingsLoading ? (
-                <div className="py-12 text-center text-slate-500">
-                  <Loader2 size={24} className="animate-spin mx-auto text-corp-teal mb-2" />
+                <div className="py-16 text-center text-slate-500">
+                  <Loader2 size={26} className="animate-spin mx-auto text-corp-teal mb-2" />
                   AI yapılandırması yükleniyor...
                 </div>
               ) : (
-                <div className="mt-5 space-y-5">
-                  {/* API Anahtarı Durumu */}
-                  <div
-                    className={`rounded-2xl border p-4 text-xs flex items-center justify-between ${
-                      aiSettingsData?.keyConfigured
-                        ? 'border-emerald-200 bg-emerald-50/70 text-emerald-950'
-                        : 'border-rose-200 bg-rose-50 text-rose-950'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`h-8 w-8 rounded-xl flex items-center justify-center ${
-                          aiSettingsData?.keyConfigured
-                            ? 'bg-emerald-200 text-emerald-800'
-                            : 'bg-rose-200 text-rose-800'
-                        }`}
+                /* Scroll Edilebilir Gövde */
+                <div className="flex-1 overflow-y-auto p-5 sm:p-7 space-y-5 overscroll-contain text-slate-700">
+                  {/* API Anahtarı Yönetimi */}
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div
+                          className={`flex h-7 w-7 items-center justify-center rounded-xl text-white ${
+                            geminiApiKey ? 'bg-emerald-600' : 'bg-rose-600'
+                          }`}
+                        >
+                          <Key size={14} />
+                        </div>
+                        <div>
+                          <div className="text-xs font-bold text-slate-900">
+                            Google Gemini API Anahtarı
+                          </div>
+                          <div className="text-[10px] text-slate-500 font-mono">
+                            {aiSettingsData?.keySource
+                              ? `Aktif Kaynak: ${aiSettingsData.keySource} (${aiSettingsData?.keyPreview || 'Yok'})`
+                              : 'Veritabanında kayıtlı anahtar'}
+                          </div>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => void handleTestApiKey()}
+                        disabled={apiKeyTesting || !geminiApiKey.trim()}
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-800 shadow-2xs hover:bg-slate-50 disabled:opacity-50 transition"
                       >
-                        <ShieldCheck size={18} />
-                      </div>
-                      <div>
-                        <div className="font-bold">
-                          {aiSettingsData?.keyConfigured
-                            ? 'Google Gemini API Anahtarı Aktif'
-                            : 'API Anahtarı Yapılandırılmamış'}
-                        </div>
-                        <div className="text-[11px] opacity-80 font-mono mt-0.5">
-                          {aiSettingsData?.keyConfigured
-                            ? `Kaynak: ${aiSettingsData.keySource} (${aiSettingsData.keyPreview})`
-                            : 'Sunucudaki GEMINI_PRODUCT_IMPORT_API_KEY ayarını tanımlayın.'}
-                        </div>
-                      </div>
+                        {apiKeyTesting ? (
+                          <>
+                            <Loader2 size={13} className="animate-spin text-corp-teal" />
+                            <span>Test Ediliyor...</span>
+                          </>
+                        ) : (
+                          <>
+                            <RefreshCw size={13} className="text-corp-teal" />
+                            <span>Bağlantıyı Test Et</span>
+                          </>
+                        )}
+                      </button>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => void testAiConnection()}
-                      disabled={aiSettingsTesting || !aiSettingsData?.keyConfigured}
-                      className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-800 shadow-xs hover:bg-slate-50 disabled:opacity-50 transition"
-                    >
-                      {aiSettingsTesting ? (
-                        <>
+                    <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                      <div className="relative flex-1">
+                        <input
+                          type={showApiKey ? 'text' : 'password'}
+                          value={geminiApiKey}
+                          onChange={(e) => {
+                            setGeminiApiKey(e.target.value);
+                            setApiKeyTestResult(null);
+                          }}
+                          placeholder="AIzaSy... (API Anahtarınızı yapıştırın)"
+                          className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-3 pr-10 text-xs font-mono text-slate-800 focus:border-corp-teal focus:ring-1 focus:ring-corp-teal outline-none transition"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowApiKey(!showApiKey)}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 rounded transition"
+                          title={showApiKey ? 'Gizle' : 'Göster'}
+                        >
+                          {showApiKey ? <EyeOff size={15} /> : <Eye size={15} />}
+                        </button>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => void handleSaveApiKey()}
+                        disabled={apiKeySaving || !geminiApiKey.trim()}
+                        className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-slate-900 px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:bg-slate-800 disabled:opacity-50 transition"
+                      >
+                        {apiKeySaving ? (
                           <Loader2 size={13} className="animate-spin text-corp-teal" />
-                          <span>Test Ediliyor...</span>
-                        </>
-                      ) : (
-                        <>
-                          <RefreshCw size={13} className="text-corp-teal" />
-                          <span>Bağlantıyı Test Et</span>
-                        </>
-                      )}
-                    </button>
+                        ) : (
+                          <Save size={13} />
+                        )}
+                        <span>{apiKeySavedSuccess ? 'Kaydedildi!' : 'Kaydet'}</span>
+                      </button>
+                    </div>
+
+                    {apiKeySavedSuccess && (
+                      <div className="rounded-xl bg-emerald-100/80 border border-emerald-200 px-3 py-2 text-xs font-semibold text-emerald-900 flex items-center gap-2">
+                        <CheckCircle2 size={15} className="text-emerald-700 shrink-0" />
+                        <span>API anahtarı başarıyla güncellendi.</span>
+                      </div>
+                    )}
+
+                    {apiKeyTestResult && (
+                      <div
+                        className={`rounded-xl border px-3 py-2 text-xs font-medium flex items-start gap-2 ${
+                          apiKeyTestResult.success
+                            ? 'bg-emerald-100/80 border-emerald-200 text-emerald-900'
+                            : 'bg-rose-100/90 border-rose-300 text-rose-950'
+                        }`}
+                      >
+                        {apiKeyTestResult.success ? (
+                          <CheckCircle2 size={15} className="text-emerald-700 shrink-0 mt-0.5" />
+                        ) : (
+                          <AlertTriangle size={15} className="text-rose-600 shrink-0 mt-0.5" />
+                        )}
+                        <div className="leading-snug">{apiKeyTestResult.message}</div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Canlı Test Sonuçları */}
@@ -1551,7 +1911,7 @@ export default function AdminProductsPage() {
                       <div className="flex items-center justify-between font-bold text-slate-800">
                         <span>Canlı Model Test Raporu (Google API):</span>
                         <span className="font-mono text-[11px] text-slate-500 font-normal">
-                          {aiTestResults.discoveredModelsCount} model mevcut
+                          {aiTestResults.discoveredModelsCount} model keşfedildi
                         </span>
                       </div>
                       <div className="grid gap-2 sm:grid-cols-2 pt-1">
@@ -1763,12 +2123,13 @@ export default function AdminProductsPage() {
                 </div>
               )}
 
-              <div className="mt-6 flex items-center justify-end gap-3 border-t border-slate-100 pt-4">
+              {/* Sabit Footer */}
+              <div className="flex items-center justify-end gap-3 border-t border-slate-100 px-5 sm:px-7 py-3.5 bg-slate-50/90 shrink-0">
                 <button
                   type="button"
                   onClick={() => setAiSettingsModalOpen(false)}
                   disabled={aiSettingsSaving}
-                  className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"
+                  className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 disabled:opacity-50 transition"
                 >
                   Kapat
                 </button>
@@ -1776,7 +2137,7 @@ export default function AdminProductsPage() {
                   type="button"
                   onClick={() => void saveAiSettings()}
                   disabled={aiSettingsSaving || !aiSettingsData}
-                  className="inline-flex items-center gap-2 rounded-xl bg-corp-teal px-5 py-2 text-xs font-bold text-white shadow-md hover:bg-corp-teal/90 disabled:opacity-50 transition"
+                  className="inline-flex items-center gap-2 rounded-xl bg-corp-teal px-5 py-2 text-xs font-bold text-white shadow-xs hover:bg-corp-teal/90 disabled:opacity-50 transition"
                 >
                   {aiSettingsSaving ? (
                     <>
