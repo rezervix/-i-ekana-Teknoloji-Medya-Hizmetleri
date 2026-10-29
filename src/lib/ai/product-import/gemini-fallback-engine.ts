@@ -13,6 +13,12 @@
 import { GoogleGenAI } from '@google/genai';
 import { prisma } from '@/lib/prisma';
 import { PLAN_ICON_NAMES } from '@/lib/plan-icons';
+import {
+  loadCentralAiVault,
+  decryptApiKey,
+  upsertVaultApiKey,
+  maskApiKey,
+} from '@/lib/ai/core/key-vault-and-models';
 
 // ─── TİP TANIMLARI ────────────────────────────────────────────────────────────
 
@@ -404,19 +410,40 @@ export async function resolveImportConfig(overrideApiKey?: string): Promise<{
     if (siteSettings?.data && typeof siteSettings.data === 'object') {
       const data = siteSettings.data as any;
 
-      // Veritabanında kayıtlı API anahtarı kontrolü (override yoksa)
-      const dbKey =
-        typeof data.aiProductImportConfig?.apiKey === 'string' && data.aiProductImportConfig.apiKey.trim()
-          ? data.aiProductImportConfig.apiKey.trim()
-          : typeof data.geminiApiKey === 'string' && data.geminiApiKey.trim()
-            ? data.geminiApiKey.trim()
-            : '';
+      // Merkezi Şifreli Anahtar Deposundan (Central AI Vault) aktif anahtarı çöz
+      const vault = await loadCentralAiVault();
+      const activeVaultKey = vault.keys
+        .filter((k) => k.isActive && k.status !== 'INACTIVE' && k.status !== 'INVALID')
+        .sort((a, b) => {
+          if (a.role === 'PRIMARY' && b.role !== 'PRIMARY') return -1;
+          if (b.role === 'PRIMARY' && a.role !== 'PRIMARY') return 1;
+          return a.priority - b.priority;
+        })[0];
 
-      if (dbKey) {
-        settings.apiKey = dbKey;
-        if (!apiKey && isValidGeminiKey(dbKey)) {
-          apiKey = dbKey;
-          keySource = 'DATABASE';
+      if (activeVaultKey) {
+        const decrypted = decryptApiKey(activeVaultKey.encryptedKey);
+        if (decrypted && isValidGeminiKey(decrypted)) {
+          settings.apiKey = decrypted;
+          if (!apiKey) {
+            apiKey = decrypted;
+            keySource = 'CENTRAL_VAULT';
+          }
+        }
+      } else {
+        // Legacy fallback if any unmigrated field existed
+        const dbKey =
+          typeof data.aiProductImportConfig?.apiKey === 'string' && data.aiProductImportConfig.apiKey.trim()
+            ? data.aiProductImportConfig.apiKey.trim()
+            : typeof data.geminiApiKey === 'string' && data.geminiApiKey.trim()
+              ? data.geminiApiKey.trim()
+              : '';
+
+        if (dbKey) {
+          settings.apiKey = dbKey;
+          if (!apiKey && isValidGeminiKey(dbKey)) {
+            apiKey = dbKey;
+            keySource = 'DATABASE';
+          }
         }
       }
 
@@ -500,38 +527,25 @@ export async function saveGeminiApiKey(newKey: string): Promise<{
       };
     }
 
-    const current = await prisma.siteSettings.findUnique({
-      where: { id: 'singleton' },
+    const vaultSave = await upsertVaultApiKey({
+      rawApiKey: cleanKey,
+      name: 'Ürün Yönetimi API Anahtarı',
+      role: 'PRODUCT_EDIT',
+      purpose: 'PRODUCT_EDIT',
+      projectTag: 'product-edit-project',
+      verifyModelsNow: false,
+      actor: 'admin',
     });
 
-    const currentData = (current?.data as any) || {};
-    const existingConfig: AIProductImportSettings = currentData.aiProductImportConfig || {
-      ...DEFAULT_AI_IMPORT_SETTINGS,
-    };
+    if (!vaultSave.success) {
+      return {
+        success: false,
+        keyPreview: '',
+        error: vaultSave.errorMessage || 'Anahtar kaydedilemedi.',
+      };
+    }
 
-    const updatedConfig: AIProductImportSettings = {
-      ...existingConfig,
-      apiKey: cleanKey,
-    };
-
-    const updatedData = {
-      ...currentData,
-      geminiApiKey: cleanKey,
-      aiProductImportConfig: updatedConfig,
-    };
-
-    await prisma.siteSettings.upsert({
-      where: { id: 'singleton' },
-      create: {
-        id: 'singleton',
-        data: updatedData,
-      },
-      update: {
-        data: updatedData,
-      },
-    });
-
-    const keyPreview = `${cleanKey.slice(0, 6)}...${cleanKey.slice(-4)}`;
+    const keyPreview = vaultSave.key?.maskedPreview || maskApiKey(cleanKey);
     return { success: true, keyPreview };
   } catch (err: any) {
     console.error('[saveGeminiApiKey] Hata:', err);

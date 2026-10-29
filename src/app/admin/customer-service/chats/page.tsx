@@ -18,7 +18,9 @@ import {
   RefreshCw,
   Tag,
   ShieldAlert,
+  Settings,
 } from 'lucide-react';
+import ChatbotCentralSettingsModal from '@/components/admin/ChatbotCentralSettingsModal';
 
 interface ConversationItem {
   id: string;
@@ -87,6 +89,7 @@ export default function AdminChatsPage() {
   const [internalNotes, setInternalNotes] = useState('');
   const [convStatus, setConvStatus] = useState('ACTIVE');
   const [assignedAgent, setAssignedAgent] = useState('');
+  const [settingsModalOpen, setSettingsModalOpen] = useState(false);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -250,13 +253,24 @@ export default function AdminChatsPage() {
           </p>
         </div>
 
-        <button
-          onClick={loadConversations}
-          className="inline-flex items-center gap-2 px-3.5 py-2 bg-white hover:bg-slate-50 border border-corp-border text-corp-charcoal rounded-xl text-xs font-semibold shadow-xs transition-colors self-start sm:self-auto"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-          Yenile
-        </button>
+        <div className="flex items-center gap-2.5 self-start sm:self-auto">
+          <button
+            onClick={loadConversations}
+            className="inline-flex items-center gap-2 px-3.5 py-2 bg-white hover:bg-slate-50 border border-corp-border text-corp-charcoal rounded-xl text-xs font-semibold shadow-xs transition-colors"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+            Yenile
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setSettingsModalOpen(true)}
+            className="inline-flex items-center gap-2 px-3.5 py-2 bg-corp-teal hover:bg-corp-teal/90 text-white rounded-xl text-xs font-semibold shadow-xs transition-colors"
+          >
+            <Settings className="w-3.5 h-3.5" />
+            Ayarlar
+          </button>
+        </div>
       </div>
 
       {/* Main Two-Column Layout */}
@@ -604,6 +618,11 @@ export default function AdminChatsPage() {
           )}
         </div>
       </div>
+
+      <ChatbotCentralSettingsModal
+        isOpen={settingsModalOpen}
+        onClose={() => setSettingsModalOpen(false)}
+      />
     </div>
   );
 }

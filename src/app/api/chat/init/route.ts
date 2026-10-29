@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getExistingConversationBySession } from '@/lib/ai/chat-service';
+import { getChatbotCentralSettings } from '@/lib/ai/chatbot-settings';
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,7 +16,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const session = await getServerSession(authOptions);
+    const [session, centralSettings] = await Promise.all([
+      getServerSession(authOptions),
+      getChatbotCentralSettings(),
+    ]);
     const userId = (session?.user as any)?.id || null;
 
     // ÖNEMLİ (Bölüm 11.1): Sayfa açılışında veya sohbet penceresi açıldığında
@@ -30,6 +34,8 @@ export async function POST(req: NextRequest) {
     if (!conversation) {
       return NextResponse.json({
         success: true,
+        chatbotEnabled: centralSettings.isEnabled,
+        welcomeMessage: centralSettings.welcomeMessage,
         conversation: null,
         messages: [],
       });
@@ -37,6 +43,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
+      chatbotEnabled: centralSettings.isEnabled,
+      welcomeMessage: centralSettings.welcomeMessage,
       conversation: {
         id: conversation.id,
         sessionId: conversation.sessionId,

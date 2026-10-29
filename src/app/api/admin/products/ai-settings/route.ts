@@ -8,6 +8,13 @@ import {
   DEFAULT_AI_IMPORT_SETTINGS,
   AIProductImportSettings,
 } from '@/lib/ai/product-import/gemini-fallback-engine';
+import {
+  listSafeApiKeys,
+  maskApiKey,
+  upsertVaultApiKey,
+  validateGoogleApiKeyFormat,
+  sanitizeErrorMessage,
+} from '@/lib/ai/core/key-vault-and-models';
 
 export async function GET() {
   const session = await requireAdmin();
@@ -15,22 +22,38 @@ export async function GET() {
     return NextResponse.json({ error: 'Yetkisiz erişim.' }, { status: 401 });
   }
 
-  const { apiKey, settings, keySource } = await resolveImportConfig();
+  const [{ apiKey, settings, keySource }, vaultInfo] = await Promise.all([
+    resolveImportConfig(),
+    listSafeApiKeys(),
+  ]);
 
-  // API Anahtarının ilk 6 ve son 4 karakterini güvenli göster
-  let keyPreview = 'Tanımlanmamış';
-  if (apiKey) {
-    keyPreview = `${apiKey.slice(0, 6)}...${apiKey.slice(-4)}`;
-  }
+  const keyPreview = apiKey ? maskApiKey(apiKey) : 'Tanımlanmamış';
+
+  // GÜVENLİK (Bölüm 7): Tam API anahtarı asla frontend'e geri döndürülmez!
+  const safeSettings = { ...settings };
+  delete safeSettings.apiKey;
 
   return NextResponse.json({
-    settings,
-    availableModels: VERIFIED_ACTIVE_MODELS,
+    settings: safeSettings,
+    availableModels:
+      vaultInfo.catalog.length > 0
+        ? vaultInfo.catalog
+            .filter((m) => m.supportsTextGeneration)
+            .map((m) => ({
+              id: m.technicalName,
+              label: m.displayName || m.technicalName,
+              tier: m.stabilityTier,
+              badge: m.stabilityTier === 'STABLE_FLAGSHIP' ? 'Güçlü & Kararlı' : 'Kararlı',
+              recommended: m.priorityRank <= 20,
+              description: m.suitabilityReason,
+            }))
+        : VERIFIED_ACTIVE_MODELS,
+    discoveredModels: vaultInfo.catalog,
+    savedKeys: vaultInfo.keys,
     deprecatedModels: KNOWN_DEPRECATED_MODELS,
     keyConfigured: Boolean(apiKey),
     keySource,
     keyPreview,
-    apiKey: apiKey || '', // Yetkili admin için kayıtlı anahtarı döndür
     lastDiagnostic: settings.lastDiagnostic || null,
   });
 }
@@ -48,12 +71,11 @@ export async function POST(request: Request) {
       where: { id: 'singleton' },
     });
 
-    const currentData = (current?.data as any) || {};
+    const currentData = (current?.data as Record<string, any>) || {};
     const existingConfig: AIProductImportSettings = currentData.aiProductImportConfig || {
       ...DEFAULT_AI_IMPORT_SETTINGS,
     };
 
-    // Yeni ayarları doğrula ve harmanla
     const updatedConfig: AIProductImportSettings = {
       defaultModel:
         typeof body.defaultModel === 'string' &&
@@ -79,32 +101,20 @@ export async function POST(request: Request) {
           ? body.timeoutSeconds
           : existingConfig.timeoutSeconds,
       lastDiagnostic: existingConfig.lastDiagnostic,
-      apiKey: existingConfig.apiKey,
     };
-
-    // API Anahtarı güncellenmek isteniyorsa
-    let newApiKey: string | undefined = undefined;
-    if (typeof body.apiKey === 'string') {
-      const trimmed = body.apiKey.trim();
-      if (trimmed.length > 0) {
-        newApiKey = trimmed;
-        updatedConfig.apiKey = trimmed;
-      }
-    }
 
     // Varsayılan modelin öncelik listesinde yer almasını sağla
     if (!updatedConfig.modelPriority.includes(updatedConfig.defaultModel)) {
       updatedConfig.modelPriority.unshift(updatedConfig.defaultModel);
     }
 
-    const updatedData: any = {
+    // Düz metin anahtar alanlarını her zaman temizle (Merkezi Şifreli Anahtar Deposu kullanılır)
+    delete updatedConfig.apiKey;
+    const updatedData: Record<string, any> = {
       ...currentData,
       aiProductImportConfig: updatedConfig,
     };
-
-    if (newApiKey) {
-      updatedData.geminiApiKey = newApiKey;
-    }
+    delete updatedData.geminiApiKey;
 
     await prisma.siteSettings.upsert({
       where: { id: 'singleton' },
@@ -117,21 +127,62 @@ export async function POST(request: Request) {
       },
     });
 
-    const savedKey = updatedConfig.apiKey || '';
-    const keyPreview = savedKey ? `${savedKey.slice(0, 6)}...${savedKey.slice(-4)}` : 'Tanımlanmamış';
+    let keyPreview = 'Tanımlanmamış';
+    let keyConfigured = false;
+
+    // Yeni API Anahtarı gönderildiyse merkezi şifreli depoya (AES-256-GCM) kaydet
+    if (typeof body.apiKey === 'string' && body.apiKey.trim().length > 0) {
+      const candidateKey = body.apiKey.trim();
+      const check = validateGoogleApiKeyFormat(candidateKey);
+      if (!check.valid) {
+        return NextResponse.json({ error: check.reason }, { status: 400 });
+      }
+
+      const saveResult = await upsertVaultApiKey({
+        rawApiKey: candidateKey,
+        name:
+          typeof body.keyName === 'string' && body.keyName.trim()
+            ? body.keyName.trim()
+            : 'Ürün Yönetimi API Anahtarı',
+        // Ürün düzenleme / import ekranından kaydedilen anahtar chatbot'un mevcut ana anahtarını ezmez!
+        role: body.setAsPrimaryChatbotKey === true ? 'PRIMARY' : 'PRODUCT_EDIT',
+        purpose: body.setAsPrimaryChatbotKey === true ? 'BOTH' : 'PRODUCT_EDIT',
+        projectTag:
+          typeof body.projectTag === 'string' && body.projectTag.trim()
+            ? body.projectTag.trim()
+            : 'product-edit-project',
+        verifyModelsNow: false,
+        actor: (session.user as any)?.email || 'admin',
+      });
+
+      if (!saveResult.success) {
+        return NextResponse.json(
+          { error: saveResult.errorMessage || 'API anahtarı kaydedilemedi.' },
+          { status: 400 }
+        );
+      }
+
+      keyPreview = saveResult.key?.maskedPreview || maskApiKey(candidateKey);
+      keyConfigured = true;
+    } else {
+      const resolved = await resolveImportConfig();
+      if (resolved.apiKey) {
+        keyPreview = maskApiKey(resolved.apiKey);
+        keyConfigured = true;
+      }
+    }
 
     return NextResponse.json({
       success: true,
       settings: updatedConfig,
-      keyConfigured: Boolean(savedKey),
+      keyConfigured,
       keyPreview,
-      apiKey: savedKey,
-      message: 'AI ayarları ve API anahtarı başarıyla kaydedildi.',
+      message: 'AI ayarları ve şifreli API anahtarı başarıyla kaydedildi.',
     });
   } catch (err: any) {
-    console.error('[AI-Settings Error]:', err);
+    console.error('[AI-Settings Error]:', sanitizeErrorMessage(err));
     return NextResponse.json(
-      { error: 'Ayarlar kaydedilirken bir hata oluştu: ' + err.message },
+      { error: 'Ayarlar kaydedilirken bir hata oluştu: ' + sanitizeErrorMessage(err) },
       { status: 500 }
     );
   }

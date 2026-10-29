@@ -3,14 +3,15 @@
  *
  * Çiçekana Teknoloji & Medya — Chatbot, Satış ve Müşteri Destek E-Posta Bildirim Sistemi
  *
- * KURALLAR (Bölüm 10):
- * - Gönderici: info@cicekanatechmedia.com (EMAIL_FROM / SMTP_USER)
- * - Alıcı: cicekanareklam@gmail.com (CHAT_NOTIFICATION_EMAIL ile yapılandırılabilir)
+ * KURALLAR (Bölüm 10 & Merkezi Ayarlar):
+ * - Gönderici: info@cicekanatechmedia.com (veya Merkezi Ayarlardan yapılandırılan gönderici)
+ * - Alıcı: cicekanareklam@gmail.com (CHAT_NOTIFICATION_EMAIL veya Merkezi Ayarlar ile yapılandırılabilir)
  * - Tetikleyiciler:
  *   1. Yeni konuşmada ilk gerçek müşteri mesajı -> "[Çiçekana] Yeni müşteri görüşmesi" (Konuşma başına 1 kez)
  *   2. Kapsam içi cevapsız/netleştirilecek ürün sorusu -> "[Çiçekana] Takip gerekiyor: Ürün sorusu"
  *   3. İletişim bilgisi (telefon/e-posta) paylaşımı veya özel teklif/satış talebi -> "[Çiçekana] Yeni satış fırsatı"
  *   4. Mevcut müşteri teknik destek / ödeme / hesap yönlendirmesi -> "[Çiçekana] Müşteri destek yönlendirmesi"
+ *   5. Sistem / Model / Anahtar kesintisi -> "[Çiçekana] Sistem uyarısı: AI yedek geçiş hatası"
  * - Sıradan ara mesajlar için tekrar tekrar e-posta gönderilmez.
  * - Mükerrer gönderim (idempotency) EmailLog tablosu ve bellek içi kilit ile engellenir.
  * - E-posta hatası sohbet cevabını ASLA bozmaz.
@@ -20,12 +21,17 @@ import nodemailer from 'nodemailer';
 import { Resend } from 'resend';
 import { prisma } from '@/lib/prisma';
 import { getEmailConfig, type EmailSendResult } from '@/lib/email';
+import { getChatbotCentralSettings } from './chatbot-settings';
 
 export const DEFAULT_CHAT_NOTIFICATION_RECIPIENT = 'cicekanareklam@gmail.com';
 export const DEFAULT_CHAT_NOTIFICATION_SENDER = 'Çiçekana <info@cicekanatechmedia.com>';
 
 export type ChatNotificationEventType =
-  'FIRST_MESSAGE' | 'FOLLOWUP_NEEDED' | 'SALES_OPPORTUNITY' | 'SUPPORT_ESCALATION';
+  | 'FIRST_MESSAGE'
+  | 'FOLLOWUP_NEEDED'
+  | 'SALES_OPPORTUNITY'
+  | 'SUPPORT_ESCALATION'
+  | 'SYSTEM_ERROR';
 
 export interface ChatNotificationPayload {
   eventType: ChatNotificationEventType;
@@ -67,15 +73,19 @@ export function clearCapturedTestNotifications(): void {
   sentKeysInMemory.clear();
 }
 
-export function getChatNotificationRecipient(): string {
+export function getChatNotificationRecipient(centralOverride?: string): string {
   const configured =
-    process.env.CHAT_NOTIFICATION_EMAIL?.trim() || process.env.ORDER_NOTIFICATION_EMAIL?.trim();
+    process.env.CHAT_NOTIFICATION_EMAIL?.trim() ||
+    centralOverride?.trim() ||
+    process.env.ORDER_NOTIFICATION_EMAIL?.trim();
   return configured && configured.length > 0 ? configured : DEFAULT_CHAT_NOTIFICATION_RECIPIENT;
 }
 
-export function getChatNotificationSender(): string {
+export function getChatNotificationSender(centralOverride?: string): string {
   const config = getEmailConfig();
-  return config.fromEmail || DEFAULT_CHAT_NOTIFICATION_SENDER;
+  if (config.fromEmail) return config.fromEmail;
+  if (centralOverride?.trim()) return centralOverride.trim();
+  return DEFAULT_CHAT_NOTIFICATION_SENDER;
 }
 
 export function getEventSubjectAndMeta(eventType: ChatNotificationEventType): {
@@ -139,6 +149,19 @@ export function getEventSubjectAndMeta(eventType: ChatNotificationEventType): {
         defaultAction:
           'Yönetim panelinden görüşmeyi ve müşterinin /profile üzerinden açtığı destek talebini kontrol ederek teknik müdahale sağlayın.',
       };
+    case 'SYSTEM_ERROR':
+      return {
+        subject: '[Çiçekana] Sistem uyarısı: AI yedek geçiş hatası',
+        badgeText: '🛑 AI Sistem & Anahtar Uyarısı',
+        badgeBg: '#fef2f2',
+        badgeBorder: '#fecaca',
+        badgeColor: '#dc2626',
+        headline: 'Chatbot Yapay Zekâ Model / Anahtar Havuzu Uyarısı',
+        reasonText:
+          'Ana ve yedek API anahtarı/model denemeleri sırasında hata oluştu (Deterministik yedek yanıt devreye girdi)',
+        defaultAction:
+          '/admin/customer-service/chats > Ayarlar > Anahtar Yönetimi & Durum sekmesinden API anahtarlarınızı ve kotalarınızı kontrol edin.',
+      };
   }
 }
 
@@ -157,6 +180,8 @@ export function buildNotificationTemplateKey(payload: ChatNotificationPayload): 
     }
     case 'SUPPORT_ESCALATION':
       return `chat_support_${convId}${payload.dedupSuffix ? `_${payload.dedupSuffix}` : ''}`;
+    case 'SYSTEM_ERROR':
+      return `chat_syserr_${convId}${payload.dedupSuffix ? `_${payload.dedupSuffix}` : ''}`;
   }
 }
 
@@ -447,6 +472,7 @@ async function deliverEmailWithRetry(params: {
 
 /**
  * Chatbot ve müşteri destek olayları için idempotent e-posta bildirimi gönderir.
+ * Merkezi Chatbot Ayarlarındaki bildirim anahtarlarını (toggles) kontrol eder.
  * Hata durumunda sohbet akışını asla kırmaz.
  */
 export async function sendChatEventNotification(
@@ -454,6 +480,33 @@ export async function sendChatEventNotification(
 ): Promise<EmailSendResult> {
   if (!payload.conversationId || !payload.customerMessage?.trim()) {
     return { success: false, error: 'Geçersiz bildirim verisi' };
+  }
+
+  // Merkezi bildirim ayarlarını kontrol et
+  let centralSettings;
+  try {
+    centralSettings = await getChatbotCentralSettings();
+    if (payload.eventType === 'FIRST_MESSAGE' && !centralSettings.notifyOnFirstMessage) {
+      return { success: true, provider: 'none' };
+    }
+    if (payload.eventType === 'FOLLOWUP_NEEDED' && !centralSettings.notifyOnUnansweredQuestion) {
+      return { success: true, provider: 'none' };
+    }
+    if (
+      payload.eventType === 'SALES_OPPORTUNITY' &&
+      !centralSettings.notifyOnSalesOpportunity &&
+      !centralSettings.notifyOnContactShared
+    ) {
+      return { success: true, provider: 'none' };
+    }
+    if (payload.eventType === 'SUPPORT_ESCALATION' && !centralSettings.notifyOnSupportEscalation) {
+      return { success: true, provider: 'none' };
+    }
+    if (payload.eventType === 'SYSTEM_ERROR' && !centralSettings.notifyOnSystemError) {
+      return { success: true, provider: 'none' };
+    }
+  } catch {
+    // Varsayılan ayarlarla devam et
   }
 
   const templateKey = buildNotificationTemplateKey(payload);
@@ -483,8 +536,8 @@ export async function sendChatEventNotification(
     }
 
     const config = getEmailConfig();
-    const recipient = getChatNotificationRecipient();
-    const sender = getChatNotificationSender();
+    const recipient = getChatNotificationRecipient(centralSettings?.recipientEmail);
+    const sender = getChatNotificationSender(centralSettings?.senderEmail);
     const appUrl = (config.appUrl || 'https://www.cicekanatechmedia.com').replace(/\/$/, '');
     const adminUrl = `${appUrl}/admin/customer-service/chats?conversationId=${encodeURIComponent(payload.conversationId)}`;
 

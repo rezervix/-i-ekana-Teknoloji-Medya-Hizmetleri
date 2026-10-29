@@ -199,6 +199,12 @@ export default function CustomerSupportChat() {
               setShowHandoverForm(false);
             }
           }
+        } else if (data.success && typeof data.welcomeMessage === 'string' && data.welcomeMessage.trim()) {
+          setMessages((prev) =>
+            prev.length === 1 && prev[0].id === 'welcome-init'
+              ? [{ ...prev[0], content: data.welcomeMessage.trim() }]
+              : prev
+          );
         }
       })
       .catch((err) => {

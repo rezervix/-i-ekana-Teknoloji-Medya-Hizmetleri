@@ -38,6 +38,7 @@ import {
   Sliders,
 } from 'lucide-react';
 import { PLAN_ICON_NAMES, getPlanIcon } from '@/lib/plan-icons';
+import AiProductEditModal from '@/components/admin/AiProductEditModal';
 
 // ─── TİP TANIMLARI ────────────────────────────────────────────────────────────
 
@@ -398,6 +399,11 @@ export default function AdminProductsPage() {
   const [aiTestResults, setAiTestResults] = useState<any>(null);
   const [aiSettingsSuccess, setAiSettingsSuccess] = useState('');
   const [aiSettingsError, setAiSettingsError] = useState('');
+  const [aiEditTargetProduct, setAiEditTargetProduct] = useState<{
+    id: string;
+    name: string;
+    slug: string;
+  } | null>(null);
 
   // AI Ayarlarını Sunucudan Çek
   async function loadAiSettings() {
@@ -411,7 +417,7 @@ export default function AdminProductsPage() {
         if (data.apiKey) {
           setGeminiApiKey(data.apiKey);
           try {
-            localStorage.setItem('admin_gemini_api_key', data.apiKey);
+            localStorage.removeItem('admin_gemini_api_key');
           } catch {}
         }
       } else {
@@ -442,7 +448,7 @@ export default function AdminProductsPage() {
     try {
       // LocalStorage'a hemen kaydet (istemci tarafı hemen hatırlar)
       try {
-        localStorage.setItem('admin_gemini_api_key', keyToSave);
+        localStorage.removeItem('admin_gemini_api_key');
       } catch {}
 
       // Veritabanına kaydet
@@ -599,8 +605,7 @@ export default function AdminProductsPage() {
   useEffect(() => {
     void loadPlans();
     try {
-      const cached = localStorage.getItem('admin_gemini_api_key');
-      if (cached) setGeminiApiKey(cached);
+      localStorage.removeItem('admin_gemini_api_key');
     } catch {}
     void loadAiSettings();
   }, []);
@@ -1184,6 +1189,19 @@ export default function AdminProductsPage() {
                               className="inline-flex items-center gap-1 rounded-lg bg-corp-teal-50 px-3 py-1.5 text-xs font-bold text-corp-teal transition hover:bg-corp-teal hover:text-white"
                             >
                               Düzenle
+                            </button>
+                            <button
+                              onClick={() =>
+                                setAiEditTargetProduct({
+                                  id: plan.id,
+                                  name: plan.name,
+                                  slug: plan.slug,
+                                })
+                              }
+                              className="inline-flex items-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1.5 text-xs font-bold text-indigo-700 transition hover:bg-indigo-600 hover:text-white"
+                              title="Seçili ürünü ve paketlerini AI İle Düzenle"
+                            >
+                              <Sparkles size={13} /> AI İle Düzenle
                             </button>
                             <button
                               onClick={() => setConfirmDelete(plan)}
@@ -2155,6 +2173,24 @@ export default function AdminProductsPage() {
             </div>
           </div>
         )}
+
+        {/* AI İle Düzenle Modalı (Liste Görünümü) */}
+        {aiEditTargetProduct && (
+          <AiProductEditModal
+            isOpen={Boolean(aiEditTargetProduct)}
+            onClose={() => setAiEditTargetProduct(null)}
+            product={aiEditTargetProduct}
+            onProductUpdated={(updatedPlan) => {
+              void loadPlans();
+              if (editing && updatedPlan && editing.id === updatedPlan.id) {
+                openForm(updatedPlan);
+              }
+              setSuccessMsg(
+                `"${aiEditTargetProduct.name}" ürünü ve paketleri AI İle Düzenle üzerinden başarıyla güncellendi.`
+              );
+            }}
+          />
+        )}
       </div>
     );
   }
@@ -2200,13 +2236,28 @@ export default function AdminProductsPage() {
 
         <div className="flex flex-wrap items-center gap-2">
           {editing && (
-            <button
-              type="button"
-              onClick={() => void openVersionHistory()}
-              className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
-            >
-              <History size={14} /> Sürüm Geçmişi (Son 5)
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() =>
+                  setAiEditTargetProduct({
+                    id: editing.id,
+                    name: form.name || editing.name,
+                    slug: form.slug || editing.slug,
+                  })
+                }
+                className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-indigo-300 bg-indigo-600 px-3.5 text-xs font-bold text-white shadow-sm transition hover:bg-indigo-500"
+              >
+                <Sparkles size={14} /> AI İle Düzenle
+              </button>
+              <button
+                type="button"
+                onClick={() => void openVersionHistory()}
+                className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                <History size={14} /> Sürüm Geçmişi (Son 5)
+              </button>
+            </>
           )}
 
           <button
@@ -3824,6 +3875,24 @@ export default function AdminProductsPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* AI İle Düzenle Modalı (Editör Penceresi İçi) */}
+      {aiEditTargetProduct && (
+        <AiProductEditModal
+          isOpen={Boolean(aiEditTargetProduct)}
+          onClose={() => setAiEditTargetProduct(null)}
+          product={aiEditTargetProduct}
+          onProductUpdated={(updatedPlan) => {
+            void loadPlans();
+            if (updatedPlan && editing && editing.id === updatedPlan.id) {
+              openForm(updatedPlan);
+            }
+            setSuccessMsg(
+              `"${aiEditTargetProduct.name}" ürünü ve paketleri AI İle Düzenle üzerinden başarıyla güncellendi.`
+            );
+          }}
+        />
       )}
     </div>
   );

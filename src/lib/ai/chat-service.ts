@@ -14,6 +14,11 @@ import {
 } from './product-catalog';
 import { sendChatEventNotification } from './chat-notifications';
 import { executeDomainGeneration } from './core/ai-service-manager';
+import { loadCentralAiVault } from './core/key-vault-and-models';
+import {
+  getChatbotCentralSettings,
+  buildEnforcedSystemInstruction,
+} from './chatbot-settings';
 
 export interface ChatInitParams {
   sessionId: string;
@@ -152,7 +157,8 @@ function buildConversationSummary(
 
 /**
  * Gemini API entegrasyonu:
- * Doğrulanmış katalog verisi ve bilgi bankası kanıtlarını kullanarak doğal, kısa ve
+ * Doğrulanmış katalog verisi, bilgi bankası kanıtları ve Merkezi Chatbot Ayarlarını
+ * (anahtar havuzu, model önceliği, sistem talimatı, üslup) kullanarak doğal ve
  * satış/destek kurallarına %100 uyumlu yanıt üretir; hata veya politika ihlali riskinde
  * deterministik yanıta geri döner (Fallback).
  */
@@ -161,8 +167,9 @@ async function synthesizeWithGeminiIfApplicable(params: {
   engineResult: EngineResponse;
   matchedProduct: CatalogProduct | null;
   conversationHistory: Array<{ senderType: string; content: string }>;
+  conversationId?: string;
 }): Promise<{ finalAnswer: string; usedGemini: boolean }> {
-  const { userMessage, engineResult, matchedProduct, conversationHistory } = params;
+  const { userMessage, engineResult, matchedProduct, conversationHistory, conversationId } = params;
 
   // Policy-locked categories MUST use deterministic verified output directly
   const policyLockedCategories = new Set([
@@ -188,10 +195,24 @@ async function synthesizeWithGeminiIfApplicable(params: {
     return { finalAnswer: engineResult.answer, usedGemini: false };
   }
 
-  const hasApiKey = Boolean(
+  const centralSettings = await getChatbotCentralSettings();
+  if (!centralSettings.isEnabled) {
+    return { finalAnswer: engineResult.answer, usedGemini: false };
+  }
+
+  const vault = await loadCentralAiVault();
+  const hasVaultKey = vault.keys.some(
+    (k) =>
+      k.isActive &&
+      k.status !== 'INACTIVE' &&
+      k.status !== 'INVALID' &&
+      k.purpose !== 'PRODUCT_EDIT'
+  );
+  const hasEnvKey = Boolean(
     process.env.GEMINI_SUPPORT_API_KEY?.trim() || process.env.GEMINI_API_KEY?.trim()
   );
-  if (!hasApiKey) {
+
+  if (!hasVaultKey && !hasEnvKey) {
     return { finalAnswer: engineResult.answer, usedGemini: false };
   }
 
@@ -209,7 +230,7 @@ async function synthesizeWithGeminiIfApplicable(params: {
       : 'Genel Çiçekana Teknoloji & Medya Hizmetleri';
 
     const evidenceBlock = engineResult.matchedEvidence
-      .slice(0, 3)
+      .slice(0, centralSettings.maxRetrievalChunks || 3)
       .map((ev, i) => `[Kanıt ${i + 1} - ${ev.sourceTitle}]: ${ev.snippet}`)
       .join('\n\n');
 
@@ -218,16 +239,7 @@ async function synthesizeWithGeminiIfApplicable(params: {
       .map((m) => `${m.senderType === 'VISITOR' ? 'Müşteri' : 'Asistan'}: ${m.content}`)
       .join('\n');
 
-    const systemInstruction = [
-      'Sen Çiçekana Teknoloji & Medya (https://www.cicekanatechmedia.com) profesyonel dijital satış ve müşteri destek uzmanısın.',
-      'KESİN KURALLAR:',
-      '1. Cevapların kısa, net, doğal ve profesyonel olsun (ideal olarak 2-4 cümle).',
-      '2. Yalnızca sana verilen DOĞRULANMIŞ ÜRÜN VERİSİ ve KANITLARA dayan. Sitede olmayan özellik, kullanım limiti, indirim veya kampanya ASLA uydurma.',
-      '3. Fiyat sorulursa yalnızca GÜNCEL ÜRÜN SAYFASI PAKET VE FİYATLARI bilgisini kullan.',
-      '4. /magaza altındaki baskı/matbaa ürünlerini asla önerme veya satma.',
-      '5. Kullanıcı sadece teknik/özellik sorusu sorduysa doğrudan cevabı ver; gereksiz satış baskısı yapma.',
-      '6. Dahili başlıkları ([Bölüm: ...], Kanıt 1 vb.) cevaba yansıtma.',
-    ].join('\n');
+    const systemInstruction = buildEnforcedSystemInstruction(centralSettings);
 
     const prompt = [
       '--- DOĞRULANMIŞ ÜRÜN VERİSİ ---',
@@ -248,8 +260,9 @@ async function synthesizeWithGeminiIfApplicable(params: {
 
     const aiResponse = await executeDomainGeneration('SUPPORT', prompt, {
       systemInstruction,
-      temperature: 0.2,
-      maxOutputTokens: 350,
+      temperature: centralSettings.temperature ?? 0.2,
+      maxOutputTokens: centralSettings.maxOutputTokens ?? 350,
+      timeoutMs: centralSettings.requestTimeoutMs ?? 15000,
     });
 
     if (!aiResponse.text?.trim()) {
@@ -268,8 +281,16 @@ async function synthesizeWithGeminiIfApplicable(params: {
 
     const { sanitizedText } = sanitizeAndResolveConflictsInKBText(cleaned, matchedProduct);
     return { finalAnswer: sanitizedText, usedGemini: true };
-  } catch (err) {
-    console.warn('[ChatService] Gemini synthesis fallback to deterministic engine:', err);
+  } catch (err: any) {
+    console.warn('[ChatService] Gemini synthesis fallback to deterministic engine:', err?.message);
+    if (centralSettings.notifyOnSystemError && conversationId) {
+      sendChatEventNotification({
+        eventType: 'SYSTEM_ERROR',
+        conversationId,
+        customerMessage: userMessage,
+        conversationSummary: `AI Sentez Yedek Geçiş Uyarısı: ${err?.message || 'Bilinmeyen hata'}`,
+      }).catch(() => {});
+    }
     return { finalAnswer: engineResult.answer, usedGemini: false };
   }
 }
@@ -287,6 +308,8 @@ export async function handleCustomerMessage(params: SendMessageParams) {
   if (!trimmedMsg) {
     throw new Error('Mesaj içeriği boş olamaz.');
   }
+
+  const centralSettings = await getChatbotCentralSettings();
 
   // 1. Konuşmayı bul veya ilk gerçek mesaj geldiği için şimdi oluştur
   let conv = conversationId
@@ -385,6 +408,42 @@ export async function handleCustomerMessage(params: SendMessageParams) {
     };
   }
 
+  // 3b. Eğer yönetici merkezi ayarlardan Chatbot'u pasif duruma aldıysa (isEnabled === false),
+  // müşteri mesajını kaybetmeden kibar bir çevrimdışı/iletişim yanıtı dön.
+  if (!centralSettings.isEnabled) {
+    const offlineMessage = await prisma.chatMessage.create({
+      data: {
+        conversationId: conv.id,
+        senderType: 'BOT',
+        senderName: 'Çiçekana Asistan',
+        content:
+          'Mesajınız ekibimize iletilmiştir. Dijital asistanımız şu anda bakım/pasif modundadır; uzman müşteri temsilcimizin size en kısa sürede dönüş yapabilmesi için telefon numaranızı veya e-posta adresinizi paylaşabilirsiniz.',
+        isHandoverPrompt: true,
+      },
+    });
+
+    if (isFirstVisitorMessage) {
+      await sendChatEventNotification({
+        eventType: 'FIRST_MESSAGE',
+        conversationId: conv.id,
+        sessionId: conv.sessionId,
+        productName: effectiveProductId || 'Genel',
+        pageUrl: effectivePageUrl,
+        customerMessage: trimmedMsg,
+        conversationSummary: trimmedMsg,
+      });
+    }
+
+    return {
+      conversationId: conv.id,
+      visitorMessage,
+      botMessage: offlineMessage,
+      isHandoverPrompt: true,
+      shouldShowHandoverForm: true,
+      status: conv.status,
+    };
+  }
+
   // 4. Bilgi, katalog ve kural motorunu çalıştır (konuşma geçmişi ve sayfa bağlamıyla)
   const conversationHistory = conv.messages.map((m) => ({
     senderType: m.senderType,
@@ -407,6 +466,7 @@ export async function handleCustomerMessage(params: SendMessageParams) {
     engineResult,
     matchedProduct,
     conversationHistory,
+    conversationId: conv.id,
   });
 
   // 5. Bot mesajını kaydet
@@ -557,7 +617,10 @@ export async function handleCustomerMessage(params: SendMessageParams) {
     intent: engineResult.detectedIntent,
     responseCategory: engineResult.responseCategory,
     confidenceLevel: engineResult.confidenceLevel,
-    clarifyingOptions: engineResult.clarifyingOptions,
+    clarifyingOptions:
+      centralSettings.clarifyingQuestionPolicy === 'disabled'
+        ? undefined
+        : engineResult.clarifyingOptions,
     status: conv.status,
   };
 }
