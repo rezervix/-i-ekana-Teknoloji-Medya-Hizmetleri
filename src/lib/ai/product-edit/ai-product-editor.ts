@@ -501,7 +501,7 @@ export function computeProductEditDiff(
             oldValue: oVal,
             newValue: nVal,
             oldValueFormatted: formatDiffValue(oVal),
-            newValueFormatted: formatDiffValue(newVal),
+            newValueFormatted: formatDiffValue(nVal),
             source: sourceLabel,
             approvedByDefault: true,
           });
