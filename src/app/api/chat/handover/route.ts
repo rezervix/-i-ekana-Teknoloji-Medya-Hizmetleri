@@ -1,40 +1,37 @@
-export const dynamic = "force-dynamic";
-
-import { NextRequest, NextResponse } from "next/server";
-import { submitCustomerHandover } from "@/lib/ai/handover-service";
-import { checkRateLimit, createRateLimitResponse } from "@/lib/rateLimit";
+import { NextRequest, NextResponse } from 'next/server';
+import { submitCustomerHandover } from '@/lib/ai/handover-service';
 
 export async function POST(req: NextRequest) {
   try {
-    const rawIp =
-      req.headers.get("x-real-ip") ||
-      req.headers.get("x-forwarded-for") ||
-      "127.0.0.1";
+    const body = await req.json();
+    const {
+      conversationId,
+      sessionId,
+      phone,
+      name,
+      email,
+      productInterest,
+      unansweredQuestion,
+      handoverReason,
+      pageUrl,
+    } = body;
 
-    // Rate limit: 5 handovers per 5 minutes per IP
-    const rateResult = checkRateLimit(`chat:handover:${rawIp}`, 5, 5 * 60 * 1000);
-    if (!rateResult.success) {
-      return createRateLimitResponse();
-    }
-
-    const body = await req.json().catch(() => ({}));
-    const { conversationId, sessionId, phone, name, email, notes } = body;
-
-    if (!conversationId || typeof conversationId !== "string") {
+    if (!conversationId && !sessionId) {
       return NextResponse.json(
-        { error: "Geçersiz sohbet kimliği." },
+        { success: false, error: 'Konuşma veya oturum kimliği gereklidir.' },
         { status: 400 }
       );
     }
-    if (!sessionId || typeof sessionId !== "string") {
+
+    const hasPhone = typeof phone === 'string' && phone.replace(/\D/g, '').length >= 7;
+    const hasEmail = typeof email === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+
+    if (!hasPhone && !hasEmail) {
       return NextResponse.json(
-        { error: "Geçersiz oturum kimliği." },
-        { status: 400 }
-      );
-    }
-    if (!phone || typeof phone !== "string") {
-      return NextResponse.json(
-        { error: "Lütfen bir telefon numarası giriniz." },
+        {
+          success: false,
+          error: 'Lütfen geçerli bir telefon numarası veya e-posta adresi giriniz.',
+        },
         { status: 400 }
       );
     }
@@ -43,27 +40,28 @@ export async function POST(req: NextRequest) {
       conversationId,
       sessionId,
       phone,
-      name: typeof name === "string" ? name.slice(0, 100) : undefined,
-      email: typeof email === "string" ? email.slice(0, 150) : undefined,
-      notes: typeof notes === "string" ? notes.slice(0, 500) : undefined,
+      name,
+      email,
+      productInterest,
+      unansweredQuestion,
+      handoverReason,
+      pageUrl,
     });
-
-    if (!result.success) {
-      return NextResponse.json(
-        { error: result.message, code: result.error },
-        { status: 400 }
-      );
-    }
 
     return NextResponse.json({
       success: true,
-      message: result.message,
-      handoverId: result.handoverId,
+      conversationId: result.conversationId,
+      handover: result.handover,
+      confirmMessage: result.confirmMessage,
+      message: result.confirmMessage.content,
     });
-  } catch (err: any) {
-    console.error("[ChatHandoverAPI] Error:", err?.message || err);
+  } catch (error: any) {
+    console.error('[API /chat/handover] Error:', error);
     return NextResponse.json(
-      { error: "İletişim talebi oluşturulamadı." },
+      {
+        success: false,
+        error: error.message || 'İletişim bilgileriniz kaydedilirken bir hata oluştu.',
+      },
       { status: 500 }
     );
   }

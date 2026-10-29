@@ -175,7 +175,7 @@ export async function sendLeadAdminNotificationEmail(
 ): Promise<EmailSendResult> {
   return executeWithRetry("sendLeadAdminNotificationEmail", async () => {
     const config = getEmailConfig();
-    const adminEmail = process.env.ADMIN_EMAIL || process.env.ADMIN_NOTIFICATION_EMAIL || "info@cicekanatechmedia.com";
+    const adminEmail = process.env.ADMIN_EMAIL || process.env.ADMIN_NOTIFICATION_EMAIL || "cicekanareklam@gmail.com";
     const subject = `🔔 Yeni Kurumsal Lead: ${lead.companyName} (${lead.sector})`;
     const adminLink = `${siteUrl}/admin/leads/${lead.id}`;
 
@@ -295,7 +295,7 @@ export async function dispatchLeadNotifications(
     console.warn("[dispatchLeadNotifications] Müşteri EmailLog kaydedilemedi:", logErr);
   }
 
-  const adminEmail = process.env.ADMIN_EMAIL || process.env.ADMIN_NOTIFICATION_EMAIL || "info@cicekanatechmedia.com";
+  const adminEmail = process.env.ADMIN_EMAIL || process.env.ADMIN_NOTIFICATION_EMAIL || "cicekanareklam@gmail.com";
   try {
     await prisma.emailLog.create({
       data: {
@@ -438,7 +438,7 @@ export async function sendSocialAdminNotificationEmail(
 ): Promise<EmailSendResult> {
   return executeWithRetry("sendSocialAdminNotificationEmail", async () => {
     const config = getEmailConfig();
-    const adminEmail = process.env.ADMIN_EMAIL || process.env.ADMIN_NOTIFICATION_EMAIL || "info@cicekanatechmedia.com";
+    const adminEmail = process.env.ADMIN_EMAIL || process.env.ADMIN_NOTIFICATION_EMAIL || "cicekanareklam@gmail.com";
     const isQuick = app.applicationType === "quick";
     const subject = isQuick
       ? `⚡ Yeni Hızlı Başvuru: ${app.phone} (${app.applicationNumber})`
@@ -535,7 +535,7 @@ export async function dispatchSocialApplicationNotifications(
     }
   }
 
-  const adminEmail = process.env.ADMIN_EMAIL || process.env.ADMIN_NOTIFICATION_EMAIL || "info@cicekanatechmedia.com";
+  const adminEmail = process.env.ADMIN_EMAIL || process.env.ADMIN_NOTIFICATION_EMAIL || "cicekanareklam@gmail.com";
   try {
     await prisma.emailLog.create({
       data: {

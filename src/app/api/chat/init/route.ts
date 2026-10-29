@@ -1,36 +1,39 @@
-export const dynamic = "force-dynamic";
-
-import { NextRequest, NextResponse } from "next/server";
-import { getOrCreateConversation } from "@/lib/ai/chat-service";
-import { checkRateLimit, createRateLimitResponse } from "@/lib/rateLimit";
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { getExistingConversationBySession } from '@/lib/ai/chat-service';
 
 export async function POST(req: NextRequest) {
   try {
-    const rawIp =
-      req.headers.get("x-real-ip") ||
-      req.headers.get("x-forwarded-for") ||
-      "127.0.0.1";
-
-    const rateResult = checkRateLimit(`chat:init:${rawIp}`, 30, 60 * 1000);
-    if (!rateResult.success) {
-      return createRateLimitResponse();
-    }
-
-    const body = await req.json().catch(() => ({}));
+    const body = await req.json();
     const { sessionId, pageUrl, productId } = body;
 
-    if (!sessionId || typeof sessionId !== "string" || sessionId.length < 8) {
+    if (!sessionId || typeof sessionId !== 'string') {
       return NextResponse.json(
-        { error: "Geçersiz veya eksik oturum kimliği." },
+        { success: false, error: 'Geçerli bir oturum kimliği (sessionId) gereklidir.' },
         { status: 400 }
       );
     }
 
-    const conversation = await getOrCreateConversation({
+    const session = await getServerSession(authOptions);
+    const userId = (session?.user as any)?.id || null;
+
+    // ÖNEMLİ (Bölüm 11.1): Sayfa açılışında veya sohbet penceresi açıldığında
+    // veritabanında yeni boş konuşma kaydı OLUŞTURULMAZ. Yalnızca mevcut gerçek konuşma varsa döner.
+    const conversation = await getExistingConversationBySession({
       sessionId,
-      pageUrl: typeof pageUrl === "string" ? pageUrl.slice(0, 500) : undefined,
-      productId: typeof productId === "string" ? productId.slice(0, 100) : undefined,
+      userId,
+      pageUrl,
+      productId,
     });
+
+    if (!conversation) {
+      return NextResponse.json({
+        success: true,
+        conversation: null,
+        messages: [],
+      });
+    }
 
     return NextResponse.json({
       success: true,
@@ -39,21 +42,17 @@ export async function POST(req: NextRequest) {
         sessionId: conversation.sessionId,
         status: conversation.status,
         handoverStatus: conversation.handoverStatus,
-        messages: conversation.messages.map((m) => ({
-          id: m.id,
-          senderType: m.senderType,
-          senderName: m.senderName,
-          content: m.content,
-          isHandoverPrompt: m.isHandoverPrompt,
-          suggestedProducts: m.suggestedProducts,
-          createdAt: m.createdAt,
-        })),
+        customerName: conversation.customerName,
+        customerPhone: conversation.customerPhone,
+        customerEmail: conversation.customerEmail,
+        messages: conversation.messages,
       },
+      messages: conversation.messages,
     });
-  } catch (err: any) {
-    console.error("[ChatInitAPI] Error:", err?.message || err);
+  } catch (error: any) {
+    console.error('[API /chat/init] Error:', error);
     return NextResponse.json(
-      { error: "Sohbet oturumu başlatılamadı." },
+      { success: false, error: 'Sohbet başlatılırken bir hata oluştu.' },
       { status: 500 }
     );
   }

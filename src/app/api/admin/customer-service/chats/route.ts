@@ -1,39 +1,53 @@
-export const dynamic = "force-dynamic";
+export const dynamic = 'force-dynamic';
 
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { checkCustomerServiceAdminAuth, unauthorizedResponse } from "@/lib/ai/admin-auth";
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
+import { checkCustomerServiceAdminAuth, unauthorizedResponse } from '@/lib/ai/admin-auth';
 
 export async function GET(req: NextRequest) {
   const auth = await checkCustomerServiceAdminAuth(req);
   if (!auth) return unauthorizedResponse();
 
   const { searchParams } = new URL(req.url);
-  const search = searchParams.get("search")?.trim() || "";
-  const status = searchParams.get("status") || "ALL";
-  const handoverStatus = searchParams.get("handoverStatus") || "ALL";
-  const limit = Math.min(parseInt(searchParams.get("limit") || "50", 10), 100);
-  const page = Math.max(parseInt(searchParams.get("page") || "1", 10), 1);
+  const search = searchParams.get('search')?.trim() || '';
+  const status = searchParams.get('status') || 'ALL';
+  const handoverStatus = searchParams.get('handoverStatus') || 'ALL';
+  const limit = Math.min(parseInt(searchParams.get('limit') || '50', 10), 100);
+  const page = Math.max(parseInt(searchParams.get('page') || '1', 10), 1);
   const skip = (page - 1) * limit;
 
-  const whereClause: any = {};
+  // Boş sohbet oturumlarını (gerçek kullanıcı mesajı, telefon/e-posta veya handover kaydı olmayanları) kesinlikle filtrele
+  const nonEmptyCondition = {
+    OR: [
+      { messages: { some: { senderType: { in: ['VISITOR', 'AGENT'] as any } } } },
+      { handovers: { some: {} } },
+      { customerPhone: { not: null } },
+      { customerEmail: { not: null } },
+    ],
+  };
 
-  if (status !== "ALL") {
-    whereClause.status = status;
+  const andConditions: any[] = [nonEmptyCondition];
+
+  if (status !== 'ALL') {
+    andConditions.push({ status });
   }
-  if (handoverStatus !== "ALL") {
-    whereClause.handoverStatus = handoverStatus;
+  if (handoverStatus !== 'ALL') {
+    andConditions.push({ handoverStatus });
   }
 
   if (search) {
-    whereClause.OR = [
-      { customerPhone: { contains: search, mode: "insensitive" } },
-      { customerName: { contains: search, mode: "insensitive" } },
-      { customerEmail: { contains: search, mode: "insensitive" } },
-      { title: { contains: search, mode: "insensitive" } },
-      { messages: { some: { content: { contains: search, mode: "insensitive" } } } },
-    ];
+    andConditions.push({
+      OR: [
+        { customerPhone: { contains: search, mode: 'insensitive' } },
+        { customerName: { contains: search, mode: 'insensitive' } },
+        { customerEmail: { contains: search, mode: 'insensitive' } },
+        { title: { contains: search, mode: 'insensitive' } },
+        { messages: { some: { content: { contains: search, mode: 'insensitive' } } } },
+      ],
+    });
   }
+
+  const whereClause: any = { AND: andConditions };
 
   try {
     const [total, conversations] = await Promise.all([
@@ -42,15 +56,15 @@ export async function GET(req: NextRequest) {
         where: whereClause,
         include: {
           messages: {
-            orderBy: { createdAt: "desc" },
+            orderBy: { createdAt: 'desc' },
             take: 1, // last message preview
           },
           handovers: {
-            orderBy: { createdAt: "desc" },
+            orderBy: { createdAt: 'desc' },
             take: 1,
           },
         },
-        orderBy: { updatedAt: "desc" },
+        orderBy: { updatedAt: 'desc' },
         take: limit,
         skip,
       }),
@@ -83,7 +97,10 @@ export async function GET(req: NextRequest) {
       })),
     });
   } catch (err: any) {
-    console.error("[AdminChatsListAPI] Error:", err);
-    return NextResponse.json({ error: "Görüşmeler listelenirken bir hata oluştu." }, { status: 500 });
+    console.error('[AdminChatsListAPI] Error:', err);
+    return NextResponse.json(
+      { error: 'Görüşmeler listelenirken bir hata oluştu.' },
+      { status: 500 }
+    );
   }
 }

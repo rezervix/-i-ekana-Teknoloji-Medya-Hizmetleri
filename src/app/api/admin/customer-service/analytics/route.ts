@@ -1,12 +1,21 @@
-export const dynamic = "force-dynamic";
+export const dynamic = 'force-dynamic';
 
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { checkCustomerServiceAdminAuth, unauthorizedResponse } from "@/lib/ai/admin-auth";
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
+import { checkCustomerServiceAdminAuth, unauthorizedResponse } from '@/lib/ai/admin-auth';
 
 export async function GET(req: NextRequest) {
   const auth = await checkCustomerServiceAdminAuth(req);
   if (!auth) return unauthorizedResponse();
+
+  const nonEmptyWhere: any = {
+    OR: [
+      { messages: { some: { senderType: { in: ['VISITOR', 'AGENT'] as any } } } },
+      { handovers: { some: {} } },
+      { customerPhone: { not: null } },
+      { customerEmail: { not: null } },
+    ],
+  };
 
   try {
     const [
@@ -19,17 +28,19 @@ export async function GET(req: NextRequest) {
       recentHandovers,
       recentConversations,
     ] = await Promise.all([
-      prisma.chatConversation.count(),
+      prisma.chatConversation.count({ where: nonEmptyWhere }),
       prisma.chatMessage.count(),
       prisma.chatHandover.count(),
       prisma.chatHandover.count({
-        where: { customerPhone: { not: "" } },
+        where: {
+          OR: [{ customerPhone: { not: '' } }, { customerEmail: { not: null } }],
+        },
       }),
       prisma.chatConversation.count({
-        where: { status: "ACTIVE" },
+        where: { AND: [nonEmptyWhere, { status: 'ACTIVE' }] },
       }),
       prisma.chatConversation.count({
-        where: { status: "RESOLVED" },
+        where: { AND: [nonEmptyWhere, { status: 'RESOLVED' }] },
       }),
       // Unanswered questions from handovers (knowledge gaps)
       prisma.chatHandover.findMany({
@@ -40,15 +51,20 @@ export async function GET(req: NextRequest) {
           status: true,
           createdAt: true,
         },
-        orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: 'desc' },
         take: 15,
       }),
       // Daily conversations last 7 days
       prisma.chatConversation.findMany({
         where: {
-          createdAt: {
-            gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-          },
+          AND: [
+            nonEmptyWhere,
+            {
+              createdAt: {
+                gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+              },
+            },
+          ],
         },
         select: {
           id: true,
@@ -82,7 +98,7 @@ export async function GET(req: NextRequest) {
 
     // Calculate handover status breakdown
     const handoverStatusCounts = await prisma.chatHandover.groupBy({
-      by: ["status"],
+      by: ['status'],
       _count: { id: true },
     });
 
@@ -100,9 +116,7 @@ export async function GET(req: NextRequest) {
             ? Math.round((resolvedConversations / totalConversations) * 100)
             : 0,
         handoverRate:
-          totalConversations > 0
-            ? Math.round((totalHandovers / totalConversations) * 100)
-            : 0,
+          totalConversations > 0 ? Math.round((totalHandovers / totalConversations) * 100) : 0,
       },
       dailyTrend,
       handoverStatusBreakdown: handoverStatusCounts.map((h) => ({
@@ -118,9 +132,9 @@ export async function GET(req: NextRequest) {
       })),
     });
   } catch (err: any) {
-    console.error("[AdminCustomerServiceAnalyticsAPI] Error:", err);
+    console.error('[AdminCustomerServiceAnalyticsAPI] Error:', err);
     return NextResponse.json(
-      { error: "Analitik verileri hesaplanırken bir hata oluştu." },
+      { error: 'Analitik verileri hesaplanırken bir hata oluştu.' },
       { status: 500 }
     );
   }

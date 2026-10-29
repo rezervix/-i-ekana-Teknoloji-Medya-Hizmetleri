@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
-import { usePathname } from "next/navigation";
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { usePathname } from 'next/navigation';
 import {
   MessageSquare,
   X,
@@ -14,45 +14,95 @@ import {
   ShieldCheck,
   ChevronRight,
   Headphones,
-} from "lucide-react";
-import Logo from "@/components/Logo";
+} from 'lucide-react';
+import Logo from '@/components/Logo';
 
 interface ChatMessageItem {
   id: string;
-  senderType: "VISITOR" | "BOT" | "AGENT" | "SYSTEM";
+  senderType: 'VISITOR' | 'BOT' | 'AGENT' | 'SYSTEM';
   senderName?: string | null;
   content: string;
   isHandoverPrompt?: boolean;
   suggestedProducts?: {
     id: string;
     name: string;
-    price: string;
+    price?: string;
+    priceFormatted?: string;
     url: string;
     description?: string;
   }[];
   createdAt: string | Date;
 }
 
+const DEFAULT_WELCOME_MESSAGE: ChatMessageItem = {
+  id: 'welcome-init',
+  senderType: 'BOT',
+  senderName: 'Çiçekana Destek',
+  content:
+    "Merhaba! Çiçekana Teknoloji & Medya'ya hoş geldiniz. Yapay zekâ otomasyonlarımız (Alom, Midvem, Faktura, ScoreForm, Postify, e-Studio, Çiçekana AI-ERP, Kuşçu), e-ticaret paketlerimiz, kurumsal web yazılım veya sosyal medya & reklam danışmanlığı hizmetlerimiz hakkında sorularınızı yanıtlayabilirim. Size nasıl yardımcı olabilirim?",
+  createdAt: new Date().toISOString(),
+};
+
+/**
+ * Mesaj içindeki [Metin](URL) bağlantıları ve **kalın** ifadeleri güvenli şekilde biçimlendirir.
+ */
+function renderFormattedMessageContent(text: string, isVisitor: boolean) {
+  const tokenRegex = /(\[[^\]]+\]\(https?:\/\/[^\s)]+|\/[^\s)]+\)|\*\*[^*]+\*\*)/g;
+  const parts = text.split(tokenRegex);
+
+  return parts.map((part, idx) => {
+    const linkMatch = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+    if (linkMatch) {
+      const [, label, href] = linkMatch;
+      return (
+        <a
+          key={idx}
+          href={href}
+          className={`underline font-semibold break-words ${
+            isVisitor
+              ? 'text-white hover:text-emerald-100'
+              : 'text-corp-teal hover:text-corp-teal-dark'
+          }`}
+        >
+          {label}
+        </a>
+      );
+    }
+
+    const boldMatch = part.match(/^\*\*([^*]+)\*\*$/);
+    if (boldMatch) {
+      return (
+        <strong key={idx} className="font-semibold">
+          {boldMatch[1]}
+        </strong>
+      );
+    }
+
+    return <React.Fragment key={idx}>{part}</React.Fragment>;
+  });
+}
+
 export default function CustomerSupportChat() {
   const pathname = usePathname();
 
   // Hide completely on admin routes
-  const isAdmin = pathname?.startsWith("/admin");
+  const isAdmin = pathname?.startsWith('/admin');
 
   const [isOpen, setIsOpen] = useState(false);
   const [showTeaser, setShowTeaser] = useState(false);
-  const [sessionId, setSessionId] = useState<string>("");
-  const [conversationId, setConversationId] = useState<string>("");
-  const [messages, setMessages] = useState<ChatMessageItem[]>([]);
-  const [inputValue, setInputValue] = useState("");
+  const [sessionId, setSessionId] = useState<string>('');
+  const [conversationId, setConversationId] = useState<string>('');
+  const [messages, setMessages] = useState<ChatMessageItem[]>([DEFAULT_WELCOME_MESSAGE]);
+  const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Handover state
+  // Handover state (supports phone and/or email)
   const [showHandoverForm, setShowHandoverForm] = useState(false);
   const [handoverDismissed, setHandoverDismissed] = useState(false);
-  const [handoverPhone, setHandoverPhone] = useState("");
-  const [handoverName, setHandoverName] = useState("");
+  const [handoverPhone, setHandoverPhone] = useState('');
+  const [handoverEmail, setHandoverEmail] = useState('');
+  const [handoverName, setHandoverName] = useState('');
   const [kvkkConsent, setKvkkConsent] = useState(true);
   const [handoverSubmitting, setHandoverSubmitting] = useState(false);
   const [handoverSuccess, setHandoverSuccess] = useState<string | null>(null);
@@ -61,6 +111,7 @@ export default function CustomerSupportChat() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const hasTrackedFirstMessage = useRef(false);
+  const hasCheckedExistingSession = useRef(false);
 
   // Helper to send funnel analytics events
   const trackChatEvent = useCallback(
@@ -70,23 +121,22 @@ export default function CustomerSupportChat() {
         const payload = {
           sessionId,
           event,
-          device: typeof window !== "undefined" && window.innerWidth < 768 ? "mobile" : "desktop",
+          device: typeof window !== 'undefined' && window.innerWidth < 768 ? 'mobile' : 'desktop',
           metadata: {
             pathname,
             ...metadata,
           },
         };
 
-        fetch("/api/analytics/track", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
+        fetch('/api/analytics/track', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         }).catch(() => {});
 
-        // Optional Google Tag event if gtag is active
-        if (typeof window !== "undefined" && (window as any).gtag) {
-          (window as any).gtag("event", event, {
-            event_category: "customer_support",
+        if (typeof window !== 'undefined' && (window as any).gtag) {
+          (window as any).gtag('event', event, {
+            event_category: 'customer_support',
             event_label: pathname,
           });
         }
@@ -97,70 +147,64 @@ export default function CustomerSupportChat() {
     [sessionId, pathname]
   );
 
-  // Initialize session and teaser timer
+  // 1. Sayfa yüklendiğinde yalnızca yerel sessionId hazırla; veritabanında boş oturum OLUŞTURMA (Bölüm 11.1)
   useEffect(() => {
     if (isAdmin) return;
 
-    let sid = "";
+    let sid = '';
     try {
-      sid = localStorage.getItem("cicekana_chat_sid") || "";
+      sid = localStorage.getItem('cicekana_chat_sid') || '';
       if (!sid) {
-        sid = "sid_" + Math.random().toString(36).substring(2, 12) + "_" + Date.now();
-        localStorage.setItem("cicekana_chat_sid", sid);
+        sid = 'sid_' + Math.random().toString(36).substring(2, 12) + '_' + Date.now();
+        localStorage.setItem('cicekana_chat_sid', sid);
       }
     } catch {
-      sid = "sid_" + Math.random().toString(36).substring(2, 12) + "_" + Date.now();
+      sid = 'sid_' + Math.random().toString(36).substring(2, 12) + '_' + Date.now();
     }
     setSessionId(sid);
 
-    // Initial greeting / restore conversation
-    fetch("/api/chat/init", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        sessionId: sid,
-        pageUrl: typeof window !== "undefined" ? window.location.href : pathname,
-      }),
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success && data.conversation) {
-          setConversationId(data.conversation.id);
-          if (data.conversation.messages && data.conversation.messages.length > 0) {
-            setMessages(data.conversation.messages);
-            const last = data.conversation.messages[data.conversation.messages.length - 1];
-            if (last?.isHandoverPrompt && !handoverDismissed) {
-              setShowHandoverForm(true);
-            } else {
-              setShowHandoverForm(false);
-            }
-          } else {
-            setMessages([
-              {
-                id: "welcome-init",
-                senderType: "BOT",
-                senderName: "Çiçekana Destek",
-                content:
-                  "Merhaba! Çiçekana Tech Media'ya hoş geldiniz. Ürünlerimiz, otomasyon paketlerimiz, web tasarımı, e-ticaret veya kurumsal çözümlerimiz hakkında sorularınızı yanıtlayabilirim. Size nasıl yardımcı olabilirim?",
-                createdAt: new Date().toISOString(),
-              },
-            ]);
-          }
-        }
-      })
-      .catch((err) => {
-        console.warn("[CustomerSupportChat] Init fallback:", err);
-      });
-
-    // Teaser appearance with 3.5s gentle delay on first visit
-    const teaserDismissed = localStorage.getItem("cicekana_chat_teaser_dismissed");
+    const teaserDismissed = localStorage.getItem('cicekana_chat_teaser_dismissed');
     if (!teaserDismissed) {
       const timer = setTimeout(() => {
         setShowTeaser(true);
       }, 3500);
       return () => clearTimeout(timer);
     }
-  }, [isAdmin, pathname]);
+  }, [isAdmin]);
+
+  // 2. Kullanıcı sohbet penceresini açtığında daha önce başlamış gerçek bir konuşması varsa geri yükle (yoksa DB kaydı oluşturmaz)
+  useEffect(() => {
+    if (isAdmin || !isOpen || !sessionId || hasCheckedExistingSession.current) return;
+    hasCheckedExistingSession.current = true;
+
+    fetch('/api/chat/init', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sessionId,
+        pageUrl: typeof window !== 'undefined' ? window.location.href : pathname,
+      }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.conversation && data.conversation.id) {
+          setConversationId(data.conversation.id);
+          const existingMsgs = data.conversation.messages || data.messages || [];
+          if (existingMsgs.length > 0) {
+            setMessages(existingMsgs);
+            const last = existingMsgs[existingMsgs.length - 1];
+            if (last?.isHandoverPrompt && !handoverDismissed) {
+              setShowHandoverForm(true);
+            } else {
+              setShowHandoverForm(false);
+            }
+          }
+        }
+      })
+      .catch((err) => {
+        console.warn('[CustomerSupportChat] Restore check skipped:', err);
+      });
+  }, [isAdmin, isOpen, sessionId, pathname, handoverDismissed]);
 
   // Global listener for opening chat from CTA buttons across the website
   useEffect(() => {
@@ -173,21 +217,24 @@ export default function CustomerSupportChat() {
         setTimeout(() => inputRef.current?.focus(), 250);
       }
     };
-    window.addEventListener("cicekana:open-chat", handleOpenChat);
-    return () => window.removeEventListener("cicekana:open-chat", handleOpenChat);
+    window.addEventListener('cicekana:open-chat', handleOpenChat);
+    return () => window.removeEventListener('cicekana:open-chat', handleOpenChat);
   }, []);
 
-  // Live polling: Check for new agent replies every 6s when chat is open
+  // Live polling: Check for new agent replies every 6s ONLY when an active conversationId exists
   useEffect(() => {
     if (!isOpen || !conversationId || !sessionId) return;
 
     const interval = setInterval(() => {
-      const lastMsg = messages[messages.length - 1];
+      const realMessages = messages.filter(
+        (m) => m.id !== 'welcome-init' && !m.id.startsWith('temp-')
+      );
+      const lastMsg = realMessages[realMessages.length - 1];
       const after = lastMsg ? new Date(lastMsg.createdAt).toISOString() : undefined;
 
-      fetch("/api/chat/sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      fetch('/api/chat/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           conversationId,
           sessionId,
@@ -214,7 +261,7 @@ export default function CustomerSupportChat() {
   // Auto-scroll on new message
   useEffect(() => {
     if (isOpen) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages, isOpen, showHandoverForm, handoverSuccess]);
 
@@ -222,7 +269,7 @@ export default function CustomerSupportChat() {
   useEffect(() => {
     if (isOpen) {
       setShowTeaser(false);
-      trackChatEvent("chat_widget_opened");
+      trackChatEvent('chat_widget_opened');
       setTimeout(() => inputRef.current?.focus(), 250);
     }
   }, [isOpen, trackChatEvent]);
@@ -230,117 +277,126 @@ export default function CustomerSupportChat() {
   // Escape key to close
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isOpen) {
+      if (e.key === 'Escape' && isOpen) {
         setIsOpen(false);
       }
     };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen]);
 
   if (isAdmin) {
     return null;
   }
 
-  // Page-context aware quick prompts (advisory suggestions that also offer general topics)
+  // Page-context aware quick prompts (strictly excludes /magaza print store products per Section 3.2)
   const getContextPrompts = (): string[] => {
-    if (pathname?.includes("call-center")) {
+    if (pathname?.includes('alom') || pathname?.includes('call-center')) {
       return [
-        "Call Center AI özellikleri neler?",
-        "Santral kurulumu nasıl yapılır?",
-        "Web tasarımı da yapıyor musunuz?",
-        "Yetkiliyle görüşmek istiyorum",
+        'Telefonlara yetişemiyoruz, Alom nasıl çözer?',
+        'Alom paket fiyatları nelerdir?',
+        'Mevcut sabit numaramızı kullanabilir miyiz?',
+        'Yetkiliyle görüşmek istiyorum',
       ];
     }
-    if (pathname?.includes("midvem")) {
+    if (pathname?.includes('midvem')) {
       return [
-        "Midvem paket fiyatları neler?",
-        "Shopify siparişlerini görebilir miyim?",
-        "Küçük esnafa uygun paket var mı?",
-        "Diğer hizmetleriniz neler?",
+        'Midvem paket fiyatları neler?',
+        'Midvem hangi kanalları destekliyor?',
+        'Shopify siparişlerini görebilir miyim?',
+        'Küçük işletmeye uygun paket hangisi?',
       ];
     }
-    if (pathname?.includes("ai-automation")) {
+    if (pathname?.includes('sosyal-medya-reklam-danismanligi')) {
       return [
-        "Yapay zekâ paketleri ve fiyatlar",
-        "Küçük işletmeye uygun çözüm var mı?",
-        "Web sitesi ve e-ticaret çözümleri",
-        "Müşteri temsilcisine bağlan",
+        'Sosyal medya ve reklam danışmanlığı fiyatları nedir?',
+        'Hangi hizmet gruplarınız var?',
+        'Özel teklif başvurusu nasıl yapılır?',
       ];
     }
-    if (pathname?.includes("e-ticaret")) {
+    if (pathname?.includes('ai-automation')) {
       return [
-        "ikas e-ticaret altyapısı nedir?",
-        "Shopify ve sepet kurtarma desteği",
-        "E-ticaret paket fiyatları",
-        "Yetkiliyle görüşmek istiyorum",
+        'Telefonlara yetişemiyoruz, ne önerirsiniz?',
+        'Midvem ve Alom paket fiyatları',
+        'e-Studio ve Postify nedir?',
+        'Müşteri temsilcisine bağlan',
       ];
     }
-    if (pathname?.includes("magaza")) {
+    if (pathname?.includes('e-ticaret')) {
       return [
-        "Baskı ürünlerinde kargo ve teslimat",
-        "Toplu siparişlerde özel indirim",
-        "E-ticaret çözümleriniz neler?",
-        "Yetkiliyle görüşmek istiyorum",
+        'E-ticaret paket fiyatları nelerdir?',
+        'Gold ve Plus paket farkları neler?',
+        'Pazaryeri entegrasyonları dahil mi?',
+        'Yetkiliyle görüşmek istiyorum',
       ];
     }
     return [
-      "Sunduğunuz hizmetler neler?",
-      "Midvem ve AI paket fiyatları",
-      "Web sitesi tasarımı yapıyor musunuz?",
-      "Yetkiliyle görüşmek istiyorum",
+      'Telefonlara yetişemiyoruz, hangi çözüm uygun?',
+      'Midvem paket fiyatları neler?',
+      'Sosyal medya ve reklam danışmanlığı',
+      'E-ticaret ve web yazılım çözümleri',
     ];
   };
 
   const handleSendMessage = async (textToSend?: string) => {
     const text = (textToSend || inputValue).trim();
-    if (!text || isLoading || !conversationId) return;
+    if (!text || isLoading || !sessionId) return;
 
     setErrorMsg(null);
-    setInputValue("");
+    setInputValue('');
     setIsLoading(true);
 
     if (!hasTrackedFirstMessage.current) {
-      trackChatEvent("chat_first_message", { length: text.length });
+      trackChatEvent('chat_first_message', { length: text.length });
       hasTrackedFirstMessage.current = true;
     }
 
+    const tempId = 'temp-' + Date.now();
     const tempUserMsg: ChatMessageItem = {
-      id: "temp-" + Date.now(),
-      senderType: "VISITOR",
+      id: tempId,
+      senderType: 'VISITOR',
       content: text,
       createdAt: new Date().toISOString(),
     };
     setMessages((prev) => [...prev, tempUserMsg]);
 
     try {
-      const res = await fetch("/api/chat/message", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const res = await fetch('/api/chat/message', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          conversationId,
+          conversationId: conversationId || undefined,
           sessionId,
           message: text,
-          pageUrl: window.location.href,
+          pageUrl: typeof window !== 'undefined' ? window.location.href : pathname,
         }),
       });
 
       const data = await res.json();
       if (!res.ok || !data.success) {
-        throw new Error(data.error || "Mesaj iletilemedi. Lütfen tekrar deneyiniz.");
+        throw new Error(data.error || 'Mesaj iletilemedi. Lütfen tekrar deneyiniz.');
+      }
+
+      if (data.conversationId && data.conversationId !== conversationId) {
+        setConversationId(data.conversationId);
       }
 
       const botMsg: ChatMessageItem = {
-        id: data.botMessageId,
-        senderType: "BOT",
-        senderName: "Çiçekana Destek",
-        content: data.reply,
+        id: data.botMessageId || data.botMessage?.id || 'bot-' + Date.now(),
+        senderType: 'BOT',
+        senderName: 'Çiçekana Destek',
+        content: data.reply || data.botMessage?.content || '',
         isHandoverPrompt: data.isHandoverPrompt,
         suggestedProducts: data.suggestedProducts,
         createdAt: new Date().toISOString(),
       };
 
-      setMessages((prev) => [...prev, botMsg]);
+      setMessages((prev) => [
+        ...prev.map((m) =>
+          m.id === tempId && data.visitorMessage?.id ? { ...m, id: data.visitorMessage.id } : m
+        ),
+        botMsg,
+      ]);
 
       if (data.isHandoverPrompt) {
         setShowHandoverForm(true);
@@ -349,18 +405,22 @@ export default function CustomerSupportChat() {
         setShowHandoverForm(false);
       }
     } catch (err: any) {
-      setErrorMsg(err.message || "Bağlantı hatası oluştu.");
+      setErrorMsg(err.message || 'Bağlantı hatası oluştu.');
     } finally {
       setIsLoading(false);
     }
   };
 
+  const hasValidContactInput =
+    handoverPhone.replace(/\D/g, '').length >= 7 ||
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(handoverEmail.trim());
+
   const handleHandoverSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!handoverPhone.trim() || handoverSubmitting || !conversationId) return;
+    if (!hasValidContactInput || handoverSubmitting || !sessionId) return;
 
     if (!kvkkConsent) {
-      setHandoverError("Lütfen iletişim izni onay kutusunu işaretleyiniz.");
+      setHandoverError('Lütfen iletişim izni onay kutusunu işaretleyiniz.');
       return;
     }
 
@@ -368,37 +428,46 @@ export default function CustomerSupportChat() {
     setHandoverError(null);
 
     try {
-      const res = await fetch("/api/chat/handover", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const res = await fetch('/api/chat/handover', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          conversationId,
+          conversationId: conversationId || undefined,
           sessionId,
-          phone: handoverPhone,
-          name: handoverName,
+          phone: handoverPhone.trim() || undefined,
+          email: handoverEmail.trim() || undefined,
+          name: handoverName.trim() || undefined,
+          pageUrl: typeof window !== 'undefined' ? window.location.href : pathname,
         }),
       });
 
       const data = await res.json();
       if (!res.ok || !data.success) {
-        throw new Error(data.error || "Kayıt oluşturulamadı.");
+        throw new Error(data.error || 'Kayıt oluşturulamadı.');
       }
 
-      trackChatEvent("chat_lead_submitted");
+      if (data.conversationId && data.conversationId !== conversationId) {
+        setConversationId(data.conversationId);
+      }
+
+      trackChatEvent('chat_lead_submitted');
       setHandoverSuccess(data.message);
       setShowHandoverForm(false);
+      const contactLabel = [handoverPhone.trim(), handoverEmail.trim()].filter(Boolean).join(' / ');
       setMessages((prev) => [
         ...prev,
         {
-          id: "sys-" + Date.now(),
-          senderType: "SYSTEM",
-          senderName: "Sistem",
-          content: `İletişim talebiniz (${handoverPhone}) başarıyla yetkili ekibimize iletildi.`,
+          id: data.confirmMessage?.id || 'sys-' + Date.now(),
+          senderType: 'BOT',
+          senderName: 'Çiçekana Destek',
+          content:
+            data.message ||
+            `Teşekkür ederim (${contactLabel}). Sorunuzu ekibimize iletiyorum. Mesai saatleri içinde 30 dakika içerisinde dönüş yapılmasını hedefliyoruz. Mesai dışında iletilen taleplerde bir sonraki iş günü dönüş yapılmasını hedefliyoruz.`,
           createdAt: new Date().toISOString(),
         },
       ]);
     } catch (err: any) {
-      setHandoverError(err.message || "Talebiniz iletilirken bir hata oluştu.");
+      setHandoverError(err.message || 'Talebiniz iletilirken bir hata oluştu.');
     } finally {
       setHandoverSubmitting(false);
     }
@@ -408,15 +477,16 @@ export default function CustomerSupportChat() {
     e.stopPropagation();
     setShowTeaser(false);
     try {
-      localStorage.setItem("cicekana_chat_teaser_dismissed", "true");
-    } catch {}
+      localStorage.setItem('cicekana_chat_teaser_dismissed', 'true');
+    } catch {
+      // localStorage erişilemezse yoksay
+    }
   };
 
   return (
     <>
       {/* Floating Launcher and Teaser Bubble */}
       <div className="fixed bottom-6 right-6 z-40 print:hidden flex flex-col items-end gap-3">
-        {/* Soft Invitation Teaser Bubble */}
         {!isOpen && showTeaser && (
           <div
             onClick={() => setIsOpen(true)}
@@ -435,11 +505,10 @@ export default function CustomerSupportChat() {
                 <Headphones className="w-3.5 h-3.5" />
               </div>
               <div>
-                <p className="font-semibold text-corp-charcoal text-xs mb-1">
-                  Yardımcı Olabiliriz
-                </p>
+                <p className="font-semibold text-corp-charcoal text-xs mb-1">Yardımcı Olabiliriz</p>
                 <p className="text-[11px] text-corp-gray leading-relaxed">
-                  Size doğru ürünü veya hizmeti bulmanızda yardımcı olabiliriz. Paketler, fiyatlar ve özellikler hakkında sorularınızı yanıtlayabiliriz.
+                  Size doğru ürünü veya hizmeti bulmanızda yardımcı olabiliriz. Paketler, fiyatlar
+                  ve özellikler hakkında sorularınızı yanıtlayabiliriz.
                 </p>
                 <div className="mt-2 text-corp-teal font-semibold text-[11px] flex items-center gap-1 group-hover:underline">
                   Sohbeti Başlat <ChevronRight className="w-3 h-3" />
@@ -449,7 +518,6 @@ export default function CustomerSupportChat() {
           </div>
         )}
 
-        {/* Floating Launcher Button */}
         {!isOpen ? (
           <button
             onClick={() => setIsOpen(true)}
@@ -503,8 +571,8 @@ export default function CustomerSupportChat() {
           {/* Messages Body */}
           <div className="flex-1 overflow-y-auto p-4 space-y-3.5 bg-slate-50/70">
             {messages.map((m) => {
-              const isVisitor = m.senderType === "VISITOR";
-              const isSystem = m.senderType === "SYSTEM";
+              const isVisitor = m.senderType === 'VISITOR';
+              const isSystem = m.senderType === 'SYSTEM';
 
               if (isSystem) {
                 return (
@@ -520,16 +588,18 @@ export default function CustomerSupportChat() {
               return (
                 <div
                   key={m.id}
-                  className={`flex flex-col ${isVisitor ? "items-end" : "items-start"}`}
+                  className={`flex flex-col ${isVisitor ? 'items-end' : 'items-start'}`}
                 >
                   <div
                     className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-xs sm:text-sm leading-relaxed shadow-xs ${
                       isVisitor
-                        ? "bg-corp-teal text-white rounded-br-xs font-normal"
-                        : "bg-white text-corp-charcoal border border-corp-border/80 rounded-bl-xs"
+                        ? 'bg-corp-teal text-white rounded-br-xs font-normal'
+                        : 'bg-white text-corp-charcoal border border-corp-border/80 rounded-bl-xs'
                     }`}
                   >
-                    <p className="whitespace-pre-wrap">{m.content}</p>
+                    <p className="whitespace-pre-wrap">
+                      {renderFormattedMessageContent(m.content, isVisitor)}
+                    </p>
                   </div>
 
                   {/* Structured Product Suggestions (CRO) */}
@@ -551,20 +621,20 @@ export default function CustomerSupportChat() {
                                 </p>
                               )}
                               <span className="inline-block mt-1 text-xs font-semibold text-corp-teal">
-                                {prod.price}
+                                {prod.price || prod.priceFormatted}
                               </span>
                             </div>
                             <a
                               href={prod.url}
                               onClick={() =>
-                                trackChatEvent("chat_product_link_clicked", {
+                                trackChatEvent('chat_product_link_clicked', {
                                   productName: prod.name,
                                   url: prod.url,
                                 })
                               }
                               className="inline-flex items-center gap-1 text-[11px] font-medium text-corp-teal hover:underline flex-shrink-0 bg-corp-teal/10 px-2.5 py-1 rounded-lg"
                             >
-                              İncele
+                              Paketleri İncele
                               <ExternalLink className="w-3 h-3" />
                             </a>
                           </div>
@@ -574,17 +644,17 @@ export default function CustomerSupportChat() {
                   )}
 
                   <span className="text-[10px] text-corp-gray-light mt-1 px-1">
-                    {m.senderType === "AGENT"
-                      ? `Müşteri Temsilcisi (${m.senderName || "Admin"})`
+                    {m.senderType === 'AGENT'
+                      ? `Müşteri Temsilcisi (${m.senderName || 'Admin'})`
                       : isVisitor
-                      ? "Siz"
-                      : "Destek Asistanı"}
+                        ? 'Siz'
+                        : 'Destek Asistanı'}
                   </span>
                 </div>
               );
             })}
 
-            {/* Handover Form Card with Explicit KVKK Consent */}
+            {/* Handover Form Card (Supports Phone OR Email) */}
             {showHandoverForm && !handoverSuccess && !handoverDismissed && (
               <div className="bg-amber-50/90 border border-amber-200/80 rounded-2xl p-4 shadow-sm my-2 text-xs text-corp-charcoal relative">
                 <button
@@ -603,7 +673,8 @@ export default function CustomerSupportChat() {
                   Yetkili Ekibimiz Size Ulaşsın
                 </div>
                 <p className="text-[11px] text-corp-gray mb-3 leading-relaxed">
-                  Sorunuzu doğrudan uzman ekibimize iletmemiz için telefon numaranızı bırakabilirsiniz:
+                  Sorunuzu netleştirip dönüş yapabilmemiz için telefon numaranızı veya e-posta
+                  adresinizi paylaşabilirsiniz:
                 </p>
 
                 <form onSubmit={handleHandoverSubmit} className="space-y-2.5">
@@ -612,9 +683,18 @@ export default function CustomerSupportChat() {
                       type="tel"
                       value={handoverPhone}
                       onChange={(e) => setHandoverPhone(e.target.value)}
-                      placeholder="05XX XXX XX XX"
-                      required
+                      placeholder="Telefon Numaranız (05XX XXX XX XX)"
                       className="w-full text-xs bg-white border border-amber-300 rounded-xl px-3 py-2 text-corp-charcoal placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-corp-teal"
+                    />
+                  </div>
+
+                  <div>
+                    <input
+                      type="email"
+                      value={handoverEmail}
+                      onChange={(e) => setHandoverEmail(e.target.value)}
+                      placeholder="veya E-Posta Adresiniz (ornek@firma.com)"
+                      className="w-full text-xs bg-white border border-amber-200 rounded-xl px-3 py-2 text-corp-charcoal placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-corp-teal"
                     />
                   </div>
 
@@ -628,7 +708,6 @@ export default function CustomerSupportChat() {
                     />
                   </div>
 
-                  {/* Explicit KVKK Privacy Disclosure */}
                   <div className="flex items-start gap-2 pt-1">
                     <input
                       type="checkbox"
@@ -637,8 +716,12 @@ export default function CustomerSupportChat() {
                       onChange={(e) => setKvkkConsent(e.target.checked)}
                       className="w-3.5 h-3.5 mt-0.5 text-corp-teal rounded-sm"
                     />
-                    <label htmlFor="kvkkCheck" className="text-[10px] text-corp-gray leading-tight cursor-pointer">
-                      İletişim bilgilerimin bu talep kapsamında müşteri temsilcisi tarafından tarafıma ulaşılması amacıyla işlenmesini onaylıyorum.
+                    <label
+                      htmlFor="kvkkCheck"
+                      className="text-[10px] text-corp-gray leading-tight cursor-pointer"
+                    >
+                      İletişim bilgilerimin bu talep kapsamında müşteri temsilcisi tarafından
+                      tarafıma ulaşılması amacıyla işlenmesini onaylıyorum.
                     </label>
                   </div>
 
@@ -655,7 +738,7 @@ export default function CustomerSupportChat() {
                     </span>
                     <button
                       type="submit"
-                      disabled={handoverSubmitting || !handoverPhone.trim()}
+                      disabled={handoverSubmitting || !hasValidContactInput}
                       className="px-3.5 py-1.5 bg-corp-teal hover:bg-corp-teal-dark text-white rounded-xl text-xs font-semibold shadow-xs disabled:opacity-50 transition-colors"
                     >
                       {handoverSubmitting ? (
@@ -663,7 +746,7 @@ export default function CustomerSupportChat() {
                           <Loader2 className="w-3 h-3 animate-spin" /> İletiliyor...
                         </span>
                       ) : (
-                        "Talebi İlet"
+                        'Talebi İlet'
                       )}
                     </button>
                   </div>
@@ -688,7 +771,9 @@ export default function CustomerSupportChat() {
                   <span className="w-1.5 h-1.5 bg-corp-teal rounded-full animate-bounce" />
                   <span className="w-1.5 h-1.5 bg-corp-teal rounded-full animate-bounce [animation-delay:0.2s]" />
                   <span className="w-1.5 h-1.5 bg-corp-teal rounded-full animate-bounce [animation-delay:0.4s]" />
-                  <span className="text-[11px] text-corp-gray-light ml-1">Yanıt hazırlanıyor...</span>
+                  <span className="text-[11px] text-corp-gray-light ml-1">
+                    Yanıt hazırlanıyor...
+                  </span>
                 </div>
               </div>
             )}
@@ -752,7 +837,7 @@ export default function CustomerSupportChat() {
             </form>
 
             <div className="flex items-center justify-between mt-1 px-1 text-[10px] text-corp-gray-light">
-              <span>Çiçekana Tech Media Müşteri Destek</span>
+              <span>Çiçekana Teknoloji &amp; Medya Müşteri Destek</span>
               <span>{inputValue.length}/600</span>
             </div>
           </div>

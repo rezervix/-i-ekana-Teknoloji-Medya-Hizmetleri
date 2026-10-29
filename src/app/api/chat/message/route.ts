@@ -1,66 +1,69 @@
-export const dynamic = "force-dynamic";
-
-import { NextRequest, NextResponse } from "next/server";
-import { handleCustomerMessage } from "@/lib/ai/chat-service";
-import { checkRateLimit, createRateLimitResponse } from "@/lib/rateLimit";
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { handleCustomerMessage } from '@/lib/ai/chat-service';
 
 export async function POST(req: NextRequest) {
   try {
-    const rawIp =
-      req.headers.get("x-real-ip") ||
-      req.headers.get("x-forwarded-for") ||
-      "127.0.0.1";
-
-    // Rate limit: 20 messages per minute per IP
-    const rateResult = checkRateLimit(`chat:msg:${rawIp}`, 20, 60 * 1000);
-    if (!rateResult.success) {
-      return createRateLimitResponse();
-    }
-
-    const body = await req.json().catch(() => ({}));
+    const body = await req.json();
     const { conversationId, sessionId, message, pageUrl, productId } = body;
 
-    if (!conversationId || typeof conversationId !== "string") {
+    if (!message || typeof message !== 'string' || !message.trim()) {
       return NextResponse.json(
-        { error: "Geçersiz sohbet kimliği." },
-        { status: 400 }
-      );
-    }
-    if (!sessionId || typeof sessionId !== "string") {
-      return NextResponse.json(
-        { error: "Geçersiz oturum kimliği." },
-        { status: 400 }
-      );
-    }
-    if (!message || typeof message !== "string" || message.trim().length === 0) {
-      return NextResponse.json(
-        { error: "Lütfen bir mesaj yazınız." },
-        { status: 400 }
-      );
-    }
-    if (message.length > 600) {
-      return NextResponse.json(
-        { error: "Mesajınız çok uzun. Lütfen en fazla 600 karakter yazınız." },
+        { success: false, error: 'Boş mesaj gönderilemez.' },
         { status: 400 }
       );
     }
 
+    if (!conversationId && !sessionId) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Konuşma kimliği (conversationId) veya oturum kimliği (sessionId) gereklidir.',
+        },
+        { status: 400 }
+      );
+    }
+
+    const session = await getServerSession(authOptions);
+    const userId = (session?.user as any)?.id || null;
+
     const result = await handleCustomerMessage({
-      conversationId,
-      sessionId,
+      conversationId: conversationId || null,
+      sessionId: sessionId || null,
+      userId,
       message,
-      pageUrl: typeof pageUrl === "string" ? pageUrl.slice(0, 500) : undefined,
-      productId: typeof productId === "string" ? productId.slice(0, 100) : undefined,
+      pageUrl,
+      productId,
     });
+
+    const rawSuggested = Array.isArray(result.botMessage?.suggestedProducts)
+      ? (result.botMessage.suggestedProducts as any[])
+      : [];
+
+    const normalizedSuggested = rawSuggested.map((prod) => ({
+      ...prod,
+      price: prod.price || prod.priceFormatted || 'Özel Teklif',
+      priceFormatted: prod.priceFormatted || prod.price || 'Özel Teklif',
+    }));
 
     return NextResponse.json({
       success: true,
-      ...result,
+      conversationId: result.conversationId,
+      visitorMessage: result.visitorMessage,
+      botMessage: result.botMessage,
+      botMessageId: result.botMessage?.id || `bot-${Date.now()}`,
+      reply: result.botMessage?.content || '',
+      isHandoverPrompt: result.isHandoverPrompt,
+      suggestedProducts: normalizedSuggested,
+      confidenceLevel: result.confidenceLevel,
+      clarifyingOptions: result.clarifyingOptions,
+      status: result.status,
     });
-  } catch (err: any) {
-    console.error("[ChatMessageAPI] Error:", err?.message || err);
+  } catch (error: any) {
+    console.error('[API /chat/message] Error:', error);
     return NextResponse.json(
-      { error: err?.message || "Mesaj işlenirken bir sorun oluştu." },
+      { success: false, error: error.message || 'Mesaj gönderilirken bir hata oluştu.' },
       { status: 500 }
     );
   }

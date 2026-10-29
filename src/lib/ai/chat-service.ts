@@ -1,131 +1,504 @@
-import { prisma } from "@/lib/prisma";
-import { executeDeterministicKnowledgeEngine } from "@/lib/nlp/knowledge-engine";
+import { prisma } from '@/lib/prisma';
+import { resolveVerifiedContextFromUrl } from './retrieval-engine';
+import {
+  executeDeterministicKnowledgeEngine,
+  cleanChunkTextForCustomer,
+  type EngineResponse,
+} from '@/lib/nlp/knowledge-engine';
+import {
+  getVerifiedCatalog,
+  inferProductKeyFromContext,
+  sanitizeAndResolveConflictsInKBText,
+  isMagazaStoreQuery,
+  type CatalogProduct,
+} from './product-catalog';
+import { sendChatEventNotification } from './chat-notifications';
+import { executeDomainGeneration } from './core/ai-service-manager';
 
-export interface ChatServiceResponse {
-  conversationId: string;
-  userMessageId: string;
-  botMessageId: string;
-  reply: string;
-  isHandoverPrompt: boolean;
-  handoverReason?: string;
-  suggestedProducts?: any[];
-  usedDocumentIds?: string[];
-  evidenceConfidence?: number;
-}
-
-/**
- * Loads or initializes a conversation session.
- */
-export async function getOrCreateConversation(params: {
+export interface ChatInitParams {
   sessionId: string;
+  userId?: string | null;
   pageUrl?: string;
   productId?: string;
-  userId?: string;
-}) {
-  const { sessionId, pageUrl, productId, userId } = params;
-
-  let conv = await prisma.chatConversation.findFirst({
-    where: {
-      sessionId,
-      status: { in: ["ACTIVE", "HANDED_OVER"] },
-    },
-    orderBy: { createdAt: "desc" },
-    include: {
-      messages: {
-        orderBy: { createdAt: "asc" },
-        take: 50,
-      },
-    },
-  });
-
-  if (!conv) {
-    conv = await prisma.chatConversation.create({
-      data: {
-        sessionId,
-        pageUrl,
-        productId,
-        userId,
-        status: "ACTIVE",
-        title: "Yeni Müşteri Sohbeti",
-      },
-      include: {
-        messages: true,
-      },
-    });
-  }
-
-  return conv;
 }
 
-/**
- * Orchestrates incoming customer message via 100% deterministic local knowledge engine.
- * Completely free of external Generative AI API calls (Zero Gemini, Zero OpenAI).
- */
-export async function handleCustomerMessage(params: {
-  conversationId: string;
-  sessionId: string;
+export interface SendMessageParams {
+  conversationId?: string | null;
+  sessionId?: string | null;
+  userId?: string | null;
   message: string;
   pageUrl?: string;
   productId?: string;
-}): Promise<ChatServiceResponse> {
-  const { conversationId, sessionId, message, pageUrl, productId } = params;
+}
 
-  const trimmedMsg = message.trim();
-  if (!trimmedMsg) {
-    throw new Error("EMPTY_MESSAGE: Mesaj içeriği boş olamaz.");
-  }
-  if (trimmedMsg.length > 600) {
-    throw new Error("MESSAGE_TOO_LONG: Mesajınız çok uzun (maksimum 600 karakter).");
-  }
+/**
+ * Sayfa açılışında veya sohbet penceresi açıldığında YALNIZCA mevcut ve gerçek mesaj içeren
+ * bir konuşma varsa onu döndürür; veritabanında ASLA boş konuşma kaydı oluşturmaz (Bölüm 11.1).
+ */
+export async function getExistingConversationBySession(params: ChatInitParams) {
+  const { sessionId } = params;
+  if (!sessionId || !sessionId.trim()) return null;
 
-  // 1. Verify or find conversation
-  const conv = await prisma.chatConversation.findUnique({
-    where: { id: conversationId },
+  const existing = await prisma.chatConversation.findFirst({
+    where: {
+      sessionId: sessionId.trim(),
+      status: { not: 'CLOSED' },
+      OR: [
+        { messages: { some: { senderType: 'VISITOR' } } },
+        { messages: { some: { senderType: 'AGENT' } } },
+        { handovers: { some: {} } },
+      ],
+    },
+    include: {
+      messages: {
+        orderBy: { createdAt: 'asc' },
+        take: 50,
+      },
+    },
+    orderBy: { updatedAt: 'desc' },
   });
 
-  if (!conv || conv.sessionId !== sessionId) {
-    throw new Error("CONVERSATION_NOT_FOUND: Geçersiz sohbet oturumu.");
+  return existing;
+}
+
+/**
+ * Gerçek bir kullanıcı mesajı geldiğinde konuşmayı bulur veya ilk kez oluşturur.
+ */
+export async function getOrCreateConversation(params: ChatInitParams) {
+  const { sessionId, userId, pageUrl, productId } = params;
+
+  const existing = await prisma.chatConversation.findFirst({
+    where: {
+      sessionId,
+      status: { not: 'CLOSED' },
+    },
+    include: {
+      messages: {
+        orderBy: { createdAt: 'asc' },
+        take: 50,
+      },
+    },
+    orderBy: { updatedAt: 'desc' },
+  });
+
+  if (existing) {
+    return existing;
   }
 
-  // 2. Persist user message to audit log
-  const userMsgRecord = await prisma.chatMessage.create({
+  const verifiedContext = await resolveVerifiedContextFromUrl(pageUrl);
+  const resolvedProductId =
+    productId ||
+    verifiedContext?.productId ||
+    inferProductKeyFromContext(pageUrl, productId) ||
+    null;
+
+  let customerName: string | null = null;
+  let customerEmail: string | null = null;
+  let customerPhone: string | null = null;
+
+  if (userId) {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { name: true, email: true, phone: true },
+      });
+      if (user) {
+        customerName = user.name;
+        customerEmail = user.email;
+        customerPhone = user.phone;
+      }
+    } catch {
+      // Ignore user lookup errors
+    }
+  }
+
+  const conversation = await prisma.chatConversation.create({
+    data: {
+      sessionId,
+      userId: userId || null,
+      pageUrl: pageUrl || null,
+      productId: resolvedProductId,
+      customerName,
+      customerEmail,
+      customerPhone,
+      status: 'ACTIVE',
+      title: customerName ? `${customerName} ile Sohbet` : 'Yeni Müşteri Sohbeti',
+    },
+    include: {
+      messages: true,
+    },
+  });
+
+  return conversation;
+}
+
+function buildConversationSummary(
+  messages: Array<{ senderType: string; content: string }>,
+  latestVisitorMsg?: string
+): string {
+  const all = [...messages];
+  if (latestVisitorMsg) {
+    all.push({ senderType: 'VISITOR', content: latestVisitorMsg });
+  }
+  return all
+    .slice(-6)
+    .map((m) => {
+      const label =
+        m.senderType === 'VISITOR' ? 'Müşteri' : m.senderType === 'AGENT' ? 'Temsilci' : 'Asistan';
+      return `${label}: ${m.content.slice(0, 150)}${m.content.length > 150 ? '...' : ''}`;
+    })
+    .join('\n');
+}
+
+/**
+ * Gemini API entegrasyonu:
+ * Doğrulanmış katalog verisi ve bilgi bankası kanıtlarını kullanarak doğal, kısa ve
+ * satış/destek kurallarına %100 uyumlu yanıt üretir; hata veya politika ihlali riskinde
+ * deterministik yanıta geri döner (Fallback).
+ */
+async function synthesizeWithGeminiIfApplicable(params: {
+  userMessage: string;
+  engineResult: EngineResponse;
+  matchedProduct: CatalogProduct | null;
+  conversationHistory: Array<{ senderType: string; content: string }>;
+}): Promise<{ finalAnswer: string; usedGemini: boolean }> {
+  const { userMessage, engineResult, matchedProduct, conversationHistory } = params;
+
+  // Policy-locked categories MUST use deterministic verified output directly
+  const policyLockedCategories = new Set([
+    'injection_blocked',
+    'magaza_excluded',
+    'out_of_scope',
+    'contact_captured',
+    'support_escalation',
+    'unanswered_in_scope',
+    'special_offer_service',
+    'sales_catalog',
+    'needs_analysis',
+    'greeting',
+    'handover',
+  ]);
+
+  if (
+    !engineResult.responseCategory ||
+    policyLockedCategories.has(engineResult.responseCategory) ||
+    process.env.CHAT_DISABLE_GEMINI === 'true' ||
+    process.env.NODE_ENV === 'test'
+  ) {
+    return { finalAnswer: engineResult.answer, usedGemini: false };
+  }
+
+  const hasApiKey = Boolean(
+    process.env.GEMINI_SUPPORT_API_KEY?.trim() || process.env.GEMINI_API_KEY?.trim()
+  );
+  if (!hasApiKey) {
+    return { finalAnswer: engineResult.answer, usedGemini: false };
+  }
+
+  try {
+    const productContextBlock = matchedProduct
+      ? [
+          `İLGİLİ ÜRÜN: ${matchedProduct.name}`,
+          `AÇIKLAMA: ${matchedProduct.shortDescription}`,
+          `GÜNCEL ÜRÜN SAYFASI PAKET VE FİYATLARI (KESİN ÖNCELİKLİ):`,
+          ...matchedProduct.tiers.map(
+            (t) => `- ${t.name}: ${t.priceFormatted} (${t.features.join(', ')})`
+          ),
+          `SATIN ALMA / DETAY URL: ${matchedProduct.purchaseUrl}`,
+        ].join('\n')
+      : 'Genel Çiçekana Teknoloji & Medya Hizmetleri';
+
+    const evidenceBlock = engineResult.matchedEvidence
+      .slice(0, 3)
+      .map((ev, i) => `[Kanıt ${i + 1} - ${ev.sourceTitle}]: ${ev.snippet}`)
+      .join('\n\n');
+
+    const historyBlock = conversationHistory
+      .slice(-6)
+      .map((m) => `${m.senderType === 'VISITOR' ? 'Müşteri' : 'Asistan'}: ${m.content}`)
+      .join('\n');
+
+    const systemInstruction = [
+      'Sen Çiçekana Teknoloji & Medya (https://www.cicekanatechmedia.com) profesyonel dijital satış ve müşteri destek uzmanısın.',
+      'KESİN KURALLAR:',
+      '1. Cevapların kısa, net, doğal ve profesyonel olsun (ideal olarak 2-4 cümle).',
+      '2. Yalnızca sana verilen DOĞRULANMIŞ ÜRÜN VERİSİ ve KANITLARA dayan. Sitede olmayan özellik, kullanım limiti, indirim veya kampanya ASLA uydurma.',
+      '3. Fiyat sorulursa yalnızca GÜNCEL ÜRÜN SAYFASI PAKET VE FİYATLARI bilgisini kullan.',
+      '4. /magaza altındaki baskı/matbaa ürünlerini asla önerme veya satma.',
+      '5. Kullanıcı sadece teknik/özellik sorusu sorduysa doğrudan cevabı ver; gereksiz satış baskısı yapma.',
+      '6. Dahili başlıkları ([Bölüm: ...], Kanıt 1 vb.) cevaba yansıtma.',
+    ].join('\n');
+
+    const prompt = [
+      '--- DOĞRULANMIŞ ÜRÜN VERİSİ ---',
+      productContextBlock,
+      '',
+      '--- BİLGİ BANKASI KANITLARI ---',
+      evidenceBlock || engineResult.answer,
+      '',
+      '--- SON KONUŞMA GEÇMİŞİ ---',
+      historyBlock || '(İlk mesaj)',
+      '',
+      `MÜŞTERİ SORUSU: ${userMessage}`,
+      '',
+      `REFERANS DOĞRULANMIŞ YANIT: ${engineResult.answer}`,
+      '',
+      'Yukarıdaki doğrulanmış bilgilere sadık kalarak müşteriye doğrudan, net ve profesyonel yanıt ver:',
+    ].join('\n');
+
+    const aiResponse = await executeDomainGeneration('SUPPORT', prompt, {
+      systemInstruction,
+      temperature: 0.2,
+      maxOutputTokens: 350,
+    });
+
+    if (!aiResponse.text?.trim()) {
+      return { finalAnswer: engineResult.answer, usedGemini: false };
+    }
+
+    const cleaned = cleanChunkTextForCustomer(aiResponse.text.trim());
+    // Never allow /magaza links or prompt leakage
+    if (
+      isMagazaStoreQuery(cleaned) ||
+      cleaned.includes('REFERANS DOĞRULANMIŞ YANIT') ||
+      cleaned.length < 15
+    ) {
+      return { finalAnswer: engineResult.answer, usedGemini: false };
+    }
+
+    const { sanitizedText } = sanitizeAndResolveConflictsInKBText(cleaned, matchedProduct);
+    return { finalAnswer: sanitizedText, usedGemini: true };
+  } catch (err) {
+    console.warn('[ChatService] Gemini synthesis fallback to deterministic engine:', err);
+    return { finalAnswer: engineResult.answer, usedGemini: false };
+  }
+}
+
+/**
+ * Gerçek müşteri mesajını işler:
+ * - Gerekirse konuşma kaydını ilk mesaj anında oluşturur (boş oturum oluşmasını önler).
+ * - İlk mesaj bildirimini ve olay bazlı (takip, satış fırsatı, destek) e-posta bildirimlerini gönderir.
+ * - Müşteri sohbet içinde telefon veya e-posta paylaştıysa otomatik olarak yakalar ve kaydeder.
+ */
+export async function handleCustomerMessage(params: SendMessageParams) {
+  const { conversationId, sessionId, userId, message, pageUrl, productId } = params;
+
+  const trimmedMsg = (message || '').trim();
+  if (!trimmedMsg) {
+    throw new Error('Mesaj içeriği boş olamaz.');
+  }
+
+  // 1. Konuşmayı bul veya ilk gerçek mesaj geldiği için şimdi oluştur
+  let conv = conversationId
+    ? await prisma.chatConversation.findUnique({
+        where: { id: conversationId },
+        include: {
+          messages: {
+            orderBy: { createdAt: 'asc' },
+          },
+          handovers: {
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+          },
+        },
+      })
+    : null;
+
+  if (!conv && sessionId) {
+    conv = await prisma.chatConversation.findFirst({
+      where: {
+        sessionId,
+        status: { not: 'CLOSED' },
+      },
+      include: {
+        messages: {
+          orderBy: { createdAt: 'asc' },
+        },
+        handovers: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
+      },
+      orderBy: { updatedAt: 'desc' },
+    });
+  }
+
+  if (!conv) {
+    const created = await getOrCreateConversation({
+      sessionId: sessionId || `sid_${Date.now()}`,
+      userId,
+      pageUrl,
+      productId,
+    });
+    conv = {
+      ...created,
+      handovers: [],
+    };
+  }
+
+  const priorVisitorMessages = conv.messages.filter((m) => m.senderType === 'VISITOR');
+  const isFirstVisitorMessage = priorVisitorMessages.length === 0;
+
+  const effectivePageUrl = pageUrl || conv.pageUrl || null;
+  const effectiveProductId =
+    productId || conv.productId || inferProductKeyFromContext(effectivePageUrl, productId) || null;
+
+  // 2. Ziyaretçi mesajını kaydet
+  const visitorMessage = await prisma.chatMessage.create({
     data: {
       conversationId: conv.id,
-      senderType: "VISITOR",
+      senderType: 'VISITOR',
+      senderName: conv.customerName || 'Ziyaretçi',
       content: trimmedMsg,
-      isDelivered: true,
     },
   });
 
-  // Update conversation last touch
-  await prisma.chatConversation.update({
-    where: { id: conv.id },
-    data: {
-      updatedAt: new Date(),
-      ...(pageUrl ? { pageUrl } : {}),
-      ...(productId ? { productId } : {}),
-    },
-  });
-
-  // 3. Process query through 100% Deterministic Local Engine (Zero external AI calls)
-  const engineResult = await executeDeterministicKnowledgeEngine(
-    trimmedMsg,
-    productId || conv.productId
-  );
-
-  // 4. Update handover status on explicit handover requests
-  if (engineResult.isHandoverPrompt) {
+  // İlk mesajda konuşma başlığını anlamlı hale getir
+  if (isFirstVisitorMessage && (!conv.title || conv.title === 'Yeni Müşteri Sohbeti')) {
+    const shortTitle = trimmedMsg.slice(0, 60) + (trimmedMsg.length > 60 ? '...' : '');
     await prisma.chatConversation.update({
       where: { id: conv.id },
       data: {
-        handoverStatus: "REQUESTED",
-        handoverReason: engineResult.handoverReason || "Müşteri doğrudan temsilci veya arama talep etti",
+        title: conv.customerName ? `${conv.customerName}: ${shortTitle}` : shortTitle,
+        pageUrl: effectivePageUrl,
+        productId: effectiveProductId,
+      },
+    });
+  } else {
+    await prisma.chatConversation.update({
+      where: { id: conv.id },
+      data: {
+        updatedAt: new Date(),
+        ...(effectivePageUrl && !conv.pageUrl ? { pageUrl: effectivePageUrl } : {}),
+        ...(effectiveProductId && !conv.productId ? { productId: effectiveProductId } : {}),
       },
     });
   }
 
-  // 5. If low confidence / fallback, safely record into unanswered question log for continuous improvement
-  if (engineResult.isFallback || engineResult.confidenceLevel === "LOW") {
+  // 3. Eğer temsilci devralmışsa (HANDED_OVER) bot araya girmez
+  if (conv.status === 'HANDED_OVER') {
+    return {
+      conversationId: conv.id,
+      visitorMessage,
+      botMessage: null,
+      status: 'HANDED_OVER',
+    };
+  }
+
+  // 4. Bilgi, katalog ve kural motorunu çalıştır (konuşma geçmişi ve sayfa bağlamıyla)
+  const conversationHistory = conv.messages.map((m) => ({
+    senderType: m.senderType,
+    content: m.content,
+  }));
+
+  const engineResult = await executeDeterministicKnowledgeEngine(trimmedMsg, effectiveProductId, {
+    pageUrl: effectivePageUrl,
+    conversationHistory,
+  });
+
+  const catalog = await getVerifiedCatalog();
+  const matchedProduct = engineResult.detectedProductKey
+    ? catalog.find((c) => c.key === engineResult.detectedProductKey) || null
+    : null;
+
+  // Opsiyonel Gemini sentezi (feature_qa kategorisinde kanıtları doğal cümlelerle sunar)
+  const { finalAnswer } = await synthesizeWithGeminiIfApplicable({
+    userMessage: trimmedMsg,
+    engineResult,
+    matchedProduct,
+    conversationHistory,
+  });
+
+  // 5. Bot mesajını kaydet
+  const botMessage = await prisma.chatMessage.create({
+    data: {
+      conversationId: conv.id,
+      senderType: 'BOT',
+      senderName: 'Çiçekana Asistan',
+      content: finalAnswer,
+      usedDocumentIds: engineResult.usedDocumentIds,
+      evidenceConfidence: engineResult.confidence,
+      isHandoverPrompt: engineResult.isHandoverPrompt,
+      suggestedProducts:
+        engineResult.suggestedProducts && engineResult.suggestedProducts.length > 0
+          ? engineResult.suggestedProducts
+          : undefined,
+    },
+  });
+
+  const resolvedProductName =
+    engineResult.detectedProductName ||
+    matchedProduct?.name ||
+    conv.productId ||
+    'Genel Bilgi / Satış';
+
+  const summaryText = buildConversationSummary(conversationHistory, trimmedMsg);
+
+  // 6. Müşteri sohbet mesajında telefon veya e-posta paylaştıysa kaydet (Bölüm 8.2 & Test H)
+  if (
+    engineResult.responseCategory === 'contact_captured' &&
+    engineResult.extractedContact &&
+    (engineResult.extractedContact.phone || engineResult.extractedContact.email)
+  ) {
+    const { phone, email, name } = engineResult.extractedContact;
+    const lastQuestionBeforeContact =
+      priorVisitorMessages.length > 0
+        ? priorVisitorMessages[priorVisitorMessages.length - 1].content
+        : trimmedMsg;
+
+    await prisma.chatConversation.update({
+      where: { id: conv.id },
+      data: {
+        customerPhone: phone || conv.customerPhone,
+        customerEmail: email || conv.customerEmail,
+        customerName: name || conv.customerName,
+        handoverStatus: 'PENDING_CONTACT',
+        handoverReason:
+          engineResult.handoverReason || 'Müşteri sohbet içinde iletişim bilgisini paylaştı.',
+      },
+    });
+
+    const existingHandover = conv.handovers?.[0];
+    if (existingHandover && existingHandover.status === 'NEW') {
+      await prisma.chatHandover.update({
+        where: { id: existingHandover.id },
+        data: {
+          customerPhone: phone || existingHandover.customerPhone || '',
+          customerEmail: email || existingHandover.customerEmail || null,
+          customerName: name || existingHandover.customerName || conv.customerName,
+          relatedProduct: resolvedProductName,
+          unansweredQuestion: lastQuestionBeforeContact,
+          conversationSummary: summaryText,
+        },
+      });
+    } else {
+      await prisma.chatHandover.create({
+        data: {
+          conversationId: conv.id,
+          customerPhone: phone || conv.customerPhone || '',
+          customerEmail: email || conv.customerEmail || null,
+          customerName: name || conv.customerName || null,
+          relatedProduct: resolvedProductName,
+          unansweredQuestion: lastQuestionBeforeContact,
+          conversationSummary: summaryText,
+          handoverReason:
+            engineResult.handoverReason || 'Müşteri sohbet içinde iletişim bilgisini paylaştı.',
+          status: 'NEW',
+        },
+      });
+    }
+  } else if (engineResult.isHandoverPrompt && engineResult.handoverReason) {
+    await prisma.chatConversation.update({
+      where: { id: conv.id },
+      data: {
+        handoverStatus: conv.handoverStatus === 'PENDING_CONTACT' ? 'PENDING_CONTACT' : 'REQUESTED',
+        handoverReason: engineResult.handoverReason,
+      },
+    });
+  }
+
+  // 7. Kapsam içi cevapsız soruları UnansweredQuestionLog tablosuna kaydet (kapsam dışı soruları kaydetme!)
+  if (engineResult.shouldLogUnanswered) {
     try {
       await prisma.unansweredQuestionLog.create({
         data: {
@@ -134,43 +507,57 @@ export async function handleCustomerMessage(params: {
           matchedScore: engineResult.matchedEvidence[0]?.score || 0,
           candidateDocId: engineResult.usedDocumentIds[0] || null,
           confidence: engineResult.confidence,
-          status: "PENDING",
+          status: 'PENDING',
         },
       });
     } catch (logErr) {
-      console.warn("[ChatService] Failed to record unanswered question:", logErr);
+      console.warn('[ChatService] Failed to log unanswered question:', logErr);
     }
   }
 
-  // 6. Persist bot reply to audit log
-  const botMsgRecord = await prisma.chatMessage.create({
-    data: {
+  // 8. E-posta Bildirimlerini Gönder (Bölüm 10)
+  // A) İlk gerçek müşteri mesajı geldiğinde 1 adet Yeni Görüşme bildirimi gönder
+  if (isFirstVisitorMessage) {
+    await sendChatEventNotification({
+      eventType: 'FIRST_MESSAGE',
       conversationId: conv.id,
-      senderType: "BOT",
-      senderName: "Çiçekana Destek",
-      content: engineResult.answer,
-      isDelivered: true,
-      tokensUsed: 0, // Deterministic local response consumes zero AI tokens
-      suggestedProducts:
-        engineResult.suggestedProducts && engineResult.suggestedProducts.length > 0
-          ? engineResult.suggestedProducts
-          : undefined,
-      usedDocumentIds: engineResult.usedDocumentIds,
-      evidenceConfidence: engineResult.confidence,
-      isHandoverPrompt: engineResult.isHandoverPrompt,
-    },
-  });
+      sessionId: conv.sessionId,
+      productName: resolvedProductName,
+      pageUrl: effectivePageUrl,
+      customerMessage: trimmedMsg,
+      conversationSummary: summaryText,
+      customerName: engineResult.extractedContact?.name || conv.customerName,
+      customerPhone: engineResult.extractedContact?.phone || conv.customerPhone,
+      customerEmail: engineResult.extractedContact?.email || conv.customerEmail,
+    });
+  }
+
+  // B) Önemli olay bildirimleri (Takip gereken ürün sorusu, Satış fırsatı/İletişim bilgisi, Teknik destek yönlendirmesi)
+  if (engineResult.shouldNotifyEvent) {
+    await sendChatEventNotification({
+      eventType: engineResult.shouldNotifyEvent,
+      conversationId: conv.id,
+      sessionId: conv.sessionId,
+      productName: resolvedProductName,
+      pageUrl: effectivePageUrl,
+      customerMessage: trimmedMsg,
+      conversationSummary: summaryText,
+      customerName: engineResult.extractedContact?.name || conv.customerName,
+      customerPhone: engineResult.extractedContact?.phone || conv.customerPhone,
+      customerEmail: engineResult.extractedContact?.email || conv.customerEmail,
+    });
+  }
 
   return {
     conversationId: conv.id,
-    userMessageId: userMsgRecord.id,
-    botMessageId: botMsgRecord.id,
-    reply: engineResult.answer,
+    visitorMessage,
+    botMessage,
     isHandoverPrompt: engineResult.isHandoverPrompt,
-    handoverReason: engineResult.handoverReason,
-    suggestedProducts: engineResult.suggestedProducts,
-    usedDocumentIds: engineResult.usedDocumentIds,
-    evidenceConfidence: engineResult.confidence,
+    shouldShowHandoverForm: engineResult.isHandoverPrompt,
+    intent: engineResult.detectedIntent,
+    responseCategory: engineResult.responseCategory,
+    confidenceLevel: engineResult.confidenceLevel,
+    clarifyingOptions: engineResult.clarifyingOptions,
+    status: conv.status,
   };
 }
-

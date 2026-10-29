@@ -1,147 +1,202 @@
-import { prisma } from "@/lib/prisma";
-import { normalizePhoneNumber, isValidTurkishPhone } from "@/lib/auth-security";
+import { prisma } from '@/lib/prisma';
+import { sendChatEventNotification } from './chat-notifications';
+import { buildSlaFollowupConfirmationMessage } from '@/lib/nlp/knowledge-engine';
+import { getVerifiedCatalog, inferProductKeyFromContext } from './product-catalog';
 
-export interface CreateHandoverParams {
-  conversationId: string;
-  sessionId: string;
-  phone: string;
+export interface SubmitHandoverParams {
+  conversationId?: string;
+  sessionId?: string;
+  phone?: string;
   name?: string;
   email?: string;
-  notes?: string;
-}
-
-export interface HandoverResult {
-  success: boolean;
-  handoverId?: string;
-  message: string;
-  error?: string;
+  productInterest?: string;
+  unansweredQuestion?: string;
+  handoverReason?: string;
+  pageUrl?: string;
 }
 
 /**
- * Handles customer contact registration and human lead dispatch.
+ * Müşteri telefon numarası veya e-posta adresi bıraktığında (form veya sohbet üzerinden)
+ * takip kaydını (ChatHandover) oluşturur ve yöneticiye e-posta bildirimi gönderir.
  */
-export async function submitCustomerHandover(
-  params: CreateHandoverParams
-): Promise<HandoverResult> {
-  const { conversationId, sessionId, phone, name, email, notes } = params;
+export async function submitCustomerHandover(params: SubmitHandoverParams) {
+  const {
+    conversationId,
+    sessionId,
+    phone,
+    name,
+    email,
+    productInterest,
+    unansweredQuestion,
+    handoverReason,
+    pageUrl,
+  } = params;
 
-  // 1. Phone validation using Turkish phone validator
-  const normalizedPhone = normalizePhoneNumber(phone);
-  if (!isValidTurkishPhone(normalizedPhone)) {
-    return {
-      success: false,
-      error: "INVALID_PHONE",
-      message:
-        "Lütfen geçerli bir cep telefonu numarası giriniz (örn: 0532 123 45 67 veya +90 532 123 45 67).",
-    };
+  const cleanPhone = (phone || '').trim();
+  const cleanEmail = (email || '').trim().toLowerCase();
+
+  const hasValidPhone = cleanPhone.replace(/\D/g, '').length >= 7;
+  const hasValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail);
+
+  if (!hasValidPhone && !hasValidEmail) {
+    throw new Error('Lütfen geçerli bir telefon numarası veya e-posta adresi giriniz.');
   }
 
-  // 2. Load conversation
-  const conv = await prisma.chatConversation.findUnique({
-    where: { id: conversationId },
-    include: {
-      messages: {
-        orderBy: { createdAt: "desc" },
-        take: 10,
+  // 1. Mevcut konuşmayı bul veya gerekirse oluştur
+  let conv = conversationId
+    ? await prisma.chatConversation.findUnique({
+        where: { id: conversationId },
+        include: {
+          messages: {
+            orderBy: { createdAt: 'asc' },
+            take: 15,
+          },
+          handovers: {
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+          },
+        },
+      })
+    : null;
+
+  if (!conv && sessionId) {
+    conv = await prisma.chatConversation.findFirst({
+      where: { sessionId },
+      include: {
+        messages: {
+          orderBy: { createdAt: 'asc' },
+          take: 15,
+        },
+        handovers: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
       },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  if (!conv) {
+    conv = await prisma.chatConversation.create({
+      data: {
+        sessionId: sessionId || `handover_${Date.now()}`,
+        pageUrl: pageUrl || null,
+        status: 'ACTIVE',
+        title: name?.trim() ? `${name.trim()} - İletişim Talebi` : 'Müşteri İletişim Talebi',
+      },
+      include: {
+        messages: true,
+        handovers: true,
+      },
+    });
+  }
+
+  // 2. Konuşma özetini ve son soruyu çıkar
+  const visitorMessages = conv.messages.filter((m) => m.senderType === 'VISITOR');
+  const lastVisitorQuestion =
+    unansweredQuestion ||
+    (visitorMessages.length > 0
+      ? visitorMessages[visitorMessages.length - 1].content
+      : 'Müşteri doğrudan iletişim/geri dönüş talep etti.');
+
+  const summaryLines = conv.messages.slice(-6).map((m) => {
+    const role =
+      m.senderType === 'VISITOR' ? 'Müşteri' : m.senderType === 'AGENT' ? 'Temsilci' : 'Asistan';
+    return `${role}: ${m.content.slice(0, 140)}${m.content.length > 140 ? '...' : ''}`;
+  });
+  const conversationSummary =
+    summaryLines.join('\n') || 'Müşteri iletişim bilgilerini paylaşarak geri dönüş talep etti.';
+
+  // 3. İlgili ürünü belirle
+  const catalog = await getVerifiedCatalog();
+  const inferredKey = inferProductKeyFromContext(
+    pageUrl || conv.pageUrl,
+    productInterest || conv.productId
+  );
+  const catalogProduct = inferredKey ? catalog.find((c) => c.key === inferredKey) : null;
+  const resolvedProduct =
+    productInterest?.trim() || catalogProduct?.name || conv.productId || 'Genel Bilgi / Satış';
+
+  const finalReason =
+    handoverReason ||
+    conv.handoverReason ||
+    'Müşteri iletişim bilgisi bırakarak geri dönüş talep etti.';
+
+  // 4. Mevcut açık handover varsa güncelle, yoksa yeni oluştur (mükerrer kayıt önleme)
+  const existingHandover = conv.handovers?.[0];
+  let handover;
+  if (existingHandover && existingHandover.status === 'NEW') {
+    handover = await prisma.chatHandover.update({
+      where: { id: existingHandover.id },
+      data: {
+        customerPhone: hasValidPhone ? cleanPhone : existingHandover.customerPhone || '',
+        customerEmail: hasValidEmail ? cleanEmail : existingHandover.customerEmail,
+        customerName: name?.trim() || existingHandover.customerName || conv.customerName,
+        relatedProduct: resolvedProduct,
+        unansweredQuestion: lastVisitorQuestion,
+        conversationSummary,
+        handoverReason: finalReason,
+      },
+    });
+  } else {
+    handover = await prisma.chatHandover.create({
+      data: {
+        conversationId: conv.id,
+        customerPhone: hasValidPhone ? cleanPhone : conv.customerPhone || '',
+        customerEmail: hasValidEmail ? cleanEmail : conv.customerEmail || null,
+        customerName: name?.trim() || conv.customerName || null,
+        relatedProduct: resolvedProduct,
+        unansweredQuestion: lastVisitorQuestion,
+        conversationSummary,
+        handoverReason: finalReason,
+        status: 'NEW',
+      },
+    });
+  }
+
+  // 5. Konuşma kaydını güncelle
+  await prisma.chatConversation.update({
+    where: { id: conv.id },
+    data: {
+      customerPhone: hasValidPhone ? cleanPhone : conv.customerPhone,
+      customerEmail: hasValidEmail ? cleanEmail : conv.customerEmail,
+      customerName: name?.trim() || conv.customerName,
+      handoverStatus: 'PENDING_CONTACT',
+      handoverReason: finalReason,
     },
   });
 
-  if (!conv || conv.sessionId !== sessionId) {
-    return {
-      success: false,
-      error: "CONVERSATION_NOT_FOUND",
-      message: "Sohbet oturumu bulunamadı. Lütfen sayfayı yenileyip tekrar deneyin.",
-    };
-  }
+  // 6. Onay mesajını sohbete ekle (Bölüm 8.3 SLA mesajı)
+  const confirmationText = buildSlaFollowupConfirmationMessage('tr');
+  const confirmMessage = await prisma.chatMessage.create({
+    data: {
+      conversationId: conv.id,
+      senderType: 'BOT',
+      senderName: 'Çiçekana Asistan',
+      content: confirmationText,
+      isHandoverPrompt: false,
+    },
+  });
 
-  // Find the unanswered question or last visitor inquiry
-  const visitorMessages = conv.messages.filter((m) => m.senderType === "VISITOR");
-  const lastQuestion = visitorMessages.length > 0 ? visitorMessages[0].content : "Genel müşteri talebi";
+  // 7. Yöneticiye e-posta bildirimi gönder (hata olursa akışı bozmaz)
+  await sendChatEventNotification({
+    eventType: 'SALES_OPPORTUNITY',
+    conversationId: conv.id,
+    sessionId: conv.sessionId,
+    productName: resolvedProduct,
+    pageUrl: pageUrl || conv.pageUrl,
+    customerMessage: lastVisitorQuestion,
+    conversationSummary,
+    customerName: name?.trim() || conv.customerName,
+    customerPhone: hasValidPhone ? cleanPhone : conv.customerPhone,
+    customerEmail: hasValidEmail ? cleanEmail : conv.customerEmail,
+    recommendedAction:
+      'Müşteri iletişim bilgilerini bıraktı. Mesai saatleri içinde 30 dakika içerisinde (mesai dışında ilk iş günü) dönüş yapılması hedeflenmektedir.',
+  });
 
-  // Build conversation summary snippet
-  const summarySnippet = conv.messages
-    .slice()
-    .reverse()
-    .map((m) => `[${m.senderType}]: ${m.content}`)
-    .join("\n");
-
-  try {
-    // 3. Check for existing pending handover for this conversation (Idempotency check)
-    let handover = await prisma.chatHandover.findFirst({
-      where: {
-        conversationId: conv.id,
-        status: { in: ["NEW", "IN_REVIEW"] },
-      },
-    });
-
-    if (handover) {
-      // Update existing record
-      handover = await prisma.chatHandover.update({
-        where: { id: handover.id },
-        data: {
-          customerPhone: normalizedPhone,
-          customerName: name?.trim() || handover.customerName,
-          customerEmail: email?.trim() || handover.customerEmail,
-          agentNotes: notes ? `${handover.agentNotes || ""}\nMüşteri ek notu: ${notes}` : handover.agentNotes,
-          updatedAt: new Date(),
-        },
-      });
-    } else {
-      // Create new handover lead
-      handover = await prisma.chatHandover.create({
-        data: {
-          conversationId: conv.id,
-          customerPhone: normalizedPhone,
-          customerName: name?.trim() || null,
-          customerEmail: email?.trim() || null,
-          relatedProduct: conv.productId || null,
-          unansweredQuestion: lastQuestion,
-          conversationSummary: summarySnippet.slice(0, 3000),
-          handoverReason: conv.handoverReason || "Müşteri temsilcisi talebi",
-          status: "NEW",
-          agentNotes: notes ? `Müşteri notu: ${notes}` : null,
-        },
-      });
-    }
-
-    // 4. Update conversation state
-    await prisma.chatConversation.update({
-      where: { id: conv.id },
-      data: {
-        customerPhone: normalizedPhone,
-        customerName: name?.trim() || conv.customerName,
-        customerEmail: email?.trim() || conv.customerEmail,
-        status: "HANDED_OVER",
-        handoverStatus: "PENDING_CONTACT",
-      },
-    });
-
-    // 5. Append system message to chat log
-    await prisma.chatMessage.create({
-      data: {
-        conversationId: conv.id,
-        senderType: "SYSTEM",
-        senderName: "Sistem",
-        content: `Müşteri temsilcisine yönlendirme talebi oluşturuldu. İletişim: ${normalizedPhone}`,
-        isDelivered: true,
-      },
-    });
-
-    // 6. Return honest customer-facing status confirmation
-    return {
-      success: true,
-      handoverId: handover.id,
-      message:
-        "Talebinizi ekibimize ilettik. İletişim bilgileriniz ve sorunuz kayıt altına alındı. Müşteri temsilcimiz en kısa sürede sizinle iletişime geçecektir.",
-    };
-  } catch (err: any) {
-    console.error("[HandoverService] Error saving handover:", err);
-    return {
-      success: false,
-      error: "DATABASE_ERROR",
-      message:
-        "Talebiniz kaydedilirken geçici bir hata oluştu. Lütfen birazdan tekrar deneyiniz veya iletişim sayfamızdan bize ulaşınız.",
-    };
-  }
+  return {
+    handover,
+    confirmMessage,
+    conversationId: conv.id,
+  };
 }
