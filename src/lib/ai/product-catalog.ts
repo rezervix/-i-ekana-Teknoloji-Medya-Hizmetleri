@@ -352,15 +352,15 @@ async function loadETicaretCatalogItem(): Promise<CatalogProduct> {
   }
 
   const tiers: CatalogPackageTier[] = cms.packages.map((pkg, idx) => ({
-    id: `eticaret-tier-${idx}`,
+    id: pkg.id || `eticaret-tier-${idx}`,
     name: `${pkg.name} Paket`,
-    priceFormatted: `${pkg.price} TL / yıl (Aylık ${pkg.monthlyEquivalent} TL'ye gelir, ${pkg.taxNote})`,
+    priceFormatted: `${pkg.yearlyTotal} / yıl (Aylık ${pkg.monthly} karşılığı, ${pkg.installment})`,
     priceMonthlyKurus: null,
     billingPeriod: "yıl",
-    description: pkg.tagline,
-    features: pkg.features || [],
-    badge: pkg.badge || null,
-    isRecommended: Boolean(pkg.highlighted),
+    description: pkg.bonus || null,
+    features: (pkg.features || []).map((f) => (typeof f === "string" ? f : f.name)),
+    badge: pkg.featured ? "Öne Çıkan" : null,
+    isRecommended: Boolean(pkg.featured),
   }));
 
   return {
@@ -396,7 +396,7 @@ async function loadETicaretCatalogItem(): Promise<CatalogProduct> {
     detailUrl: `${SITE_BASE_URL}/e-ticaret`,
     purchaseUrl: `${SITE_BASE_URL}/e-ticaret#paketler`,
     isDirectPurchase: true,
-    faqs: (cms.faqs || []).map((f) => ({ question: f.question, answer: f.answer })),
+    faqs: (cms.faqs || []).map((f) => ({ question: f.q, answer: f.a })),
     keywords: [
       "e-ticaret",
       "eticaret",
